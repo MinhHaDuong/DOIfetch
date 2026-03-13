@@ -6,7 +6,7 @@ A tool for batch downloading academic paper PDFs from Sci-Hub, Crossref, and Unp
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 ## Project Introduction
 
-DoiHarvest is an automated tool designed to help researchers and scholars batch download academic paper PDF files. It supports obtaining papers from Sci-Hub,Crossref,Unpaywall API, featuring multi-threaded downloading, retry mechanisms, and intelligent domain rotation to improve download efficiency and success rate. Additionally, the tool provides Excel to Markdown conversion functionality for convenient literature information management and sharing.
+DoiHarvest is an automated tool designed to help researchers and scholars batch download academic paper PDF files. It supports obtaining papers from Sci-Hub, Crossref, and Unpaywall API, featuring multi-threaded downloading, retry mechanisms, and intelligent domain rotation to improve download efficiency and success rate.
 
 ## Features
 
@@ -14,9 +14,7 @@ DoiHarvest is an automated tool designed to help researchers and scholars batch 
 - Automatically downloads paper PDFs from Sci-Hub
 - Supports multi-threaded downloading to improve efficiency
 - Supports retry mechanisms and random delays to avoid being blocked
-- Automatically updates DOI links in Excel files
-- Supports converting Excel files to Markdown format for manual downloading
-- Provides download status checking functionality
+- Automatically updates download status in the original input files
 - Supports downloading open access papers via Crossref API
 - Supports downloading open access papers via Unpaywall API
 
@@ -24,9 +22,7 @@ DoiHarvest is an automated tool designed to help researchers and scholars batch 
 
 - `download.py`: Main download script for downloading papers from Sci-Hub
 - `config.py`: Configuration file containing Sci-Hub domain pool and download parameters
-- `convertxls.py`: Converts .xls files to .xlsx format
-- `create_doi.py`: Generates DOI links for table files
-- `convert_md.py`: Converts table files to Markdown format
+- `table_utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT)
 - `Crossref_download.py`: Downloads open access papers using Crossref API
 - `Unpaywall_download.py`: Downloads open access papers using Unpaywall API
 - `pyproject.toml`: Project metadata and dependencies for `uv`
@@ -46,14 +42,11 @@ The following parameters can be adjusted in `config.py`:
 ```
 .
 ├── references/           # Store input reference files to be processed
-├── data_md/              # Store converted Markdown files
 ├── logs/                 # Store download.py logs
 ├── papers/               # Store all downloaded PDF files
 ├── download.py           # Download papers from Sci-Hub (may require proxy)
 ├── config.py             # Configuration file
-├── convertxls.py         # xls to xlsx tool
-├── create_doi.py         # Generate DOI links in table files
-├── convert_md.py         # Table to Markdown tool
+├── table_utils.py        # Shared table I/O dispatch
 ├── Crossref_download.py  # Crossref download tool (no proxy required)
 ├── Unpaywall_download.py # Unpaywall download tool (no proxy required)
 ├── pyproject.toml        # Project metadata and dependency file for uv
@@ -93,22 +86,14 @@ uv run python download.py --help
    # Comment lines are ignored
    ```
    Only `doi:` entries are processed; `url:`, `isbn:`, and `#` lines are skipped. Text files are read-only (no status write-back).
-5. Download status will be automatically updated in the original input file (it is recommended to delete the rows that have been downloaded to reduce the download volume of `Crossref_download.py` and `Unpaywall_download.py`)
-6. Run `Crossref_download.py` or `Unpaywall_download.py` to start downloading literature
+5. Download status will be automatically updated in the original input file
+6. Run `Crossref_download.py` or `Unpaywall_download.py` to download open access papers
    ```
    uv run python Crossref_download.py
    ```
    or
    ```
    uv run python Unpaywall_download.py
-   ```
-7. If download fails and manual download is required, run `create_doi.py` to generate DOI links and update them to the `DOI Link` column in the input file
-   ```
-   uv run python create_doi.py
-   ```
-9. Run `convert_md.py` to convert input files to Markdown format for manual downloading
-   ```
-   uv run python convert_md.py
    ```
 
 ## Testing

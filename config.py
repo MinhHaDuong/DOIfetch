@@ -26,7 +26,6 @@ MAX_DELAY = 8  # maximum delay
 REFERENCES_DIR = "references"
 PAPERS_DIR = "papers"
 LOGS_DIR = "logs"
-MARKDOWN_DIR = "data_md"
 
 # API
 DOI_URL_BASE = "https://doi.org/"
