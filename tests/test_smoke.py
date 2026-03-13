@@ -1,6 +1,8 @@
 """Smoke tests: verify that the same 2 DOIs load correctly from all input formats."""
 
 import download
+from Crossref_download import read_doi_from_excel as crossref_read
+from Unpaywall_download import read_doi_from_excel as unpaywall_read
 from conftest import SAMPLE_DOIS
 
 
@@ -40,3 +42,33 @@ def test_load_tasks_from_all_formats(sample_data_dir):
     assert len(tasks) == len(SAMPLE_DOIS) * 3
     assert {doi for doi, _ in tasks} == EXPECTED_DOIS
     assert skipped == 0
+
+
+def test_crossref_read_doi_from_csv(sample_data_dir):
+    """Crossref read_doi_from_excel works with CSV."""
+    dois, df = crossref_read(str(sample_data_dir / "refs.csv"))
+    assert {doi for doi, _ in dois} == EXPECTED_DOIS
+    assert df is not None
+    assert len(dois) == 2
+
+
+def test_crossref_read_doi_from_txt(sample_data_dir):
+    """Crossref read_doi_from_excel works with TXT."""
+    dois, df = crossref_read(str(sample_data_dir / "refs.txt"))
+    assert {doi for doi, _ in dois} == EXPECTED_DOIS
+    assert len(dois) == 2
+
+
+def test_unpaywall_read_doi_from_csv(sample_data_dir):
+    """Unpaywall read_doi_from_excel works with CSV."""
+    dois, df = unpaywall_read(str(sample_data_dir / "refs.csv"))
+    assert {doi for doi, _ in dois} == EXPECTED_DOIS
+    assert df is not None
+    assert len(dois) == 2
+
+
+def test_unpaywall_read_doi_from_txt(sample_data_dir):
+    """Unpaywall read_doi_from_excel works with TXT."""
+    dois, df = unpaywall_read(str(sample_data_dir / "refs.txt"))
+    assert {doi for doi, _ in dois} == EXPECTED_DOIS
+    assert len(dois) == 2

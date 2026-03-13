@@ -19,7 +19,7 @@ SAMPLE_DOIS = [
 
 @pytest.fixture()
 def sample_data_dir(tmp_path):
-    """Create data dir with 2 DOIs in all 4 formats: csv, xlsx, txt, xls (via xlsx)."""
+    """Create data dir with 2 DOIs in 3 formats: csv, xlsx, txt."""
     data_dir = tmp_path / "data"
     data_dir.mkdir()
 
