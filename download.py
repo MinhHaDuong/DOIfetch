@@ -29,7 +29,7 @@ from config import (
     STATUS_SUCCESS,
     TIMEOUT,
 )
-from table_utils import (
+from utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
     read_table,

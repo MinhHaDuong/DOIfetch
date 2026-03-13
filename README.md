@@ -22,7 +22,7 @@ DoiHarvest is an automated tool designed to help researchers and scholars batch 
 
 - `download.py`: Main download script for downloading papers from Sci-Hub
 - `config.py`: Configuration file containing Sci-Hub domain pool and download parameters
-- `table_utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT)
+- `utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT)
 - `Crossref_download.py`: Downloads open access papers using Crossref API
 - `Unpaywall_download.py`: Downloads open access papers using Unpaywall API
 - `pyproject.toml`: Project metadata and dependencies for `uv`
@@ -46,7 +46,7 @@ The following parameters can be adjusted in `config.py`:
 ├── papers/               # Store all downloaded PDF files
 ├── download.py           # Download papers from Sci-Hub (may require proxy)
 ├── config.py             # Configuration file
-├── table_utils.py        # Shared table I/O dispatch
+├── utils.py        # Shared table I/O dispatch
 ├── Crossref_download.py  # Crossref download tool (no proxy required)
 ├── Unpaywall_download.py # Unpaywall download tool (no proxy required)
 ├── pyproject.toml        # Project metadata and dependency file for uv
@@ -123,6 +123,6 @@ This project was originally based on a collection of standalone Python scripts f
 - Migrated dependency management to `pyproject.toml` and the `uv` tool (no pip or manual venv)
 - Updated documentation (README, Chinese README) to reflect new features and modern workflow
 - Added `.gitignore` and removed generated cache/venv artifacts from version control
-- Refactored code for maintainability, including a shared `table_utils.py` for table I/O
+- Refactored code for maintainability, including a shared `utils.py` for table I/O
 
 If you use or modify this tool, please acknowledge both the original authors and the contributors to these enhancements.

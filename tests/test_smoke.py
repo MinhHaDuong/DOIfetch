@@ -35,7 +35,7 @@ def test_load_tasks_from_txt(sample_data_dir):
 
 def test_load_tasks_from_all_formats(sample_data_dir):
     """Auto-detect picks up all 3 files, yielding 2 DOIs x 3 formats = 6 tasks."""
-    from table_utils import list_table_files
+    from utils import list_table_files
 
     all_files = list_table_files(str(sample_data_dir), "auto")
     tasks, skipped = download.load_download_tasks(all_files)

@@ -12,7 +12,7 @@ from config import (
     STATUS_SUCCESS,
     UNPAYWALL_EMAIL,
 )
-from table_utils import (
+from utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
     read_doi_from_table,

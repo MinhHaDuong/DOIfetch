@@ -11,7 +11,7 @@ from config import (
     REFERENCES_DIR,
     STATUS_SUCCESS,
 )
-from table_utils import (
+from utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
     read_doi_from_table,
