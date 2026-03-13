@@ -14,6 +14,7 @@ import pandas as pd
 import fetch_crossref
 import fetch_scihub
 import fetch_unpaywall
+import fetch_url
 from config import (
     COL_DOI,
     COL_DOI_LINK,
@@ -38,6 +39,7 @@ SOURCES = {
     "scihub": fetch_scihub,
     "crossref": fetch_crossref,
     "unpaywall": fetch_unpaywall,
+    "url": fetch_url,
 }
 
 # When --source all, try sources in this order until one succeeds
@@ -52,7 +54,7 @@ def parse_args():
     parser.add_argument("--title", help="Title for a single-paper download")
     parser.add_argument(
         "--source",
-        choices=["scihub", "crossref", "unpaywall", "all"],
+        choices=["scihub", "crossref", "unpaywall", "url", "all"],
         default="all",
         help="Source to fetch from (default: all — tries each in order)",
     )
@@ -98,7 +100,12 @@ def load_download_tasks(file_paths):
                     continue
 
                 doi = str(doi).strip()
-                if not validate_doi(doi):
+                if doi.startswith("isbn:"):
+                    skipped_count += 1
+                    continue
+                if doi.startswith("url:"):
+                    doi = doi[len("url:") :]
+                if not _is_url(doi) and not validate_doi(doi):
                     print(f"Skipping invalid DOI format: {doi} | {title}")
                     skipped_count += 1
                     continue
@@ -153,8 +160,14 @@ def write_logs(success_log, error_log, failed_dois):
             failed_file.write(f"{doi},{title}\n")
 
 
+def _is_url(identifier):
+    return identifier.startswith("http://") or identifier.startswith("https://")
+
+
 def _fetch_one(doi, title, output_dir, source):
     """Fetch a single paper using the specified source strategy."""
+    if _is_url(doi):
+        return fetch_url.fetch_pdf(doi, title, output_dir)
     if source == "all":
         for src_name in SOURCE_ORDER:
             result = SOURCES[src_name].fetch_pdf(doi, title, output_dir)
@@ -232,7 +245,8 @@ def main():
     for doi, title in download_tasks:
         doi_queue.put((doi, title))
 
-    print(f"Valid DOI count: {doi_queue.qsize()} | Skipped records: {skipped_count}")
+    task_count = doi_queue.qsize()
+    print(f"References to fetch: {task_count} | Skipped records: {skipped_count}")
 
     threads = []
     if doi_queue.qsize() > 0:
@@ -253,9 +267,8 @@ def main():
             t.start()
             threads.append(t)
 
-        print(
-            f"Starting download of {doi_queue.qsize()} papers | Threads: {MAX_THREADS}"
-        )
+        num_threads = min(MAX_THREADS, task_count)
+        print(f"Starting download of {task_count} papers | Threads: {num_threads}")
         while any(t.is_alive() for t in threads):
             print(
                 f"Remaining: {doi_queue.qsize()} | Success: {len(successful_records)} | Failed: {len(failed_dois)}"

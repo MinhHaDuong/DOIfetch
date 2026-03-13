@@ -39,12 +39,11 @@ def _read_txt(file_path):
             identifier = parts[0]
             title = parts[1] if len(parts) > 1 else ""
             if identifier.startswith("doi:"):
-                doi = identifier[len("doi:") :]
-                rows.append({COL_DOI: doi, COL_TITLE: title})
+                rows.append({COL_DOI: identifier[len("doi:") :], COL_TITLE: title})
             elif identifier.startswith("url:"):
-                print(f"Skipping URL entry: {title or identifier}")
+                rows.append({COL_DOI: identifier, COL_TITLE: title})
             elif identifier.startswith("isbn:"):
-                print(f"Skipping ISBN entry: {title or identifier}")
+                rows.append({COL_DOI: identifier, COL_TITLE: title})
             else:
                 print(f"Skipping unrecognized line: {line}")
     return pd.DataFrame(rows, columns=[COL_DOI, COL_TITLE])
@@ -105,11 +104,16 @@ def write_table(dataframe, file_path):
             for _, row in dataframe.iterrows():
                 if row.get(COL_DOWNLOAD_STATUS) == "success":
                     continue
-                doi = str(row.get(COL_DOI, "")).strip()
+                identifier = str(row.get(COL_DOI, "")).strip()
                 title = str(row.get(COL_TITLE, "")).strip()
-                if not doi and not title:
+                if not identifier and not title:
                     continue
-                f.write(f"doi:{doi}\t{title}\n" if doi else f"{title}\n")
+                if identifier.startswith(("url:", "isbn:")):
+                    f.write(f"{identifier}\t{title}\n")
+                elif identifier:
+                    f.write(f"doi:{identifier}\t{title}\n")
+                else:
+                    f.write(f"{title}\n")
         return
 
     if lower_path.endswith(".csv"):

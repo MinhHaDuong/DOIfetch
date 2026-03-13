@@ -57,10 +57,14 @@ def test_read_txt(tmp_path):
     df = read_table(str(txt_file))
 
     assert list(df.columns) == ["DOI", "Article Title"]
-    assert len(df) == 2
+    assert len(df) == 4
     assert df.iloc[0]["DOI"] == "10.1080/03085140903020580"
     assert df.iloc[0]["Article Title"] == "Çalışkan & Callon 2009 - Economization"
     assert df.iloc[1]["DOI"] == "10.1016/j.shpsc.2010.08.002"
+    assert df.iloc[2]["DOI"] == "url:https://example.com/doc.pdf"
+    assert df.iloc[2]["Article Title"] == "Some Document"
+    assert df.iloc[3]["DOI"] == "isbn:9780674009691"
+    assert df.iloc[3]["Article Title"] == "Desrosières 1998"
 
 
 def test_write_table_noop_for_txt(tmp_path):
