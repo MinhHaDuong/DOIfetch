@@ -10,7 +10,7 @@ DoiHarvest is an automated tool designed to help researchers and scholars batch 
 
 ## Features
 
-- Supports reading literature DOI and title information from Excel or CSV files
+- Supports reading literature DOI and title information from Excel, CSV, or text reference files
 - Automatically downloads paper PDFs from Sci-Hub
 - Supports multi-threaded downloading to improve efficiency
 - Supports retry mechanisms and random delays to avoid being blocked
@@ -86,6 +86,14 @@ uv run python download.py --help
    uv run python download.py --input-format csv
    uv run python Crossref_download.py --input-format csv
    ```
+   You can also use text reference files (`--input-format txt`) with tab-separated lines:
+   ```
+   doi:10.1080/03085140903020580	Author 2009 - Title
+   url:https://example.com/doc.pdf	Document Name
+   isbn:9780674009691	Author 1998 - Book Title
+   # Comment lines are ignored
+   ```
+   Only `doi:` entries are processed; `url:`, `isbn:`, and `#` lines are skipped. Text files are read-only (no status write-back).
 5. Download status will be automatically updated in the original input file (it is recommended to delete the rows that have been downloaded to reduce the download volume of `Crossref_download.py` and `Unpaywall_download.py`)
 6. Run `Crossref_download.py` or `Unpaywall_download.py` to start downloading literature
    ```
