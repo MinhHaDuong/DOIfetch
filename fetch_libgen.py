@@ -16,9 +16,36 @@ SEARCH_MIRRORS = [
 ]
 DOWNLOAD_MIRROR = "https://libgen.li"
 
+_MD5_RE = re.compile(r"[Mm][Dd]5[=:]([a-fA-F0-9]{32})")
+
+
+def _extract_md5(soup):
+    """Extract MD5 from any anchor tag whose href contains an md5 parameter."""
+    for a in soup.find_all("a", href=True):
+        m = _MD5_RE.search(a["href"])
+        if m:
+            return m.group(1).lower()
+    return None
+
 
 def _search_isbn(isbn):
     """Search Libgen mirrors by ISBN. Returns MD5 of first result or None."""
+    # libgen.li uses index.php with columns[] param
+    try:
+        resp = requests.get(
+            f"{DOWNLOAD_MIRROR}/index.php",
+            params={"req": isbn, "columns[]": "identifier"},
+            headers=HEADERS,
+            timeout=TIMEOUT,
+        )
+        if resp.status_code == 200:
+            md5 = _extract_md5(BeautifulSoup(resp.text, "html.parser"))
+            if md5:
+                return md5
+    except requests.RequestException:
+        pass
+
+    # Fallback: mirrors using search.php
     params = {"req": isbn, "column": "identifier", "res": 10, "view": "simple"}
     for mirror in SEARCH_MIRRORS:
         try:
@@ -27,13 +54,9 @@ def _search_isbn(isbn):
             )
             if resp.status_code != 200:
                 continue
-            soup = BeautifulSoup(resp.text, "html.parser")
-            # Results table has class "c"; mirror links embed the MD5
-            for a in soup.select("table.c a[href*='md5='], table.c a[href*='ads.php']"):
-                href = a.get("href", "")
-                m = re.search(r"[Mm][Dd]5[=:]([a-fA-F0-9]{32})", href)
-                if m:
-                    return m.group(1).lower()
+            md5 = _extract_md5(BeautifulSoup(resp.text, "html.parser"))
+            if md5:
+                return md5
         except requests.RequestException:
             continue
     return None
@@ -46,12 +69,21 @@ def _resolve_download_url(md5):
     if resp.status_code != 200:
         return None
     soup = BeautifulSoup(resp.text, "html.parser")
-    # The page has a table with a "GET" download link
+
+    def _abs(href):
+        return (
+            href if href.startswith("http") else f"{DOWNLOAD_MIRROR}/{href.lstrip('/')}"
+        )
+
+    # Prefer the explicit "GET" download link
+    for a in soup.find_all("a", href=True):
+        if a.get_text(strip=True).upper() == "GET":
+            return _abs(a["href"])
+    # Fallback: any link containing the md5 that looks like a file download
     for a in soup.find_all("a", href=True):
         href = a["href"]
-        text = a.get_text(strip=True).upper()
-        if text == "GET" or (md5.lower() in href.lower() and href.startswith("http")):
-            return href
+        if md5.lower() in href.lower() and "get.php" in href:
+            return _abs(href)
     return None
 
 
@@ -108,7 +140,9 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
                 "error": f"Could not resolve download URL for md5={md5}",
             }
 
-        pdf_resp = requests.get(download_url, headers=HEADERS, timeout=TIMEOUT)
+        pdf_resp = requests.get(
+            download_url, headers=HEADERS, timeout=max(TIMEOUT, 120)
+        )
         if pdf_resp.status_code != 200:
             return {
                 "status": "failed",
