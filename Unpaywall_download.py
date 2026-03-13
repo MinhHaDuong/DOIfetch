@@ -1,7 +1,6 @@
 import argparse
 import requests
 import os
-import pandas as pd
 import warnings
 from tqdm import tqdm
 import urllib3

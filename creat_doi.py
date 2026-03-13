@@ -1,6 +1,4 @@
 import argparse
-import pandas as pd
-import os
 
 from table_utils import (
     SUPPORTED_INPUT_FORMATS,

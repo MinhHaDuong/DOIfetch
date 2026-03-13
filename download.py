@@ -11,7 +11,15 @@ import pandas as pd
 import requests
 from bs4 import BeautifulSoup
 
-from config import *
+from config import (
+    SCI_HUB_DOMAINS,
+    HEADERS,
+    MAX_THREADS,
+    RETRY_COUNT,
+    TIMEOUT,
+    MIN_DELAY,
+    MAX_DELAY,
+)
 from table_utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
