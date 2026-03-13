@@ -31,7 +31,7 @@ from table_utils import (
 # 清理非法文件名字符
 def clean_filename(title):
     illegal_chars = r'[\\/:*?"<>|]'
-    return re.sub(illegal_chars, "", title)[:120]  # 限制文件名长度
+    return re.sub(illegal_chars, "", title)[:120]  # Limit filename length
 
 
 def parse_args():
@@ -126,7 +126,7 @@ def load_download_tasks(file_paths):
     skipped_count = 0
 
     for file_path in file_paths:
-        print(f"正在读取文件: {file_path}")
+        print(f"Reading file: {file_path}")
         try:
             dataframe = read_table(file_path)
             for _, row in dataframe.iterrows():
@@ -135,23 +135,23 @@ def load_download_tasks(file_paths):
 
                 if pd.isna(doi) or not str(doi).strip():
                     if pd.isna(title) or not str(title).strip():
-                        print("跳过无效记录: DOI和标题都为空")
+                        print("Skipping invalid record: both DOI and title are empty")
                         skipped_count += 1
                         continue
 
-                    print(f"添加无DOI记录: {title}")
+                    print(f"Adding record without DOI: {title}")
                     download_tasks.append(("", title))
                     continue
 
                 doi = str(doi).strip()
                 if not validate_doi(doi):
-                    print(f"跳过格式无效的DOI: {doi} | {title}")
+                    print(f"Skipping invalid DOI format: {doi} | {title}")
                     skipped_count += 1
                     continue
 
                 download_tasks.append((doi, title))
         except Exception as exc:
-            print(f"读取文件 {file_path} 失败: {str(exc)}")
+            print(f"Failed to read file {file_path}: {str(exc)}")
 
     return download_tasks, skipped_count
 
@@ -176,9 +176,9 @@ def update_source_files(file_paths, successful_records):
                 dataframe.loc[mask, "Download Status"] = 111
 
             write_table(dataframe, file_path)
-            print(f"已更新文件: {file_path}")
+            print(f"Updated file: {file_path}")
         except Exception as exc:
-            print(f"更新文件 {file_path} 失败: {str(exc)}")
+            print(f"Failed to update file {file_path}: {str(exc)}")
 
 
 def write_logs(success_log, error_log, failed_dois):
@@ -201,7 +201,7 @@ def handle_single_download(args):
     if args.doi:
         doi = str(args.doi).strip()
         if not validate_doi(doi):
-            raise ValueError(f"无效的DOI格式: {args.doi}")
+            raise ValueError(f"Invalid DOI format: {args.doi}")
     else:
         doi = ""
 
@@ -209,13 +209,13 @@ def handle_single_download(args):
     result = download_paper(doi, title)
 
     if result["status"] == "failed":
-        print(f"下载失败: {result['error']}")
+        print(f"Download failed: {result['error']}")
         return 1
 
     if result["status"] == "skipped":
-        print(f"已跳过已存在文件: {result['file_name']}")
+        print(f"Skipped existing file: {result['file_name']}")
     else:
-        print(f"下载成功: {result['file_name']}")
+        print(f"Download succeeded: {result['file_name']}")
 
     return 0
 
@@ -235,7 +235,7 @@ def download_worker(queue, success_log, successful_records, error_log, failed_do
                 if doi:
                     successful_records.append((result["title"], result["doi_link"]))
         except Exception as exc:
-            error_msg = f"下载失败: {doi} | 错误: {str(exc)}"
+            error_msg = f"Download failed: {doi} | Error: {str(exc)}"
             error_log.append(f"[ERROR] {error_msg}\n")
             failed_dois.append((doi, title))
             print(error_msg)
@@ -275,11 +275,11 @@ def main():
     for doi, title in download_tasks:
         doi_queue.put((doi, title))
 
-    print(f"有效DOI数量: {doi_queue.qsize()} | 跳过记录数: {skipped_count}")
+    print(f"Valid DOI count: {doi_queue.qsize()} | Skipped records: {skipped_count}")
 
-    # 启动线程池
+    # Start thread pool
     threads = []
-    # 修改队列检查逻辑，确保在队列中有任务时才启动线程
+    # Only start threads if there are tasks
     if doi_queue.qsize() > 0:
         for _ in range(min(MAX_THREADS, doi_queue.qsize())):
             t = threading.Thread(
@@ -296,15 +296,15 @@ def main():
             t.start()
             threads.append(t)
 
-        # 进度监控
-        print(f"▶️ 开始下载 {doi_queue.qsize()} 篇文献 | 线程数: {MAX_THREADS}")
+        # Progress monitoring
+        print(f"▶️ Starting download of {doi_queue.qsize()} papers | Threads: {MAX_THREADS}")
         while any(t.is_alive() for t in threads):
             print(
-                f"⏳ 剩余任务: {doi_queue.qsize()} | 成功: {len(successful_records)} | 失败: {len(failed_dois)}"
+                f"⏳ Remaining: {doi_queue.qsize()} | Success: {len(successful_records)} | Failed: {len(failed_dois)}"
             )
             time.sleep(10)
     else:
-        print("没有找到需要处理的文献记录，程序退出")
+        print("No records to process. Exiting.")
         return 0
 
     write_logs(success_log, error_log, failed_dois)
@@ -316,9 +316,9 @@ def main():
 
     if total_count > 0:
         success_rate = success_count * 100 / total_count
-        print(f"✅ 任务完成! 成功率: {success_rate:.1f}%")
+        print(f"✅ Task complete! Success rate: {success_rate:.1f}%")
     else:
-        print("✅ 任务完成! 没有可处理的任务")
+        print("✅ Task complete! No tasks to process.")
 
     return 0
 
