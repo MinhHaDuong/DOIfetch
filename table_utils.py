@@ -58,7 +58,7 @@ def read_table(file_path):
     return pd.read_excel(file_path)
 
 
-def read_doi_from_excel(file_path):
+def read_doi_from_table(file_path):
     """Read DOI list from a table file.
 
     Returns (dois_list, dataframe) where dois_list is a list of (doi, row_index) tuples,

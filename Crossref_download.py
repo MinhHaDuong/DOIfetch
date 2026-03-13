@@ -14,7 +14,7 @@ from config import (
 from table_utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
-    read_doi_from_excel,
+    read_doi_from_table,
     read_table,
     write_table,
 )
@@ -71,7 +71,7 @@ def download_papers_from_dois(doi_data, output_dir=PAPERS_DIR):
                 # Check if the PDF was successfully retrieved
                 if (
                     paper.status_code == 200
-                    and paper.headers["Content-Type"] == "application/pdf"
+                    and paper.headers.get("Content-Type") == "application/pdf"
                 ):
                     # Generate a safe filename (replace special characters)
                     safe_doi = doi.replace("/", "_").replace(":", "_")
@@ -119,7 +119,7 @@ def main():
     all_doi_data = []
 
     for file_path in input_files:
-        dois, df = read_doi_from_excel(file_path)
+        dois, df = read_doi_from_table(file_path)
         if df is not None:  # Ensure the DataFrame was read successfully
             doi_data = [(doi, file_path, row_index) for doi, row_index in dois]
             all_doi_data.extend(doi_data)

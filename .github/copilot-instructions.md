@@ -4,7 +4,7 @@
 - This repository is a small collection of standalone Python scripts, not a package.
 - `download.py` is the Sci-Hub workflow and shares runtime settings from `config.py` via `from config import *`.
 - `Crossref_download.py` and `Unpaywall_download.py` are separate open-access download paths and write PDFs into `papers/`.
-- Excel-processing utilities (`creat_doi.py`, `convert_md.py`, `convertxls.py`) read from `data/` and may modify spreadsheets in place.
+- Table-processing utilities (`create_doi.py`, `convert_md.py`, `convertxls.py`) read from `references/` and may modify files in place.
 
 ## Build And Run
 - Use `uv run` from the repo root instead of `pip` or manual virtualenv setup.

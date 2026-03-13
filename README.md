@@ -25,8 +25,8 @@ DoiHarvest is an automated tool designed to help researchers and scholars batch 
 - `download.py`: Main download script for downloading papers from Sci-Hub
 - `config.py`: Configuration file containing Sci-Hub domain pool and download parameters
 - `convertxls.py`: Converts .xls files to .xlsx format
-- `creat_doi.py`: Generates DOI links for Excel files
-- `convert_md.py`: Converts Excel files to Markdown format
+- `create_doi.py`: Generates DOI links for table files
+- `convert_md.py`: Converts table files to Markdown format
 - `Crossref_download.py`: Downloads open access papers using Crossref API
 - `Unpaywall_download.py`: Downloads open access papers using Unpaywall API
 - `pyproject.toml`: Project metadata and dependencies for `uv`
@@ -52,8 +52,8 @@ The following parameters can be adjusted in `config.py`:
 ├── download.py           # Download papers from Sci-Hub (may require proxy)
 ├── config.py             # Configuration file
 ├── convertxls.py         # xls to xlsx tool
-├── creat_doi.py          # Generate DOI links in Excel tables
-├── convert_md.py         # Excel to Markdown tool
+├── create_doi.py         # Generate DOI links in table files
+├── convert_md.py         # Table to Markdown tool
 ├── Crossref_download.py  # Crossref download tool (no proxy required)
 ├── Unpaywall_download.py # Unpaywall download tool (no proxy required)
 ├── pyproject.toml        # Project metadata and dependency file for uv
@@ -102,9 +102,9 @@ uv run python download.py --help
    ```
    uv run python Unpaywall_download.py
    ```
-7. If download fails and manual download is required, run `creat_doi.py` to generate DOI links and update them to the `DOI Link` column in the input file
+7. If download fails and manual download is required, run `create_doi.py` to generate DOI links and update them to the `DOI Link` column in the input file
    ```
-   uv run python creat_doi.py
+   uv run python create_doi.py
    ```
 9. Run `convert_md.py` to convert input files to Markdown format for manual downloading
    ```

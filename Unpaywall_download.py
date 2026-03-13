@@ -15,7 +15,7 @@ from config import (
 from table_utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
-    read_doi_from_excel,
+    read_doi_from_table,
     read_table,
     write_table,
 )
@@ -40,7 +40,8 @@ def download_papers_from_dois(doi_data, output_dir=PAPERS_DIR):
                 pdf_url = response["best_oa_location"]["url_for_pdf"]
                 if pdf_url:
                     paper = requests.get(pdf_url, verify=False)
-                    with open(f"{output_dir}/{doi.replace('/', '_')}.pdf", "wb") as f:
+                    pdf_path = os.path.join(output_dir, f"{doi.replace('/', '_')}.pdf")
+                    with open(pdf_path, "wb") as f:
                         f.write(paper.content)
                     print(f"Downloaded: {doi}")
 
@@ -81,7 +82,7 @@ def main():
     all_doi_data = []
 
     for file_path in input_files:
-        dois, df = read_doi_from_excel(file_path)
+        dois, df = read_doi_from_table(file_path)
         if df is not None:  # Ensure the DataFrame was read successfully
             doi_data = [(doi, file_path, row_index) for doi, row_index in dois]
             all_doi_data.extend(doi_data)

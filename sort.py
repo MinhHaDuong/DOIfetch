@@ -10,24 +10,24 @@ from table_utils import (
 )
 
 
-def sort_excel_by_download_status(data_directory=REFERENCES_DIR, input_format="auto"):
+def sort_by_download_status(data_directory=REFERENCES_DIR, input_format="auto"):
     """Sort table files by Download Status column: empty values first, STATUS_SUCCESS last."""
-    excel_files = list_table_files(data_directory, input_format)
+    table_files = list_table_files(data_directory, input_format)
 
-    if not excel_files:
+    if not table_files:
         print("No table files found")
         return
 
-    print(f"Found {len(excel_files)} table file(s)")
+    print(f"Found {len(table_files)} table file(s)")
 
     # Process each table file
-    for excel_file in excel_files:
+    for table_file in table_files:
         try:
-            df = read_table(excel_file)
+            df = read_table(table_file)
 
             # Check whether the Download Status column exists
             if COL_DOWNLOAD_STATUS not in df.columns:
-                print(f"File {excel_file} has no '{COL_DOWNLOAD_STATUS}' column")
+                print(f"File {table_file} has no '{COL_DOWNLOAD_STATUS}' column")
                 continue
 
             def create_sort_key(value):
@@ -46,11 +46,11 @@ def sort_excel_by_download_status(data_directory=REFERENCES_DIR, input_format="a
             # Drop the auxiliary sort column
             df_sorted = df_sorted.drop("sort_key", axis=1)
 
-            write_table(df_sorted, excel_file)
-            print(f"Sorted file: {excel_file}")
+            write_table(df_sorted, table_file)
+            print(f"Sorted file: {table_file}")
 
         except Exception as e:
-            print(f"Error processing file {excel_file}: {str(e)}")
+            print(f"Error processing file {table_file}: {str(e)}")
 
     print("Sorting complete!")
 
@@ -71,7 +71,7 @@ def parse_args():
 
 def main():
     arguments = parse_args()
-    sort_excel_by_download_status(arguments.data_dir, arguments.input_format)
+    sort_by_download_status(arguments.data_dir, arguments.input_format)
 
 
 if __name__ == "__main__":

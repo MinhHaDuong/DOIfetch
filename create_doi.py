@@ -18,19 +18,19 @@ def generate_doi_link(doi):
     return "No DOI"
 
 
-def update_excel_doi_column(excel_file_path):
+def update_doi_column(file_path):
     """Update the DOI Link column for a single table file."""
     try:
-        df = read_table(excel_file_path)
+        df = read_table(file_path)
 
         # Ensure DOI column exists
         if COL_DOI not in df.columns:
-            print(f"Warning: DOI column not found in {excel_file_path}")
+            print(f"Warning: DOI column not found in {file_path}")
             return False
 
         # Ensure Article Title column exists
         if COL_TITLE not in df.columns:
-            print(f"Warning: Article Title column not found in {excel_file_path}")
+            print(f"Warning: Article Title column not found in {file_path}")
             return False
 
         # Ensure DOI Link column exists (third column)
@@ -47,32 +47,32 @@ def update_excel_doi_column(excel_file_path):
             doi_link = generate_doi_link(doi)
             df.at[index, COL_DOI_LINK] = doi_link
 
-        write_table(df, excel_file_path)
-        print(f"Updated file: {excel_file_path}")
+        write_table(df, file_path)
+        print(f"Updated file: {file_path}")
         return True
 
     except Exception as e:
-        print(f"Error processing file {excel_file_path}: {str(e)}")
+        print(f"Error processing file {file_path}: {str(e)}")
         return False
 
 
-def update_multiple_excel_files(data_directory=REFERENCES_DIR, input_format="auto"):
+def update_multiple_files(data_directory=REFERENCES_DIR, input_format="auto"):
     """Batch update the DOI Link column for all table files in a directory."""
-    excel_files = list_table_files(data_directory, input_format)
+    table_files = list_table_files(data_directory, input_format)
 
-    if not excel_files:
+    if not table_files:
         print(f"No table files found in directory {data_directory}")
         return
 
-    print(f"Found {len(excel_files)} table file(s)")
+    print(f"Found {len(table_files)} table file(s)")
 
     # Process each file
     success_count = 0
-    for excel_file in excel_files:
-        if update_excel_doi_column(excel_file):
+    for table_file in table_files:
+        if update_doi_column(table_file):
             success_count += 1
 
-    print(f"\nDone: {success_count}/{len(excel_files)} file(s) successfully updated")
+    print(f"\nDone: {success_count}/{len(table_files)} file(s) successfully updated")
 
 
 def parse_args():
@@ -91,4 +91,4 @@ def parse_args():
 
 if __name__ == "__main__":
     arguments = parse_args()
-    update_multiple_excel_files(arguments.data_dir, arguments.input_format)
+    update_multiple_files(arguments.data_dir, arguments.input_format)
