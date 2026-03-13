@@ -33,6 +33,15 @@ class TestCrossref:
         if pdf_url:
             assert pdf_url.startswith("http")
 
+    def test_crossref_404_for_unknown_doi(self, tmp_path):
+        """fetch_pdf reports a clear error for a DOI that does not exist in Crossref."""
+        from fetch_crossref import fetch_pdf
+
+        result = fetch_pdf("10.9999/nonexistent.doi.000", "Test", str(tmp_path))
+        assert result["status"] == "failed"
+        error = result.get("error", "").lower()
+        assert "404" in error or "not found" in error
+
     def test_crossref_downloads_pdf(self, tmp_path):
         """If Crossref provides a PDF URL, it delivers a real PDF."""
         from fetch_crossref import get_pdf_url

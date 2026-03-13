@@ -13,14 +13,24 @@ warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+class DoiNotFoundError(Exception):
+    """Raised when Crossref returns 404 for a DOI."""
+
+
 def get_pdf_url(doi):
-    """Use the Crossref API to get a PDF download link."""
+    """Use the Crossref API to get a PDF download link.
+
+    Raises DoiNotFoundError if the DOI is not registered in Crossref.
+    Returns None if registered but no open-access PDF link is available.
+    """
     try:
         api_url = f"https://api.crossref.org/works/{doi}"
         response = requests.get(api_url, verify=False)
 
+        if response.status_code == 404:
+            raise DoiNotFoundError(f"DOI not found in Crossref (404): {doi}")
         if response.status_code != 200:
-            print(f"Crossref API request failed, status code: {response.status_code}")
+            print(f"Crossref API error {response.status_code} for {doi}")
             return None
 
         data = response.json()
@@ -36,6 +46,8 @@ def get_pdf_url(doi):
 
         return pdf_links[0] if pdf_links else None
 
+    except DoiNotFoundError:
+        raise
     except Exception as e:
         print(f"Error getting PDF link for {doi}: {str(e)}")
         return None
@@ -71,8 +83,17 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
                 "doi": doi,
                 "title": title,
                 "file_name": file_name,
-                "error": "No open access PDF found",
+                "error": "No open access PDF found in Crossref",
             }
+    except DoiNotFoundError as e:
+        return {
+            "status": "failed",
+            "doi": doi,
+            "title": title,
+            "file_name": file_name,
+            "error": str(e),
+        }
+    try:
         paper = requests.get(pdf_url, verify=False)
         if paper.status_code != 200:
             return {
