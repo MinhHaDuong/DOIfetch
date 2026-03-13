@@ -5,11 +5,10 @@ import pandas as pd
 import pytest
 
 
+from utils import write_table
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-
-from utils import write_table
 
 SAMPLE_DOIS = [
     ("10.1371/journal.pone.0001636", "Dunbar 2008 - Cognitive Constraints"),

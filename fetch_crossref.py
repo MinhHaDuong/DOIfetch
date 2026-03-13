@@ -50,55 +50,18 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     file_name = f"{safe_doi}.pdf"
     file_path = os.path.join(output_dir, file_name)
 
+    from pdf_utils import is_valid_pdf
+
     if os.path.exists(file_path):
-        return {
-            "status": "skipped",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-        }
-
-    try:
-        pdf_url = get_pdf_url(doi)
-        if not pdf_url:
+        if is_valid_pdf(file_path):
             return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"No open access PDF found: {doi}",
-            }
-
-        paper = requests.get(pdf_url, verify=False)
-        if (
-            paper.status_code == 200
-            and paper.headers.get("Content-Type") == "application/pdf"
-        ):
-            with open(file_path, "wb") as f:
-                f.write(paper.content)
-            print(f"Successfully downloaded: {doi}")
-            return {
-                "status": "success",
+                "status": "skipped",
                 "doi": doi,
                 "title": title,
                 "file_name": file_name,
             }
-
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": f"Invalid PDF response: {doi}",
-        }
-    except Exception as e:
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": f"Error downloading {doi}: {str(e)}",
-        }
+        else:
+            os.remove(file_path)
 
 
 def main():

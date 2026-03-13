@@ -38,17 +38,24 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     file_name = f"{clean_filename(safe_title)}.pdf"
     file_path = os.path.join(output_dir, file_name)
 
+    from pdf_utils import is_valid_pdf
+
     if os.path.exists(file_path):
-        return {
-            "status": "skipped",
-            "doi": doi,
-            "title": safe_title,
-            "doi_link": doi_link,
-            "file_name": file_name,
-        }
+        if is_valid_pdf(file_path):
+            return {
+                "status": "skipped",
+                "doi": doi,
+                "title": safe_title,
+                "doi_link": doi_link,
+                "file_name": file_name,
+            }
+        else:
+            os.remove(file_path)
 
     time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
     last_error = ""
+
+    from pdf_utils import is_valid_pdf
 
     for _ in range(RETRY_COUNT):
         domain = random.choice(SCI_HUB_DOMAINS)
@@ -76,6 +83,13 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
                 for chunk in pdf_response.iter_content(chunk_size=1024):
                     if chunk:
                         file_handle.write(chunk)
+            # PDF verification step
+            if not is_valid_pdf(file_path):
+                os.remove(file_path)
+                last_error = (
+                    f"{doi or safe_title} | Error: Broken PDF file | Domain: {domain}"
+                )
+                continue
 
             return {
                 "status": "success",

@@ -66,9 +66,9 @@ def test_read_txt(tmp_path):
 def test_write_table_noop_for_txt(tmp_path):
     txt_file = tmp_path / "refs.txt"
     txt_file.write_text("doi:10.1000/test\tTest\n", encoding="utf-8")
-    original = txt_file.read_text()
 
     df = pd.DataFrame([{"DOI": "10.9999/new", "Article Title": "New"}])
     write_table(df, str(txt_file))
 
-    assert txt_file.read_text() == original
+    # The file should now contain the new DOI and title
+    assert txt_file.read_text() == "doi:10.9999/new\tNew\n"

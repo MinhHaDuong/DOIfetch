@@ -4,10 +4,9 @@ import argparse
 import os
 import warnings
 
-import requests
 import urllib3
 
-from config import PAPERS_DIR, UNPAYWALL_EMAIL
+from config import PAPERS_DIR
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -22,55 +21,25 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     file_name = f"{safe_doi}.pdf"
     file_path = os.path.join(output_dir, file_name)
 
+    from pdf_utils import is_valid_pdf
+
     if os.path.exists(file_path):
-        return {
-            "status": "skipped",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-        }
-
-    try:
-        url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
-        response = requests.get(url).json()
-
-        if "best_oa_location" not in response or not response["best_oa_location"]:
+        if is_valid_pdf(file_path):
+            return {
+                "status": "skipped",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+            }
+        else:
+            os.remove(file_path)
             return {
                 "status": "failed",
                 "doi": doi,
                 "title": title,
                 "file_name": file_name,
-                "error": f"No open access version for {doi}",
+                "error": "Broken PDF file",
             }
-
-        pdf_url = response["best_oa_location"]["url_for_pdf"]
-        if not pdf_url:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"No PDF found for {doi}",
-            }
-
-        paper = requests.get(pdf_url, verify=False)
-        with open(file_path, "wb") as f:
-            f.write(paper.content)
-        print(f"Downloaded: {doi}")
-        return {
-            "status": "success",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-        }
-    except Exception as e:
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": f"Error downloading {doi}: {str(e)}",
-        }
 
 
 def main():
