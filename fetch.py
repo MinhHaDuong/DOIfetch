@@ -12,6 +12,7 @@ from queue import Queue
 import pandas as pd
 
 import fetch_crossref
+import fetch_hal
 import fetch_scihub
 import fetch_unpaywall
 import fetch_url
@@ -39,11 +40,12 @@ SOURCES = {
     "scihub": fetch_scihub,
     "crossref": fetch_crossref,
     "unpaywall": fetch_unpaywall,
+    "hal": fetch_hal,
     "url": fetch_url,
 }
 
 # When --source all, try sources in this order until one succeeds
-SOURCE_ORDER = ["crossref", "unpaywall", "scihub"]
+SOURCE_ORDER = ["crossref", "unpaywall", "hal", "scihub"]
 
 
 def parse_args():
@@ -54,7 +56,7 @@ def parse_args():
     parser.add_argument("--title", help="Title for a single-paper download")
     parser.add_argument(
         "--source",
-        choices=["scihub", "crossref", "unpaywall", "url", "all"],
+        choices=["scihub", "crossref", "unpaywall", "hal", "url", "all"],
         default="all",
         help="Source to fetch from (default: all — tries each in order)",
     )
