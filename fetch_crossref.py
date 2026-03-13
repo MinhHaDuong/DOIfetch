@@ -63,6 +63,51 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
         else:
             os.remove(file_path)
 
+    try:
+        pdf_url = get_pdf_url(doi)
+        if not pdf_url:
+            return {
+                "status": "failed",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+                "error": "No open access PDF found",
+            }
+        paper = requests.get(pdf_url, verify=False)
+        if paper.status_code != 200:
+            return {
+                "status": "failed",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+                "error": f"PDF download failed: {paper.status_code}",
+            }
+        with open(file_path, "wb") as f:
+            f.write(paper.content)
+        if not is_valid_pdf(file_path):
+            os.remove(file_path)
+            return {
+                "status": "failed",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+                "error": "Broken PDF file",
+            }
+        return {
+            "status": "success",
+            "doi": doi,
+            "title": title,
+            "file_name": file_name,
+        }
+    except Exception as e:
+        return {
+            "status": "failed",
+            "doi": doi,
+            "title": title,
+            "file_name": file_name,
+            "error": str(e),
+        }
+
 
 def main():
     parser = argparse.ArgumentParser(description="Download a paper PDF via Crossref")

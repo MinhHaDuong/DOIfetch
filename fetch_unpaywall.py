@@ -21,6 +21,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     file_name = f"{safe_doi}.pdf"
     file_path = os.path.join(output_dir, file_name)
 
+    import requests
     from pdf_utils import is_valid_pdf
 
     if os.path.exists(file_path):
@@ -40,6 +41,63 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
                 "file_name": file_name,
                 "error": "Broken PDF file",
             }
+
+    try:
+        url = f"https://api.unpaywall.org/v2/{doi}?email=your@email.com"
+        response = requests.get(url, timeout=30)
+        if response.status_code != 200:
+            return {
+                "status": "failed",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+                "error": f"Unpaywall API error: {response.status_code}",
+            }
+        data = response.json()
+        oa = data.get("best_oa_location")
+        if not oa or not oa.get("url_for_pdf"):
+            return {
+                "status": "failed",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+                "error": "No open access PDF found",
+            }
+        pdf_url = oa["url_for_pdf"]
+        pdf_resp = requests.get(pdf_url, timeout=60)
+        if pdf_resp.status_code != 200:
+            return {
+                "status": "failed",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+                "error": f"PDF download failed: {pdf_resp.status_code}",
+            }
+        with open(file_path, "wb") as f:
+            f.write(pdf_resp.content)
+        if not is_valid_pdf(file_path):
+            os.remove(file_path)
+            return {
+                "status": "failed",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+                "error": "Broken PDF file",
+            }
+        return {
+            "status": "success",
+            "doi": doi,
+            "title": title,
+            "file_name": file_name,
+        }
+    except Exception as e:
+        return {
+            "status": "failed",
+            "doi": doi,
+            "title": title,
+            "file_name": file_name,
+            "error": str(e),
+        }
 
 
 def main():
