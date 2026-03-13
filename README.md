@@ -45,10 +45,10 @@ The following parameters can be adjusted in `config.py`:
 
 ```
 .
-├── data/                 # Store Excel files to be processed
+├── references/           # Store input reference files to be processed
 ├── data_md/              # Store converted Markdown files
 ├── logs/                 # Store download.py logs
-├── output/               # Store PDF files downloaded by download.py
+├── papers/               # Store all downloaded PDF files
 ├── download.py           # Download papers from Sci-Hub (may require proxy)
 ├── config.py             # Configuration file
 ├── convertxls.py         # xls to xlsx tool
@@ -56,7 +56,6 @@ The following parameters can be adjusted in `config.py`:
 ├── convert_md.py         # Excel to Markdown tool
 ├── Crossref_download.py  # Crossref download tool (no proxy required)
 ├── Unpaywall_download.py # Unpaywall download tool (no proxy required)
-├── papers/               # Store papers downloaded by Crossref and Unpaywall
 ├── pyproject.toml        # Project metadata and dependency file for uv
 └── README.md
 ```
@@ -70,7 +69,7 @@ uv run python download.py --help
 
 ## Usage
 
-1. Place the Excel file containing literature information in the `data` directory
+1. Place the Excel file containing literature information in the `references` directory
    - The input file should contain at least `DOI` column
 2. Run `download.py` to start downloading literature
    ```
@@ -80,7 +79,7 @@ uv run python download.py --help
    ```
    uv run python download.py --doi 10.1000/example --title "Example Paper"
    ```
-3. Downloaded PDF files will be saved in the `output` directory
+3. Downloaded PDF files will be saved in the `papers` directory
 4. If your input files are CSV instead of Excel, run the scripts with `--input-format csv`
    ```
    uv run python download.py --input-format csv
@@ -103,8 +102,7 @@ uv run python download.py --help
    ```
    uv run python Unpaywall_download.py
    ```
-7. Downloaded PDF files will be saved in the `papers` directory
-8. If download fails and manual download is required, run `creat_doi.py` to generate DOI links and update them to the `DOI Link` column in the input file
+7. If download fails and manual download is required, run `creat_doi.py` to generate DOI links and update them to the `DOI Link` column in the input file
    ```
    uv run python creat_doi.py
    ```

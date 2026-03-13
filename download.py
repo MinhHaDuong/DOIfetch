@@ -46,15 +46,15 @@ def parse_args():
         "--input-format",
         choices=SUPPORTED_INPUT_FORMATS,
         default="auto",
-        help="Choose input files from data/: excel, csv, or auto",
+        help="Choose input files from references/: excel, csv, or auto",
     )
     parser.add_argument(
-        "--data-dir", default="data", help="Directory containing batch input files"
+        "--data-dir", default="references", help="Directory containing batch input files"
     )
     return parser.parse_args()
 
 
-def download_paper(doi, title, output_dir="output"):
+def download_paper(doi, title, output_dir="papers"):
     doi_link = f"https://doi.org/{doi}" if doi else "No DOI"
     safe_title = title if title else f"Unknown_{int(time.time())}"
     file_name = f"{clean_filename(safe_title)}.pdf"
@@ -257,7 +257,7 @@ def validate_doi(doi):
 # 主控流程
 def main():
     args = parse_args()
-    os.makedirs("output", exist_ok=True)
+    os.makedirs("papers", exist_ok=True)
     os.makedirs("logs", exist_ok=True)
 
     if args.doi or args.title:

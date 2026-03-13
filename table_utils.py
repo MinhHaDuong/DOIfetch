@@ -6,7 +6,7 @@ import pandas as pd
 SUPPORTED_INPUT_FORMATS = ("auto", "excel", "csv", "txt")
 
 
-def list_table_files(data_directory="data", input_format="auto"):
+def list_table_files(data_directory="references", input_format="auto"):
     if input_format not in SUPPORTED_INPUT_FORMATS:
         raise ValueError(f"Unsupported input format: {input_format}")
 

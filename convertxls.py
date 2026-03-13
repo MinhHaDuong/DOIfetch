@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 
-data_dir = "data"
+data_dir = "references"
 for file_name in os.listdir(data_dir):
     if file_name.endswith(".xls"):
         # 读取.xls文件

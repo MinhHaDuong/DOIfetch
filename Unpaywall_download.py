@@ -84,10 +84,10 @@ def parse_args():
         "--input-format",
         choices=SUPPORTED_INPUT_FORMATS,
         default="auto",
-        help="Choose input files from data/: excel, csv, or auto",
+        help="Choose input files from references/: excel, csv, or auto",
     )
     parser.add_argument(
-        "--data-dir", default="data", help="Directory containing input files"
+        "--data-dir", default="references", help="Directory containing input files"
     )
     return parser.parse_args()
 

@@ -9,7 +9,7 @@ from table_utils import (
 )
 
 
-def sort_excel_by_download_status(data_directory="data", input_format="auto"):
+def sort_excel_by_download_status(data_directory="references", input_format="auto"):
     """根据Download Status列对表格文件进行排序，空值排在前面，值为111的排在最后"""
     excel_files = list_table_files(data_directory, input_format)
 
@@ -65,10 +65,10 @@ def parse_args():
         "--input-format",
         choices=SUPPORTED_INPUT_FORMATS,
         default="auto",
-        help="Choose input files from data/: excel, csv, or auto",
+        help="Choose input files from references/: excel, csv, or auto",
     )
     parser.add_argument(
-        "--data-dir", default="data", help="Directory containing input files"
+        "--data-dir", default="references", help="Directory containing input files"
     )
     return parser.parse_args()
 

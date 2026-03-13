@@ -41,7 +41,7 @@ def convert_excel_to_markdown(excel_file_path, markdown_file_path):
         return False
 
 
-def convert_all_excel_files(data_directory="data", input_format="auto"):
+def convert_all_excel_files(data_directory="references", input_format="auto"):
     """将data目录下所有表格文件转换为指定格式的Markdown"""
     os.makedirs("data_md", exist_ok=True)
     input_files = list_table_files(data_directory, input_format)
@@ -67,10 +67,10 @@ def parse_args():
         "--input-format",
         choices=SUPPORTED_INPUT_FORMATS,
         default="auto",
-        help="Choose input files from data/: excel, csv, or auto",
+        help="Choose input files from references/: excel, csv, or auto",
     )
     parser.add_argument(
-        "--data-dir", default="data", help="Directory containing input files"
+        "--data-dir", default="references", help="Directory containing input files"
     )
     return parser.parse_args()
 
