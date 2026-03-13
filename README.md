@@ -1,17 +1,19 @@
 # DOIfetch
 
-A tool for batch downloading academic paper PDFs from Sci-Hub, Crossref, and Unpaywall.
+A tool for batch downloading academic paper PDFs and books from multiple open-access sources.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 ## Project Introduction
 
-DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper PDF files. It supports obtaining papers from Sci-Hub, Crossref, and Unpaywall API, featuring multi-threaded downloading, retry mechanisms, and intelligent domain rotation to improve download efficiency and success rate.
+DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper and book PDF files. It supports obtaining papers from Crossref, Unpaywall, HAL, and Sci-Hub by DOI; books from Library Genesis by ISBN; and arbitrary documents by URL. It features multi-threaded downloading, retry mechanisms, and intelligent domain rotation.
 
 ## Features
 
-- Supports reading literature DOI and title information from Excel, CSV, or text reference files
-- Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, HAL, ISTEX, Sci-Hub)
+- Supports reading literature DOI, ISBN, and URL information from Excel, CSV, or text reference files
+- Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, HAL, ISTEX, Sci-Hub) by DOI
+- Downloads books from Library Genesis by ISBN
+- Downloads documents directly from URLs
 - Supports multi-threaded downloading to improve efficiency
 - Supports retry mechanisms and random delays to avoid being blocked
 - Automatically updates download status in the original input files
@@ -20,12 +22,14 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 ## File Descriptions
 
 - `fetch.py`: Orchestrator — batch-fetches papers with table I/O, parallelism, retries, and source selection
-- `fetch_scihub.py`: Sci-Hub fetcher (may require proxy)
 - `fetch_crossref.py`: Crossref open-access fetcher (no proxy required)
 - `fetch_unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
 - `fetch_hal.py`: HAL open-archive fetcher — searches by author surname and title
 - `fetch_istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
-- `config.py`: Configuration file containing Sci-Hub domain pool, download parameters, and shared constants
+- `fetch_libgen.py`: Library Genesis fetcher — downloads books by ISBN
+- `fetch_scihub.py`: Sci-Hub fetcher (may require proxy or VPN)
+- `fetch_url.py`: Direct URL fetcher
+- `config.py`: Configuration file containing domain pools, download parameters, and shared constants
 - `utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT) and DOI validation
 - `pyproject.toml`: Project metadata and dependencies for `uv`
 
@@ -63,11 +67,13 @@ cannot see). The token is strictly personal — never commit or share it.
 ├── logs/                 # Store fetch.py logs
 ├── papers/               # Store all downloaded PDF files
 ├── fetch.py              # Orchestrator: batch fetch with source selection
-├── fetch_scihub.py       # Sci-Hub fetcher
 ├── fetch_crossref.py     # Crossref fetcher
 ├── fetch_unpaywall.py    # Unpaywall fetcher
 ├── fetch_hal.py          # HAL open-archive fetcher
 ├── fetch_istex.py        # ISTEX licensed-archive fetcher
+├── fetch_libgen.py       # Library Genesis fetcher
+├── fetch_scihub.py       # Sci-Hub fetcher
+├── fetch_url.py          # Direct URL fetcher
 ├── config.py             # Configuration file and shared constants
 ├── utils.py              # Shared table I/O dispatch and DOI validation
 ├── pyproject.toml        # Project metadata and dependency file for uv
@@ -83,43 +89,51 @@ uv run python fetch.py --help
 
 ## Usage
 
-1. Place the Excel file containing literature information in the `references` directory
-   - The input file should contain at least `DOI` column
-2. Run `fetch.py` to start downloading literature from all sources (tries Crossref, Unpaywall, HAL, ISTEX, then Sci-Hub):
+1. Place the reference file in the `references` directory.
+2. Run `fetch.py` to start downloading (tries Crossref → Unpaywall → HAL → ISTEX → Sci-Hub in order):
    ```
-   uv run python fetch.py
+   uv run fetch.py
    ```
    To use a specific source only:
    ```
-   uv run python fetch.py --source crossref
-   uv run python fetch.py --source istex
-   uv run python fetch.py --source scihub
+   uv run fetch.py --source crossref
+   uv run fetch.py --source unpaywall
+   uv run fetch.py --source hal
+   uv run fetch.py --source istex
+   uv run fetch.py --source libgen
+   uv run fetch.py --source scihub
    ```
    To download a single paper directly from the CLI:
    ```
-   uv run python fetch.py --doi 10.1000/example --title "Example Paper"
+   uv run fetch.py --doi 10.1000/example --title "Example Paper"
    ```
    Individual fetchers also work standalone:
    ```
-   uv run python fetch_scihub.py --doi 10.1000/example --title "Example Paper"
-   uv run python fetch_crossref.py --doi 10.1000/example
-   uv run python fetch_unpaywall.py --doi 10.1000/example
-   uv run python fetch_istex.py --doi 10.1000/example
+   uv run fetch_crossref.py --doi 10.1000/example
+   uv run fetch_unpaywall.py --doi 10.1000/example
+   uv run fetch_hal.py --title "Author et al. 2015 - The Title"
+   uv run fetch_istex.py --doi 10.1000/example
+   uv run fetch_libgen.py --isbn 9780674009691 --title "Author 1998 - Book Title"
+   uv run fetch_scihub.py --doi 10.1000/example --title "Example Paper"
    ```
-3. Downloaded PDF files will be saved in the `papers` directory
-4. If your input files are CSV instead of Excel, run with `--input-format csv`
-   ```
-   uv run python fetch.py --input-format csv
-   ```
-   You can also use text reference files (`--input-format txt`) with tab-separated lines:
+3. Downloaded PDF files will be saved in the `papers` directory.
+4. Input files can be Excel, CSV, or plain text. Text files use tab-separated lines:
    ```
    doi:10.1080/03085140903020580	Author 2009 - Title
    url:https://example.com/doc.pdf	Document Name
    isbn:9780674009691	Author 1998 - Book Title
    # Comment lines are ignored
    ```
-   Only `doi:` entries are processed; `url:`, `isbn:`, and `#` lines are skipped. Text files are read-only (no status write-back).
-5. Download status will be automatically updated in the original input file
+   All three entry types are processed: `doi:` goes through the source cascade,
+   `url:` is fetched directly, and `isbn:` is fetched from Library Genesis.
+5. Download status is automatically updated in the original input file.
+
+## Library Genesis access
+
+Library Genesis is a shadow library. According to [Wikipedia](https://en.wikipedia.org/wiki/Library_Genesis),
+access may be blocked at the ISP level in several countries (UK, France, Germany, Italy, Belgium, and others).
+If connections time out, use a VPN or try a different network. The fetcher tries these mirrors in order:
+`libgen.rs`, `libgen.is`, `libgen.gs`. Downloads are resolved via `libgen.li`.
 
 ## Testing
 
@@ -134,8 +148,8 @@ uv run --group dev pytest
 
 - Use `uv run` from the repository root so dependencies come from `pyproject.toml`
 - Please comply with relevant laws and regulations and academic ethics, for personal learning and research only
-- Network issues or Sci-Hub access restrictions may be encountered during downloading
-- It is recommended to appropriately adjust the number of concurrent threads and delay time to avoid being blocked
+- Network issues or access restrictions may be encountered for Sci-Hub and Library Genesis
+- Adjust the number of concurrent threads and delay time as needed to avoid being blocked
 
 
 ## Acknowledgements
@@ -147,6 +161,9 @@ Major changes from the original:
 - Restructured CLI into `fetch_*.py` source-specific fetchers with a unified interface and `fetch.py` orchestrator
 - Centralized shared constants into `config.py`
 - Added CSV and TXT input support with automatic format detection
+- Added HAL open archive fetcher (search by author + title)
+- Added Library Genesis fetcher (search by ISBN)
+- Added direct URL fetcher
 - Added a test suite using pytest
 - Migrated to `uv` and `pyproject.toml` for dependency management
 - Refactored for maintainability (shared `utils.py`, English-only docs)

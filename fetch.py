@@ -14,6 +14,7 @@ import pandas as pd
 import fetch_crossref
 import fetch_hal
 import fetch_istex
+import fetch_libgen
 import fetch_scihub
 import fetch_unpaywall
 import fetch_url
@@ -43,6 +44,7 @@ SOURCES = {
     "unpaywall": fetch_unpaywall,
     "hal": fetch_hal,
     "istex": fetch_istex,
+    "libgen": fetch_libgen,
     "url": fetch_url,
 }
 
@@ -60,7 +62,16 @@ def parse_args():
     parser.add_argument("--title", help="Title for a single-paper download")
     parser.add_argument(
         "--source",
-        choices=["scihub", "crossref", "unpaywall", "hal", "istex", "url", "all"],
+        choices=[
+            "scihub",
+            "crossref",
+            "unpaywall",
+            "hal",
+            "istex",
+            "libgen",
+            "url",
+            "all",
+        ],
         default="all",
         help="Source to fetch from (default: all — tries each in order)",
     )
@@ -106,12 +117,13 @@ def load_download_tasks(file_paths):
                     continue
 
                 doi = str(doi).strip()
-                if doi.startswith("isbn:"):
-                    skipped_count += 1
-                    continue
                 if doi.startswith("url:"):
                     doi = doi[len("url:") :]
-                if not _is_url(doi) and not validate_doi(doi):
+                if (
+                    not _is_url(doi)
+                    and not doi.startswith("isbn:")
+                    and not validate_doi(doi)
+                ):
                     print(f"Skipping invalid DOI format: {doi} | {title}")
                     skipped_count += 1
                     continue
@@ -174,6 +186,8 @@ def _fetch_one(doi, title, output_dir, source):
     """Fetch a single paper using the specified source strategy."""
     if _is_url(doi):
         return fetch_url.fetch_pdf(doi, title, output_dir)
+    if doi.startswith("isbn:"):
+        return fetch_libgen.fetch_pdf(doi, title, output_dir)
     if source == "all":
         for src_name in SOURCE_ORDER:
             result = SOURCES[src_name].fetch_pdf(doi, title, output_dir)
