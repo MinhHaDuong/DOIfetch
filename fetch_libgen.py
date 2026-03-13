@@ -87,8 +87,25 @@ def _resolve_download_url(md5):
     return None
 
 
+def _detect_ext(content, content_type=""):
+    """Return file extension based on magic bytes or content-type."""
+    if content[:4] == b"%PDF":
+        return ".pdf"
+    if content[:2] == b"PK":
+        return ".epub"  # EPUB is a ZIP; libgen commonly serves EPUBs
+    if b"<html" in content[:256].lower():
+        return ".html"
+    # Fall back to content-type
+    ct = content_type.lower()
+    if "epub" in ct:
+        return ".epub"
+    if "pdf" in ct:
+        return ".pdf"
+    return ".pdf"  # optimistic default
+
+
 def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
-    """Download a book PDF from Libgen by ISBN.
+    """Download a book from Libgen by ISBN (PDF or EPUB).
 
     doi should be in 'isbn:XXXXXXXXXX' format.
     Returns dict with keys: status, doi, title, file_name, error (if failed).
@@ -96,18 +113,21 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     from pdf_utils import clean_filename, is_valid_pdf
 
     safe_title = title if title else f"Unknown_{doi}"
-    file_name = f"{clean_filename(safe_title)}.pdf"
-    file_path = os.path.join(output_dir, file_name)
+    base_name = clean_filename(safe_title)
 
-    if os.path.exists(file_path):
-        if is_valid_pdf(file_path):
+    # Check for existing file in any supported format
+    for ext in (".pdf", ".epub"):
+        existing = os.path.join(output_dir, base_name + ext)
+        if os.path.exists(existing) and os.path.getsize(existing) > 1000:
             return {
                 "status": "skipped",
                 "doi": doi,
                 "title": title,
-                "file_name": file_name,
+                "file_name": base_name + ext,
             }
-        os.remove(file_path)
+
+    file_name = base_name + ".pdf"  # placeholder; overridden after download
+    file_path = os.path.join(output_dir, file_name)
 
     isbn = doi.removeprefix("isbn:").strip()
     if not isbn:
@@ -152,10 +172,24 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
                 "error": f"Download failed: HTTP {pdf_resp.status_code}",
             }
 
-        with open(file_path, "wb") as f:
-            f.write(pdf_resp.content)
+        content = pdf_resp.content
+        ext = _detect_ext(content, pdf_resp.headers.get("content-type", ""))
+        file_name = base_name + ext
+        file_path = os.path.join(output_dir, file_name)
 
-        if not is_valid_pdf(file_path):
+        if len(content) < 1000 or ext == ".html":
+            return {
+                "status": "failed",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+                "error": "Downloaded file appears to be an error page",
+            }
+
+        with open(file_path, "wb") as f:
+            f.write(content)
+
+        if ext == ".pdf" and not is_valid_pdf(file_path):
             os.remove(file_path)
             return {
                 "status": "failed",

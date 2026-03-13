@@ -116,7 +116,7 @@ uv run python fetch.py --help
    uv run fetch_libgen.py --isbn 9780674009691 --title "Author 1998 - Book Title"
    uv run fetch_scihub.py --doi 10.1000/example --title "Example Paper"
    ```
-3. Downloaded PDF files will be saved in the `papers` directory.
+3. Downloaded files will be saved in the `papers` directory as `.pdf` or `.epub` depending on what Libgen provides.
 4. Input files can be Excel, CSV, or plain text. Text files use tab-separated lines:
    ```
    doi:10.1080/03085140903020580	Author 2009 - Title
