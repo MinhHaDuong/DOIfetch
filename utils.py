@@ -100,9 +100,11 @@ def validate_doi(doi):
 def write_table(dataframe, file_path):
     lower_path = file_path.lower()
     if lower_path.endswith(".txt"):
-        # Write as tab-separated DOI<TAB>Title, skip empty rows
+        # Write as tab-separated DOI<TAB>Title, dropping successfully downloaded rows
         with open(file_path, "w", encoding="utf-8") as f:
             for _, row in dataframe.iterrows():
+                if row.get(COL_DOWNLOAD_STATUS) == "success":
+                    continue
                 doi = str(row.get(COL_DOI, "")).strip()
                 title = str(row.get(COL_TITLE, "")).strip()
                 if not doi and not title:
