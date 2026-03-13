@@ -23,11 +23,22 @@ def _parse_author_title(title):
     return None, None
 
 
+def _clean_title_keywords(raw):
+    """Sanitize title keywords for HAL query: strip special chars and truncation markers."""
+    # Remove truncation artifacts like trailing '...' or 'E...'
+    raw = re.sub(r"\s*\w{0,3}\.\.\.$", "", raw).strip()
+    # Remove characters that break Solr query syntax
+    raw = re.sub(r"[`'\"\\(){}[\]^~*?:/]", " ", raw)
+    # Collapse whitespace
+    return re.sub(r"\s+", " ", raw).strip()
+
+
 def _search_hal(author, title_keywords):
     """Search HAL for a paper by author surname and title keywords.
 
     Returns the PDF URL or None.
     """
+    title_keywords = _clean_title_keywords(title_keywords)
     query = f"authLastName_t:{author} AND title_t:({title_keywords})"
     params = {
         "q": query,
