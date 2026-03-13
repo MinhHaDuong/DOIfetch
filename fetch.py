@@ -1,136 +1,82 @@
+"""Orchestrator: batch-fetch paper PDFs from multiple sources.
+
+Manages table I/O, parallelism, retries across sources, logging, and status updates.
+"""
+
 import argparse
 import os
-import random
-import re
 import threading
 import time
 from queue import Queue
-from urllib.parse import quote
 
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
 
+import fetch_crossref
+import fetch_scihub
+import fetch_unpaywall
 from config import (
     COL_DOI,
     COL_DOI_LINK,
     COL_DOWNLOAD_STATUS,
     COL_TITLE,
     DOI_URL_BASE,
-    HEADERS,
     LOGS_DIR,
-    MAX_DELAY,
     MAX_THREADS,
-    MIN_DELAY,
     PAPERS_DIR,
     REFERENCES_DIR,
-    RETRY_COUNT,
-    SCI_HUB_DOMAINS,
     STATUS_SUCCESS,
-    TIMEOUT,
 )
 from utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
     read_table,
+    validate_doi,
     write_table,
 )
 
+SOURCES = {
+    "scihub": fetch_scihub,
+    "crossref": fetch_crossref,
+    "unpaywall": fetch_unpaywall,
+}
 
-# Remove illegal filename characters
-def clean_filename(title):
-    illegal_chars = r'[\\/:*?"<>|]'
-    return re.sub(illegal_chars, "", title)[:120]  # Limit filename length
+# When --source all, try sources in this order until one succeeds
+SOURCE_ORDER = ["crossref", "unpaywall", "scihub"]
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Download papers from Sci-Hub using DOI/title or batch input files"
+        description="Batch-fetch paper PDFs from Sci-Hub, Crossref, and/or Unpaywall"
     )
     parser.add_argument("--doi", help="Download a single paper by DOI")
+    parser.add_argument("--title", help="Title for a single-paper download")
     parser.add_argument(
-        "--title", help="Title for a single-paper download or title-only search"
+        "--source",
+        choices=["scihub", "crossref", "unpaywall", "all"],
+        default="all",
+        help="Source to fetch from (default: all — tries each in order)",
     )
     parser.add_argument(
         "--input-format",
         choices=SUPPORTED_INPUT_FORMATS,
         default="auto",
-        help="Choose input files from references/: excel, csv, or auto",
+        help="Choose input files from references/: excel, csv, txt, or auto",
     )
     parser.add_argument(
-        "--data-dir", default=REFERENCES_DIR, help="Directory containing batch input files"
+        "--data-dir",
+        default=REFERENCES_DIR,
+        help="Directory containing batch input files",
+    )
+    parser.add_argument(
+        "--output-dir",
+        default=PAPERS_DIR,
+        help="Directory to save downloaded PDFs",
     )
     return parser.parse_args()
 
 
-def download_paper(doi, title, output_dir=PAPERS_DIR):
-    doi_link = f"{DOI_URL_BASE}{doi}" if doi else "No DOI"
-    safe_title = title if title else f"Unknown_{int(time.time())}"
-    file_name = f"{clean_filename(safe_title)}.pdf"
-    file_path = os.path.join(output_dir, file_name)
-
-    if os.path.exists(file_path):
-        return {
-            "status": "skipped",
-            "doi": doi,
-            "title": safe_title,
-            "doi_link": doi_link,
-            "file_name": file_name,
-        }
-
-    time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
-    last_error = ""
-
-    for _ in range(RETRY_COUNT):
-        domain = random.choice(SCI_HUB_DOMAINS)
-        try:
-            if doi:
-                response = requests.get(
-                    f"{domain}{doi}", headers=HEADERS, timeout=TIMEOUT
-                )
-            else:
-                search_url = f"{domain}?s={quote(safe_title)}"
-                response = requests.get(search_url, headers=HEADERS, timeout=TIMEOUT)
-
-            soup = BeautifulSoup(response.content, "html.parser")
-            iframe = soup.find("iframe") or soup.find("embed")
-            pdf_url = iframe["src"] if iframe else None
-
-            if not pdf_url or not pdf_url.startswith("http"):
-                last_error = (
-                    f"{doi or safe_title} | Error: PDF link not found | Domain: {domain}"
-                )
-                continue
-
-            pdf_response = requests.get(
-                pdf_url, headers=HEADERS, stream=True, timeout=TIMEOUT
-            )
-            with open(file_path, "wb") as file_handle:
-                for chunk in pdf_response.iter_content(chunk_size=1024):
-                    if chunk:
-                        file_handle.write(chunk)
-
-            return {
-                "status": "success",
-                "doi": doi,
-                "title": safe_title,
-                "doi_link": doi_link,
-                "file_name": file_name,
-            }
-        except Exception as exc:
-            last_error = f"{doi or safe_title} | Error: {str(exc)[:50]} | Domain: {domain}"
-
-    return {
-        "status": "failed",
-        "doi": doi,
-        "title": safe_title,
-        "doi_link": doi_link,
-        "file_name": file_name,
-        "error": last_error or f"{doi or safe_title} | Error: Unknown error",
-    }
-
-
 def load_download_tasks(file_paths):
+    """Read DOIs and titles from input files, returning (tasks, skipped_count)."""
     download_tasks = []
     skipped_count = 0
 
@@ -147,7 +93,6 @@ def load_download_tasks(file_paths):
                         print("Skipping invalid record: both DOI and title are empty")
                         skipped_count += 1
                         continue
-
                     print(f"Adding record without DOI: {title}")
                     download_tasks.append(("", title))
                     continue
@@ -166,20 +111,19 @@ def load_download_tasks(file_paths):
 
 
 def update_source_files(file_paths, successful_records):
+    """Write back DOI links and download status to source files."""
     for file_path in file_paths:
         try:
             dataframe = read_table(file_path)
 
             if COL_DOI_LINK not in dataframe.columns:
                 dataframe.insert(2, COL_DOI_LINK, "")
-
             if COL_DOWNLOAD_STATUS not in dataframe.columns:
                 dataframe[COL_DOWNLOAD_STATUS] = ""
 
             for title, doi_link in successful_records:
                 if not doi_link or doi_link == "No DOI":
                     continue
-
                 mask = dataframe[COL_TITLE] == title
                 dataframe.loc[mask, COL_DOI_LINK] = doi_link
                 dataframe.loc[mask, COL_DOWNLOAD_STATUS] = STATUS_SUCCESS
@@ -191,9 +135,12 @@ def update_source_files(file_paths, successful_records):
 
 
 def write_logs(success_log, error_log, failed_dois):
+    """Write success/error logs and failed DOI list."""
     timestamp = int(time.time())
     with (
-        open(f"{LOGS_DIR}/success_{timestamp}.log", "w", encoding="utf-8") as success_file,
+        open(
+            f"{LOGS_DIR}/success_{timestamp}.log", "w", encoding="utf-8"
+        ) as success_file,
         open(f"{LOGS_DIR}/error_{timestamp}.log", "w", encoding="utf-8") as error_file,
         open(
             f"{LOGS_DIR}/failed_dois.csv", "w", encoding="utf-8", errors="ignore"
@@ -206,43 +153,34 @@ def write_logs(success_log, error_log, failed_dois):
             failed_file.write(f"{doi},{title}\n")
 
 
-def handle_single_download(args):
-    if args.doi:
-        doi = str(args.doi).strip()
-        if not validate_doi(doi):
-            raise ValueError(f"Invalid DOI format: {args.doi}")
-    else:
-        doi = ""
-
-    title = args.title.strip() if args.title else f"Unknown_{int(time.time())}"
-    result = download_paper(doi, title)
-
-    if result["status"] == "failed":
-        print(f"Download failed: {result['error']}")
-        return 1
-
-    if result["status"] == "skipped":
-        print(f"Skipped existing file: {result['file_name']}")
-    else:
-        print(f"Download succeeded: {result['file_name']}")
-
-    return 0
+def _fetch_one(doi, title, output_dir, source):
+    """Fetch a single paper using the specified source strategy."""
+    if source == "all":
+        for src_name in SOURCE_ORDER:
+            result = SOURCES[src_name].fetch_pdf(doi, title, output_dir)
+            if result["status"] == "success":
+                return result
+        return result  # return last failure
+    return SOURCES[source].fetch_pdf(doi, title, output_dir)
 
 
-# Core paper download worker function
-def download_worker(queue, success_log, successful_records, error_log, failed_dois):
+def fetch_worker(
+    queue, source, output_dir, success_log, successful_records, error_log, failed_dois
+):
+    """Thread worker: pull tasks from queue and fetch PDFs."""
     while not queue.empty():
         doi, title = queue.get()
         try:
-            result = download_paper(doi, title)
+            result = _fetch_one(doi, title, output_dir, source)
             if result["status"] == "failed":
                 failed_dois.append((doi, title))
-                error_log.append(f"[FAILED] {result['error']}\n")
+                error_log.append(f"[FAILED] {result.get('error', 'Unknown error')}\n")
             else:
                 status_label = "SKIPPED" if result["status"] == "skipped" else "SUCCESS"
                 success_log.append(f"[{status_label}] {doi} | {result['file_name']}\n")
                 if doi:
-                    successful_records.append((result["title"], result["doi_link"]))
+                    doi_link = result.get("doi_link", f"{DOI_URL_BASE}{doi}")
+                    successful_records.append((result["title"], doi_link))
         except Exception as exc:
             error_msg = f"Download failed: {doi} | Error: {str(exc)}"
             error_log.append(f"[ERROR] {error_msg}\n")
@@ -251,21 +189,32 @@ def download_worker(queue, success_log, successful_records, error_log, failed_do
         queue.task_done()
 
 
-def validate_doi(doi):
-    """Validate whether the DOI format is correct."""
-    doi = doi.strip()
-    if not doi:
-        return False
-    # Remove possible DOI prefix
-    doi = doi.replace("doi:", "").replace("DOI:", "").strip()
-    # Check basic format (allow special characters in path)
-    return re.match(r"^10\.\d+\/.+$", doi) is not None
+def handle_single_download(args):
+    """Handle --doi/--title single-paper mode."""
+    if args.doi:
+        doi = str(args.doi).strip()
+        if not validate_doi(doi):
+            raise ValueError(f"Invalid DOI format: {args.doi}")
+    else:
+        doi = ""
+
+    title = args.title.strip() if args.title else f"Unknown_{int(time.time())}"
+    os.makedirs(args.output_dir, exist_ok=True)
+    result = _fetch_one(doi, title, args.output_dir, args.source)
+
+    if result["status"] == "failed":
+        print(f"Download failed: {result.get('error', 'Unknown error')}")
+        return 1
+    if result["status"] == "skipped":
+        print(f"Skipped existing file: {result['file_name']}")
+    else:
+        print(f"Download succeeded: {result['file_name']}")
+    return 0
 
 
-# Main control flow
 def main():
     args = parse_args()
-    os.makedirs(PAPERS_DIR, exist_ok=True)
+    os.makedirs(args.output_dir, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
 
     if args.doi or args.title:
@@ -285,15 +234,15 @@ def main():
 
     print(f"Valid DOI count: {doi_queue.qsize()} | Skipped records: {skipped_count}")
 
-    # Start thread pool
     threads = []
-    # Only start threads if there are tasks
     if doi_queue.qsize() > 0:
         for _ in range(min(MAX_THREADS, doi_queue.qsize())):
             t = threading.Thread(
-                target=download_worker,
+                target=fetch_worker,
                 args=(
                     doi_queue,
+                    args.source,
+                    args.output_dir,
                     success_log,
                     successful_records,
                     error_log,
@@ -304,11 +253,12 @@ def main():
             t.start()
             threads.append(t)
 
-        # Progress monitoring
-        print(f"▶️ Starting download of {doi_queue.qsize()} papers | Threads: {MAX_THREADS}")
+        print(
+            f"Starting download of {doi_queue.qsize()} papers | Threads: {MAX_THREADS}"
+        )
         while any(t.is_alive() for t in threads):
             print(
-                f"⏳ Remaining: {doi_queue.qsize()} | Success: {len(successful_records)} | Failed: {len(failed_dois)}"
+                f"Remaining: {doi_queue.qsize()} | Success: {len(successful_records)} | Failed: {len(failed_dois)}"
             )
             time.sleep(10)
     else:
@@ -324,9 +274,9 @@ def main():
 
     if total_count > 0:
         success_rate = success_count * 100 / total_count
-        print(f"✅ Task complete! Success rate: {success_rate:.1f}%")
+        print(f"Task complete! Success rate: {success_rate:.1f}%")
     else:
-        print("✅ Task complete! No tasks to process.")
+        print("Task complete! No tasks to process.")
 
     return 0
 

@@ -1,30 +1,30 @@
-# DoiHarvest
+# DOIfetch
 
 A tool for batch downloading academic paper PDFs from Sci-Hub, Crossref, and Unpaywall.
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
 ## Project Introduction
 
-DoiHarvest is an automated tool designed to help researchers and scholars batch download academic paper PDF files. It supports obtaining papers from Sci-Hub, Crossref, and Unpaywall API, featuring multi-threaded downloading, retry mechanisms, and intelligent domain rotation to improve download efficiency and success rate.
+DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper PDF files. It supports obtaining papers from Sci-Hub, Crossref, and Unpaywall API, featuring multi-threaded downloading, retry mechanisms, and intelligent domain rotation to improve download efficiency and success rate.
 
 ## Features
 
 - Supports reading literature DOI and title information from Excel, CSV, or text reference files
-- Automatically downloads paper PDFs from Sci-Hub
+- Automatically downloads paper PDFs from multiple sources (Sci-Hub, Crossref, Unpaywall)
 - Supports multi-threaded downloading to improve efficiency
 - Supports retry mechanisms and random delays to avoid being blocked
 - Automatically updates download status in the original input files
-- Supports downloading open access papers via Crossref API
-- Supports downloading open access papers via Unpaywall API
+- Unified fetcher interface: each source exposes the same `fetch_pdf()` convention
 
 ## File Descriptions
 
-- `download.py`: Main download script for downloading papers from Sci-Hub
-- `config.py`: Configuration file containing Sci-Hub domain pool and download parameters
-- `utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT)
-- `Crossref_download.py`: Downloads open access papers using Crossref API
-- `Unpaywall_download.py`: Downloads open access papers using Unpaywall API
+- `fetch.py`: Orchestrator — batch-fetches papers with table I/O, parallelism, retries, and source selection
+- `fetch_scihub.py`: Sci-Hub fetcher (may require proxy)
+- `fetch_crossref.py`: Crossref open-access fetcher (no proxy required)
+- `fetch_unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
+- `config.py`: Configuration file containing Sci-Hub domain pool, download parameters, and shared constants
+- `utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT) and DOI validation
 - `pyproject.toml`: Project metadata and dependencies for `uv`
 
 ## Configuration Instructions
@@ -42,13 +42,14 @@ The following parameters can be adjusted in `config.py`:
 ```
 .
 ├── references/           # Store input reference files to be processed
-├── logs/                 # Store download.py logs
+├── logs/                 # Store fetch.py logs
 ├── papers/               # Store all downloaded PDF files
-├── download.py           # Download papers from Sci-Hub (may require proxy)
-├── config.py             # Configuration file
-├── utils.py        # Shared table I/O dispatch
-├── Crossref_download.py  # Crossref download tool (no proxy required)
-├── Unpaywall_download.py # Unpaywall download tool (no proxy required)
+├── fetch.py              # Orchestrator: batch fetch with source selection
+├── fetch_scihub.py       # Sci-Hub fetcher
+├── fetch_crossref.py     # Crossref fetcher
+├── fetch_unpaywall.py    # Unpaywall fetcher
+├── config.py             # Configuration file and shared constants
+├── utils.py              # Shared table I/O dispatch and DOI validation
 ├── pyproject.toml        # Project metadata and dependency file for uv
 └── README.md
 ```
@@ -57,26 +58,36 @@ The following parameters can be adjusted in `config.py`:
 This repository uses `uv` and `pyproject.toml` as the dependency source of truth. Do not use `pip` or create a virtual environment manually. Run commands from the repository root with `uv run`, and `uv` will resolve the required dependencies automatically.
 
 ```
-uv run python download.py --help
+uv run python fetch.py --help
 ```
 
 ## Usage
 
 1. Place the Excel file containing literature information in the `references` directory
    - The input file should contain at least `DOI` column
-2. Run `download.py` to start downloading literature
+2. Run `fetch.py` to start downloading literature from all sources (tries Crossref, Unpaywall, then Sci-Hub):
    ```
-   uv run python download.py
+   uv run python fetch.py
+   ```
+   To use a specific source only:
+   ```
+   uv run python fetch.py --source crossref
+   uv run python fetch.py --source scihub
    ```
    To download a single paper directly from the CLI:
    ```
-   uv run python download.py --doi 10.1000/example --title "Example Paper"
+   uv run python fetch.py --doi 10.1000/example --title "Example Paper"
+   ```
+   Individual fetchers also work standalone:
+   ```
+   uv run python fetch_scihub.py --doi 10.1000/example --title "Example Paper"
+   uv run python fetch_crossref.py --doi 10.1000/example
+   uv run python fetch_unpaywall.py --doi 10.1000/example
    ```
 3. Downloaded PDF files will be saved in the `papers` directory
-4. If your input files are CSV instead of Excel, run the scripts with `--input-format csv`
+4. If your input files are CSV instead of Excel, run with `--input-format csv`
    ```
-   uv run python download.py --input-format csv
-   uv run python Crossref_download.py --input-format csv
+   uv run python fetch.py --input-format csv
    ```
    You can also use text reference files (`--input-format txt`) with tab-separated lines:
    ```
@@ -87,14 +98,6 @@ uv run python download.py --help
    ```
    Only `doi:` entries are processed; `url:`, `isbn:`, and `#` lines are skipped. Text files are read-only (no status write-back).
 5. Download status will be automatically updated in the original input file
-6. Run `Crossref_download.py` or `Unpaywall_download.py` to download open access papers
-   ```
-   uv run python Crossref_download.py
-   ```
-   or
-   ```
-   uv run python Unpaywall_download.py
-   ```
 
 ## Testing
 
@@ -113,16 +116,15 @@ uv run --group dev pytest
 - It is recommended to appropriately adjust the number of concurrent threads and delay time to avoid being blocked
 
 
-## History
+## Acknowledgements
 
-This project was originally based on a collection of standalone Python scripts for batch downloading academic papers from Sci-Hub and open access sources. The following major changes and improvements have been made:
+This project is a fork of [DoiHarvest](https://github.com/hanhan6688/DoiHarvest) by HMC, licensed under the [MIT License](LICENSE).
 
-- Added support for CSV input and output in addition to Excel, with automatic format detection
-- Introduced a unified CLI interface for single-paper downloads and batch processing (via argparse)
-- Added a test suite using pytest, with import fixes for script-based repositories
-- Migrated dependency management to `pyproject.toml` and the `uv` tool (no pip or manual venv)
-- Updated documentation (README, Chinese README) to reflect new features and modern workflow
-- Added `.gitignore` and removed generated cache/venv artifacts from version control
-- Refactored code for maintainability, including a shared `utils.py` for table I/O
+Major changes from the original:
 
-If you use or modify this tool, please acknowledge both the original authors and the contributors to these enhancements.
+- Restructured CLI into `fetch_*.py` source-specific fetchers with a unified interface and `fetch.py` orchestrator
+- Centralized shared constants into `config.py`
+- Added CSV and TXT input support with automatic format detection
+- Added a test suite using pytest
+- Migrated to `uv` and `pyproject.toml` for dependency management
+- Refactored for maintainability (shared `utils.py`, English-only docs)

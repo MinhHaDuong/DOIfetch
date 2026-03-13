@@ -25,26 +25,28 @@ class TestCrossref:
         assert data["message"]["DOI"].lower() == OA_DOI.lower()
 
     def test_crossref_get_pdf_url(self):
-        """get_pdf_url_from_crossref runs without error and returns URL or None."""
-        from Crossref_download import get_pdf_url_from_crossref
+        """get_pdf_url runs without error and returns URL or None."""
+        from fetch_crossref import get_pdf_url
 
-        pdf_url = get_pdf_url_from_crossref(OA_DOI)
+        pdf_url = get_pdf_url(OA_DOI)
         # Not all OA papers have direct PDF links in Crossref
         if pdf_url:
             assert pdf_url.startswith("http")
 
     def test_crossref_downloads_pdf(self, tmp_path):
         """If Crossref provides a PDF URL, it delivers a real PDF."""
-        from Crossref_download import get_pdf_url_from_crossref
+        from fetch_crossref import get_pdf_url
 
-        pdf_url = get_pdf_url_from_crossref(OA_DOI)
+        pdf_url = get_pdf_url(OA_DOI)
         if not pdf_url:
             pytest.skip("Crossref has no PDF link for this DOI")
         resp = requests.get(pdf_url, timeout=60, verify=False)
         assert resp.status_code == 200
         pdf_path = tmp_path / "paper.pdf"
         pdf_path.write_bytes(resp.content)
-        assert pdf_path.stat().st_size > 1000, "Downloaded file too small to be a real PDF"
+        assert pdf_path.stat().st_size > 1000, (
+            "Downloaded file too small to be a real PDF"
+        )
         assert resp.content[:5] == b"%PDF-", "Downloaded file is not a valid PDF"
 
 
@@ -69,17 +71,19 @@ class TestUnpaywall:
         assert resp.status_code == 200
         pdf_path = tmp_path / "paper.pdf"
         pdf_path.write_bytes(resp.content)
-        assert pdf_path.stat().st_size > 1000, "Downloaded file too small to be a real PDF"
+        assert pdf_path.stat().st_size > 1000, (
+            "Downloaded file too small to be a real PDF"
+        )
         assert resp.content[:5] == b"%PDF-", "Downloaded file is not a valid PDF"
 
 
 @pytest.mark.network
 class TestSciHub:
-    def test_download_paper_to_disk(self, tmp_path):
-        """download_paper fetches a PDF to disk via Sci-Hub."""
-        from download import download_paper
+    def test_fetch_pdf_to_disk(self, tmp_path):
+        """fetch_pdf fetches a PDF to disk via Sci-Hub."""
+        from fetch_scihub import fetch_pdf
 
-        result = download_paper(OA_DOI, "Test Paper", output_dir=str(tmp_path))
+        result = fetch_pdf(OA_DOI, "Test Paper", output_dir=str(tmp_path))
         # Sci-Hub may be unavailable, so we accept success or failure
         # but the function should not crash
         assert result["status"] in ("success", "failed", "skipped")

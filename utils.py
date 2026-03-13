@@ -1,4 +1,5 @@
 import os
+import re
 
 import pandas as pd
 
@@ -85,6 +86,15 @@ def read_doi_from_table(file_path):
 
     print(f"Extracted {len(dois)} DOIs")
     return dois, df
+
+
+def validate_doi(doi):
+    """Validate whether the DOI format is correct."""
+    doi = doi.strip()
+    if not doi:
+        return False
+    doi = doi.replace("doi:", "").replace("DOI:", "").strip()
+    return re.match(r"^10\.\d+\/.+$", doi) is not None
 
 
 def write_table(dataframe, file_path):

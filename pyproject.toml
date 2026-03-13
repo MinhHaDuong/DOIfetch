@@ -1,5 +1,5 @@
 [project]
-name = "doiharvest"
+name = "doifetch"
 version = "0.1.0"
 description = "Batch academic paper downloader for Sci-Hub, Crossref, and Unpaywall"
 readme = "README.md"

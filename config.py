@@ -29,7 +29,7 @@ LOGS_DIR = "logs"
 
 # API
 DOI_URL_BASE = "https://doi.org/"
-UNPAYWALL_EMAIL = "doiharvest@users.noreply.github.com"
+UNPAYWALL_EMAIL = "doifetch@users.noreply.github.com"
 
 # Column names
 COL_DOI = "DOI"

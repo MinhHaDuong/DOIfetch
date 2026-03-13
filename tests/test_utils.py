@@ -1,6 +1,6 @@
 import pandas as pd
 
-from table_utils import list_table_files, read_table, write_table
+from utils import list_table_files, read_table, write_table
 
 
 def test_list_table_files_filters_by_format(tmp_path):
