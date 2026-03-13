@@ -2,6 +2,7 @@ import argparse
 import pandas as pd
 import os
 
+from config import COL_DOI_LINK, COL_TITLE, MARKDOWN_DIR, REFERENCES_DIR
 from table_utils import SUPPORTED_INPUT_FORMATS, list_table_files, read_table
 
 
@@ -15,8 +16,8 @@ def convert_excel_to_markdown(excel_file_path, markdown_file_path):
 
         # 遍历每一行数据
         for index, row in df.iterrows():
-            title = row.get("Article Title", "")
-            doi_link = row.get("DOI Link", "")
+            title = row.get(COL_TITLE, "")
+            doi_link = row.get(COL_DOI_LINK, "")
             download_status = row.get(
                 "下载状态", "未下载"
             )  # 获取下载状态，默认为'未下载'
@@ -41,9 +42,9 @@ def convert_excel_to_markdown(excel_file_path, markdown_file_path):
         return False
 
 
-def convert_all_excel_files(data_directory="references", input_format="auto"):
+def convert_all_excel_files(data_directory=REFERENCES_DIR, input_format="auto"):
     """将data目录下所有表格文件转换为指定格式的Markdown"""
-    os.makedirs("data_md", exist_ok=True)
+    os.makedirs(MARKDOWN_DIR, exist_ok=True)
     input_files = list_table_files(data_directory, input_format)
 
     if not input_files:
@@ -55,7 +56,7 @@ def convert_all_excel_files(data_directory="references", input_format="auto"):
     for input_file in input_files:
         filename = os.path.basename(input_file)
         name, ext = os.path.splitext(filename)
-        markdown_file = os.path.join("data_md", f"{name}.md")
+        markdown_file = os.path.join(MARKDOWN_DIR, f"{name}.md")
         convert_excel_to_markdown(input_file, markdown_file)
 
     print("转换完成!")
@@ -70,7 +71,7 @@ def parse_args():
         help="Choose input files from references/: excel, csv, or auto",
     )
     parser.add_argument(
-        "--data-dir", default="references", help="Directory containing input files"
+        "--data-dir", default=REFERENCES_DIR, help="Directory containing input files"
     )
     return parser.parse_args()
 

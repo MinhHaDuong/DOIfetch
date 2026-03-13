@@ -5,6 +5,13 @@ import warnings
 from tqdm import tqdm
 import urllib3
 
+from config import (
+    COL_DOWNLOAD_STATUS,
+    PAPERS_DIR,
+    REFERENCES_DIR,
+    STATUS_SUCCESS,
+    UNPAYWALL_EMAIL,
+)
 from table_utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
@@ -26,12 +33,11 @@ def read_doi_from_excel(file_path):
         print(f"成功读取Excel文件: {file_path}, 共 {len(df)} 行数据")
 
         # 添加下载状态列（如果不存在）
-        if "Download Status" not in df.columns:
-            df["Download Status"] = ""
+        if COL_DOWNLOAD_STATUS not in df.columns:
+            df[COL_DOWNLOAD_STATUS] = ""
 
         # 遍历每一行，提取DOI
         for index, row in df.iterrows():
-            # 假设DOI在'DOI Link'列中，如果没有这一列，请根据实际情况调整
             doi = row.get("DOI", "")
             if doi:
                 dois.append((doi, index))
@@ -44,14 +50,14 @@ def read_doi_from_excel(file_path):
     return dois, df  # 返回DOI列表和DataFrame
 
 
-def download_papers_from_dois(doi_data, output_dir="papers"):
+def download_papers_from_dois(doi_data, output_dir=PAPERS_DIR):
     """根据DOI列表下载论文PDF并更新Excel状态"""
     os.makedirs(output_dir, exist_ok=True)
 
     # doi_data 是一个元组列表，每个元组包含 (doi, file_path, row_index)
     for doi, file_path, row_index in tqdm(doi_data, desc="下载进度", unit="paper"):
         try:
-            url = f"https://api.unpaywall.org/v2/{doi}?email=email@163.com"
+            url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
             response = requests.get(url).json()
 
             if "best_oa_location" in response and response["best_oa_location"]:
@@ -64,9 +70,9 @@ def download_papers_from_dois(doi_data, output_dir="papers"):
 
                     # 更新Excel文件中的下载状态
                     df = read_table(file_path)
-                    if "Download Status" not in df.columns:
-                        df["Download Status"] = ""
-                    df.at[row_index, "Download Status"] = "111"
+                    if COL_DOWNLOAD_STATUS not in df.columns:
+                        df[COL_DOWNLOAD_STATUS] = ""
+                    df.at[row_index, COL_DOWNLOAD_STATUS] = STATUS_SUCCESS
                     write_table(df, file_path)
                 else:
                     print(f"No PDF found for {doi}")
@@ -87,7 +93,7 @@ def parse_args():
         help="Choose input files from references/: excel, csv, or auto",
     )
     parser.add_argument(
-        "--data-dir", default="references", help="Directory containing input files"
+        "--data-dir", default=REFERENCES_DIR, help="Directory containing input files"
     )
     return parser.parse_args()
 

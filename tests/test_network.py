@@ -7,12 +7,11 @@ Skip with: uv run --group dev pytest -m 'not network'
 import pytest
 import requests
 
+from config import UNPAYWALL_EMAIL
 from conftest import SAMPLE_DOIS
 
 # First DOI is PLOS ONE (open access), most likely to have PDFs available.
 OA_DOI = SAMPLE_DOIS[0][0]  # 10.1371/journal.pone.0001636
-
-UNPAYWALL_EMAIL = "doiharvest@users.noreply.github.com"
 
 
 @pytest.mark.network

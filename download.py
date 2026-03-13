@@ -12,13 +12,21 @@ import requests
 from bs4 import BeautifulSoup
 
 from config import (
-    SCI_HUB_DOMAINS,
+    COL_DOI_LINK,
+    COL_DOWNLOAD_STATUS,
+    COL_TITLE,
+    DOI_URL_BASE,
     HEADERS,
-    MAX_THREADS,
-    RETRY_COUNT,
-    TIMEOUT,
-    MIN_DELAY,
+    LOGS_DIR,
     MAX_DELAY,
+    MAX_THREADS,
+    MIN_DELAY,
+    PAPERS_DIR,
+    REFERENCES_DIR,
+    RETRY_COUNT,
+    SCI_HUB_DOMAINS,
+    STATUS_SUCCESS,
+    TIMEOUT,
 )
 from table_utils import (
     SUPPORTED_INPUT_FORMATS,
@@ -49,13 +57,13 @@ def parse_args():
         help="Choose input files from references/: excel, csv, or auto",
     )
     parser.add_argument(
-        "--data-dir", default="references", help="Directory containing batch input files"
+        "--data-dir", default=REFERENCES_DIR, help="Directory containing batch input files"
     )
     return parser.parse_args()
 
 
-def download_paper(doi, title, output_dir="papers"):
-    doi_link = f"https://doi.org/{doi}" if doi else "No DOI"
+def download_paper(doi, title, output_dir=PAPERS_DIR):
+    doi_link = f"{DOI_URL_BASE}{doi}" if doi else "No DOI"
     safe_title = title if title else f"Unknown_{int(time.time())}"
     file_name = f"{clean_filename(safe_title)}.pdf"
     file_path = os.path.join(output_dir, file_name)
@@ -131,7 +139,7 @@ def load_download_tasks(file_paths):
             dataframe = read_table(file_path)
             for _, row in dataframe.iterrows():
                 doi = row.get("DOI", "")
-                title = row.get("Article Title", f"Unknown_{int(time.time())}")
+                title = row.get(COL_TITLE, f"Unknown_{int(time.time())}")
 
                 if pd.isna(doi) or not str(doi).strip():
                     if pd.isna(title) or not str(title).strip():
@@ -161,19 +169,19 @@ def update_source_files(file_paths, successful_records):
         try:
             dataframe = read_table(file_path)
 
-            if "DOI Link" not in dataframe.columns:
-                dataframe.insert(2, "DOI Link", "")
+            if COL_DOI_LINK not in dataframe.columns:
+                dataframe.insert(2, COL_DOI_LINK, "")
 
-            if "Download Status" not in dataframe.columns:
-                dataframe["Download Status"] = ""
+            if COL_DOWNLOAD_STATUS not in dataframe.columns:
+                dataframe[COL_DOWNLOAD_STATUS] = ""
 
             for title, doi_link in successful_records:
                 if not doi_link or doi_link == "No DOI":
                     continue
 
-                mask = dataframe["Article Title"] == title
-                dataframe.loc[mask, "DOI Link"] = doi_link
-                dataframe.loc[mask, "Download Status"] = 111
+                mask = dataframe[COL_TITLE] == title
+                dataframe.loc[mask, COL_DOI_LINK] = doi_link
+                dataframe.loc[mask, COL_DOWNLOAD_STATUS] = STATUS_SUCCESS
 
             write_table(dataframe, file_path)
             print(f"Updated file: {file_path}")
@@ -184,10 +192,10 @@ def update_source_files(file_paths, successful_records):
 def write_logs(success_log, error_log, failed_dois):
     timestamp = int(time.time())
     with (
-        open(f"logs/success_{timestamp}.log", "w", encoding="utf-8") as success_file,
-        open(f"logs/error_{timestamp}.log", "w", encoding="utf-8") as error_file,
+        open(f"{LOGS_DIR}/success_{timestamp}.log", "w", encoding="utf-8") as success_file,
+        open(f"{LOGS_DIR}/error_{timestamp}.log", "w", encoding="utf-8") as error_file,
         open(
-            "logs/failed_dois.csv", "w", encoding="utf-8", errors="ignore"
+            f"{LOGS_DIR}/failed_dois.csv", "w", encoding="utf-8", errors="ignore"
         ) as failed_file,
     ):
         success_file.writelines(success_log)
@@ -257,8 +265,8 @@ def validate_doi(doi):
 # 主控流程
 def main():
     args = parse_args()
-    os.makedirs("papers", exist_ok=True)
-    os.makedirs("logs", exist_ok=True)
+    os.makedirs(PAPERS_DIR, exist_ok=True)
+    os.makedirs(LOGS_DIR, exist_ok=True)
 
     if args.doi or args.title:
         return handle_single_download(args)

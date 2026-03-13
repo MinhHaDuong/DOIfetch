@@ -2,11 +2,12 @@ import os
 
 import pandas as pd
 
+from config import COL_DOI, COL_TITLE, REFERENCES_DIR
 
 SUPPORTED_INPUT_FORMATS = ("auto", "excel", "csv", "txt")
 
 
-def list_table_files(data_directory="references", input_format="auto"):
+def list_table_files(data_directory=REFERENCES_DIR, input_format="auto"):
     if input_format not in SUPPORTED_INPUT_FORMATS:
         raise ValueError(f"Unsupported input format: {input_format}")
 
@@ -38,14 +39,14 @@ def _read_txt(file_path):
             title = parts[1] if len(parts) > 1 else ""
             if identifier.startswith("doi:"):
                 doi = identifier[len("doi:") :]
-                rows.append({"DOI": doi, "Article Title": title})
+                rows.append({COL_DOI: doi, COL_TITLE: title})
             elif identifier.startswith("url:"):
                 print(f"Skipping URL entry: {title or identifier}")
             elif identifier.startswith("isbn:"):
                 print(f"Skipping ISBN entry: {title or identifier}")
             else:
                 print(f"Skipping unrecognized line: {line}")
-    return pd.DataFrame(rows, columns=["DOI", "Article Title"])
+    return pd.DataFrame(rows, columns=[COL_DOI, COL_TITLE])
 
 
 def read_table(file_path):

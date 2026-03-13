@@ -22,3 +22,22 @@ RETRY_COUNT = 5  # 重试次数
 TIMEOUT = 30  # 超时时间
 MIN_DELAY = 2  # 最小延迟
 MAX_DELAY = 8  # 最大延迟
+
+# Directories
+REFERENCES_DIR = "references"
+PAPERS_DIR = "papers"
+LOGS_DIR = "logs"
+MARKDOWN_DIR = "data_md"
+
+# API
+DOI_URL_BASE = "https://doi.org/"
+UNPAYWALL_EMAIL = "doiharvest@users.noreply.github.com"
+
+# Column names
+COL_DOI = "DOI"
+COL_TITLE = "Article Title"
+COL_DOI_LINK = "DOI Link"
+COL_DOWNLOAD_STATUS = "Download Status"
+
+# Status values
+STATUS_SUCCESS = "success"

@@ -1,5 +1,6 @@
 import argparse
 
+from config import COL_DOI, COL_DOI_LINK, COL_TITLE, DOI_URL_BASE, REFERENCES_DIR
 from table_utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
@@ -13,7 +14,7 @@ def generate_doi_link(doi):
     if doi and str(doi).strip() != "":
         # 清理DOI，移除可能的前缀
         doi = str(doi).strip().replace("doi:", "").replace("DOI:", "")
-        return f"https://doi.org/{doi}"
+        return f"{DOI_URL_BASE}{doi}"
     return "No DOI"
 
 
@@ -23,28 +24,28 @@ def update_excel_doi_column(excel_file_path):
         df = read_table(excel_file_path)
 
         # 确保有DOI列
-        if "DOI" not in df.columns:
+        if COL_DOI not in df.columns:
             print(f"警告: 文件 {excel_file_path} 中没有找到DOI列")
             return False
 
         # 确保有Article Title列
-        if "Article Title" not in df.columns:
+        if COL_TITLE not in df.columns:
             print(f"警告: 文件 {excel_file_path} 中没有找到Article Title列")
             return False
 
         # 确保有DOI Link列（第三列）
         if len(df.columns) < 3:
             # 如果列数少于3列，添加DOI Link列
-            df.insert(2, "DOI Link", "")
-        elif df.columns[2] != "DOI Link":
+            df.insert(2, COL_DOI_LINK, "")
+        elif df.columns[2] != COL_DOI_LINK:
             # 如果第三列不是DOI Link，添加新的DOI Link列
-            df.insert(2, "DOI Link", "")
+            df.insert(2, COL_DOI_LINK, "")
 
         # 为每一行生成DOI链接
         for index, row in df.iterrows():
-            doi = row.get("DOI", "")
+            doi = row.get(COL_DOI, "")
             doi_link = generate_doi_link(doi)
-            df.at[index, "DOI Link"] = doi_link
+            df.at[index, COL_DOI_LINK] = doi_link
 
         write_table(df, excel_file_path)
         print(f"已更新文件: {excel_file_path}")
@@ -55,7 +56,7 @@ def update_excel_doi_column(excel_file_path):
         return False
 
 
-def update_multiple_excel_files(data_directory="references", input_format="auto"):
+def update_multiple_excel_files(data_directory=REFERENCES_DIR, input_format="auto"):
     """批量更新目录下所有表格文件的DOI Link列"""
     excel_files = list_table_files(data_directory, input_format)
 
@@ -83,7 +84,7 @@ def parse_args():
         help="Choose input files from references/: excel, csv, or auto",
     )
     parser.add_argument(
-        "--data-dir", default="references", help="Directory containing input files"
+        "--data-dir", default=REFERENCES_DIR, help="Directory containing input files"
     )
     return parser.parse_args()
 
