@@ -46,11 +46,11 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
 
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
-    safe_doi = doi.replace("/", "_").replace(":", "_")
-    file_name = f"{safe_doi}.pdf"
-    file_path = os.path.join(output_dir, file_name)
+    from pdf_utils import clean_filename, is_valid_pdf
 
-    from pdf_utils import is_valid_pdf
+    safe_title = title if title else f"Unknown_{doi}"
+    file_name = f"{clean_filename(safe_title)}.pdf"
+    file_path = os.path.join(output_dir, file_name)
 
     if os.path.exists(file_path):
         if is_valid_pdf(file_path):

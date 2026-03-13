@@ -6,7 +6,7 @@ import warnings
 
 import urllib3
 
-from config import PAPERS_DIR
+from config import PAPERS_DIR, UNPAYWALL_EMAIL
 
 warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -17,12 +17,12 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
 
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
-    safe_doi = doi.replace("/", "_").replace(":", "_")
-    file_name = f"{safe_doi}.pdf"
-    file_path = os.path.join(output_dir, file_name)
-
     import requests
-    from pdf_utils import is_valid_pdf
+    from pdf_utils import clean_filename, is_valid_pdf
+
+    safe_title = title if title else f"Unknown_{doi}"
+    file_name = f"{clean_filename(safe_title)}.pdf"
+    file_path = os.path.join(output_dir, file_name)
 
     if os.path.exists(file_path):
         if is_valid_pdf(file_path):
@@ -34,16 +34,9 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             }
         else:
             os.remove(file_path)
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "Broken PDF file",
-            }
 
     try:
-        url = f"https://api.unpaywall.org/v2/{doi}?email=your@email.com"
+        url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
         response = requests.get(url, timeout=30)
         if response.status_code != 200:
             return {

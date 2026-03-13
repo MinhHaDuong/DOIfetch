@@ -1,3 +1,12 @@
+import re
+
+
+def clean_filename(title):
+    """Remove illegal filename characters and truncate."""
+    illegal_chars = r'[\\/:*?"<>|]'
+    return re.sub(illegal_chars, "", title)[:120]
+
+
 def is_valid_pdf(file_path):
     """Check if a file is a valid PDF by magic number and minimal size."""
     try:

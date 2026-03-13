@@ -3,7 +3,6 @@
 import argparse
 import os
 import random
-import re
 import time
 from urllib.parse import quote
 
@@ -22,23 +21,17 @@ from config import (
 )
 
 
-def clean_filename(title):
-    """Remove illegal filename characters and truncate."""
-    illegal_chars = r'[\\/:*?"<>|]'
-    return re.sub(illegal_chars, "", title)[:120]
-
-
 def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     """Download a single paper PDF from Sci-Hub.
 
     Returns dict with keys: status, doi, title, file_name, doi_link, error (if failed).
     """
+    from pdf_utils import clean_filename, is_valid_pdf
+
     doi_link = f"{DOI_URL_BASE}{doi}" if doi else "No DOI"
     safe_title = title if title else f"Unknown_{int(time.time())}"
     file_name = f"{clean_filename(safe_title)}.pdf"
     file_path = os.path.join(output_dir, file_name)
-
-    from pdf_utils import is_valid_pdf
 
     if os.path.exists(file_path):
         if is_valid_pdf(file_path):
@@ -54,8 +47,6 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
 
     time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
     last_error = ""
-
-    from pdf_utils import is_valid_pdf
 
     for _ in range(RETRY_COUNT):
         domain = random.choice(SCI_HUB_DOMAINS)
