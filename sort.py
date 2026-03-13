@@ -1,55 +1,61 @@
 import argparse
 import pandas as pd
 
-from table_utils import SUPPORTED_INPUT_FORMATS, list_table_files, read_table, write_table
+from table_utils import (
+    SUPPORTED_INPUT_FORMATS,
+    list_table_files,
+    read_table,
+    write_table,
+)
+
 
 def sort_excel_by_download_status(data_directory="data", input_format="auto"):
     """根据Download Status列对表格文件进行排序，空值排在前面，值为111的排在最后"""
     excel_files = list_table_files(data_directory, input_format)
-    
+
     if not excel_files:
         print("未找到Excel文件")
         return
-    
+
     print(f"找到 {len(excel_files)} 个Excel文件")
-    
+
     # 处理每个Excel文件
     for excel_file in excel_files:
         try:
             df = read_table(excel_file)
-            
+
             # 检查是否存在Download Status列
-            if 'Download Status' not in df.columns:
+            if "Download Status" not in df.columns:
                 print(f"文件 {excel_file} 中没有找到'Download Status'列")
                 continue
-            
+
             # 创建一个排序键列：
             # - 空值或NaN设为0（排在最前面）
             # - 非111的其他值设为1
             # - 111的值设为2（排在最后面）
             def create_sort_key(value):
-                if pd.isna(value) or str(value).strip() == '':
+                if pd.isna(value) or str(value).strip() == "":
                     return 0  # 空值排在最前面
-                elif str(value).strip() in ['111','成功']:
+                elif str(value).strip() in ["111", "成功"]:
                     return 2  # 111排在最后面
                 else:
                     return 1  # 其他值排在中间
-            
+
             # 应用排序键函数
-            df['sort_key'] = df['Download Status'].apply(create_sort_key)
-            
+            df["sort_key"] = df["Download Status"].apply(create_sort_key)
+
             # 根据排序键进行排序
-            df_sorted = df.sort_values('sort_key', ascending=True)
-            
+            df_sorted = df.sort_values("sort_key", ascending=True)
+
             # 删除辅助排序列
-            df_sorted = df_sorted.drop('sort_key', axis=1)
-            
+            df_sorted = df_sorted.drop("sort_key", axis=1)
+
             write_table(df_sorted, excel_file)
             print(f"已排序文件: {excel_file}")
-            
+
         except Exception as e:
             print(f"处理文件 {excel_file} 时出错: {str(e)}")
-    
+
     print("排序完成!")
 
 
@@ -61,12 +67,16 @@ def parse_args():
         default="auto",
         help="Choose input files from data/: excel, csv, or auto",
     )
-    parser.add_argument("--data-dir", default="data", help="Directory containing input files")
+    parser.add_argument(
+        "--data-dir", default="data", help="Directory containing input files"
+    )
     return parser.parse_args()
+
 
 def main():
     arguments = parse_args()
     sort_excel_by_download_status(arguments.data_dir, arguments.input_format)
+
 
 if __name__ == "__main__":
     main()

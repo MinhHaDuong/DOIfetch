@@ -21,7 +21,11 @@ def test_csv_round_trip(tmp_path):
     file_path = tmp_path / "input.csv"
     expected = pd.DataFrame(
         [
-            {"DOI": "10.1000/test", "Article Title": "Example Title", "Download Status": "pending"},
+            {
+                "DOI": "10.1000/test",
+                "Article Title": "Example Title",
+                "Download Status": "pending",
+            },
         ]
     )
 

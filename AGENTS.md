@@ -1,0 +1,4 @@
+- Always uv run, never create a virtual environemnent
+- Always ruff format before commit
+- Commit only ruff check clean code
+- Always update README.md and readmeCH.md in sync.
