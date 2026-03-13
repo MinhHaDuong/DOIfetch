@@ -2,56 +2,56 @@ import argparse
 import pandas as pd
 import os
 
-from config import COL_DOI_LINK, COL_TITLE, MARKDOWN_DIR, REFERENCES_DIR
+from config import COL_DOI_LINK, COL_DOWNLOAD_STATUS, COL_TITLE, MARKDOWN_DIR, REFERENCES_DIR
 from table_utils import SUPPORTED_INPUT_FORMATS, list_table_files, read_table
 
 
 def convert_excel_to_markdown(excel_file_path, markdown_file_path):
-    """将单个Excel文件转换为指定格式的Markdown"""
+    """Convert a single table file to the specified Markdown format."""
     try:
         df = read_table(excel_file_path)
 
-        # 创建新的Markdown内容
+        # Create new Markdown content
         markdown_lines = []
 
-        # 遍历每一行数据
+        # Iterate over each row
         for index, row in df.iterrows():
             title = row.get(COL_TITLE, "")
             doi_link = row.get(COL_DOI_LINK, "")
             download_status = row.get(
-                "下载状态", "未下载"
-            )  # 获取下载状态，默认为'未下载'
+                COL_DOWNLOAD_STATUS, ""
+            )  # Get download status, default to empty string
 
-            # 确保标题和链接都存在
+            # Ensure both title and link are present
             if pd.notna(title) and pd.notna(doi_link) and title and doi_link:
-                # 按照指定格式生成行，包含下载状态
+                # Generate line in the specified format, including download status
                 markdown_line = f"- **{title}** ([link]({doi_link}))-{download_status}"
                 markdown_lines.append(markdown_line)
 
-        # 将所有行连接成一个字符串
+        # Join all lines into a single string
         markdown_content = "\n".join(markdown_lines)
 
-        # 写入Markdown文件
+        # Write to Markdown file
         with open(markdown_file_path, "w", encoding="utf-8") as f:
             f.write(markdown_content)
 
-        print(f"已转换: {excel_file_path} -> {markdown_file_path}")
+        print(f"Converted: {excel_file_path} -> {markdown_file_path}")
         return True
     except Exception as e:
-        print(f"转换失败: {excel_file_path} - {str(e)}")
+        print(f"Conversion failed: {excel_file_path} - {str(e)}")
         return False
 
 
 def convert_all_excel_files(data_directory=REFERENCES_DIR, input_format="auto"):
-    """将data目录下所有表格文件转换为指定格式的Markdown"""
+    """Convert all table files in the data directory to the specified Markdown format."""
     os.makedirs(MARKDOWN_DIR, exist_ok=True)
     input_files = list_table_files(data_directory, input_format)
 
     if not input_files:
-        print("未找到表格文件")
+        print("No table files found")
         return
 
-    print(f"找到 {len(input_files)} 个表格文件")
+    print(f"Found {len(input_files)} table file(s)")
 
     for input_file in input_files:
         filename = os.path.basename(input_file)
@@ -59,7 +59,7 @@ def convert_all_excel_files(data_directory=REFERENCES_DIR, input_format="auto"):
         markdown_file = os.path.join(MARKDOWN_DIR, f"{name}.md")
         convert_excel_to_markdown(input_file, markdown_file)
 
-    print("转换完成!")
+    print("Conversion complete!")
 
 
 def parse_args():

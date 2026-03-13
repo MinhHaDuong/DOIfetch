@@ -10,69 +10,69 @@ from table_utils import (
 
 
 def generate_doi_link(doi):
-    """根据DOI生成论文链接"""
+    """Generate a paper link from a DOI."""
     if doi and str(doi).strip() != "":
-        # 清理DOI，移除可能的前缀
+        # Clean DOI, remove possible prefix
         doi = str(doi).strip().replace("doi:", "").replace("DOI:", "")
         return f"{DOI_URL_BASE}{doi}"
     return "No DOI"
 
 
 def update_excel_doi_column(excel_file_path):
-    """更新单个Excel文件的DOI Link列"""
+    """Update the DOI Link column for a single table file."""
     try:
         df = read_table(excel_file_path)
 
-        # 确保有DOI列
+        # Ensure DOI column exists
         if COL_DOI not in df.columns:
-            print(f"警告: 文件 {excel_file_path} 中没有找到DOI列")
+            print(f"Warning: DOI column not found in {excel_file_path}")
             return False
 
-        # 确保有Article Title列
+        # Ensure Article Title column exists
         if COL_TITLE not in df.columns:
-            print(f"警告: 文件 {excel_file_path} 中没有找到Article Title列")
+            print(f"Warning: Article Title column not found in {excel_file_path}")
             return False
 
-        # 确保有DOI Link列（第三列）
+        # Ensure DOI Link column exists (third column)
         if len(df.columns) < 3:
-            # 如果列数少于3列，添加DOI Link列
+            # If fewer than 3 columns, add DOI Link column
             df.insert(2, COL_DOI_LINK, "")
         elif df.columns[2] != COL_DOI_LINK:
-            # 如果第三列不是DOI Link，添加新的DOI Link列
+            # If third column is not DOI Link, add a new DOI Link column
             df.insert(2, COL_DOI_LINK, "")
 
-        # 为每一行生成DOI链接
+        # Generate DOI link for each row
         for index, row in df.iterrows():
             doi = row.get(COL_DOI, "")
             doi_link = generate_doi_link(doi)
             df.at[index, COL_DOI_LINK] = doi_link
 
         write_table(df, excel_file_path)
-        print(f"已更新文件: {excel_file_path}")
+        print(f"Updated file: {excel_file_path}")
         return True
 
     except Exception as e:
-        print(f"处理文件 {excel_file_path} 时出错: {str(e)}")
+        print(f"Error processing file {excel_file_path}: {str(e)}")
         return False
 
 
 def update_multiple_excel_files(data_directory=REFERENCES_DIR, input_format="auto"):
-    """批量更新目录下所有表格文件的DOI Link列"""
+    """Batch update the DOI Link column for all table files in a directory."""
     excel_files = list_table_files(data_directory, input_format)
 
     if not excel_files:
-        print(f"在目录 {data_directory} 中没有找到Excel文件")
+        print(f"No table files found in directory {data_directory}")
         return
 
-    print(f"找到 {len(excel_files)} 个Excel文件")
+    print(f"Found {len(excel_files)} table file(s)")
 
-    # 处理每个Excel文件
+    # Process each file
     success_count = 0
     for excel_file in excel_files:
         if update_excel_doi_column(excel_file):
             success_count += 1
 
-    print(f"\n处理完成: {success_count}/{len(excel_files)} 个文件成功更新")
+    print(f"\nDone: {success_count}/{len(excel_files)} file(s) successfully updated")
 
 
 def parse_args():

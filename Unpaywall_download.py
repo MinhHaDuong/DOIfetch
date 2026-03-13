@@ -15,47 +15,23 @@ from config import (
 from table_utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
+    read_doi_from_excel,
     read_table,
     write_table,
 )
 
-# 忽略xlwt弃用警告
+# Ignore xlwt deprecation warnings
 warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
-# 禁用SSL警告
+# Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def read_doi_from_excel(file_path):
-    """从Excel文件中读取DOI列表"""
-    dois = []
-    try:
-        df = read_table(file_path)
-        print(f"成功读取Excel文件: {file_path}, 共 {len(df)} 行数据")
-
-        # 添加下载状态列（如果不存在）
-        if COL_DOWNLOAD_STATUS not in df.columns:
-            df[COL_DOWNLOAD_STATUS] = ""
-
-        # 遍历每一行，提取DOI
-        for index, row in df.iterrows():
-            doi = row.get("DOI", "")
-            if doi:
-                dois.append((doi, index))
-
-    except Exception as e:
-        print(f"读取Excel文件 {file_path} 时出错: {str(e)}")
-        return [], None
-
-    print(f"共提取到 {len(dois)} 个DOI")
-    return dois, df  # 返回DOI列表和DataFrame
-
-
 def download_papers_from_dois(doi_data, output_dir=PAPERS_DIR):
-    """根据DOI列表下载论文PDF并更新Excel状态"""
+    """Download paper PDFs from a DOI list and update the table status."""
     os.makedirs(output_dir, exist_ok=True)
 
-    # doi_data 是一个元组列表，每个元组包含 (doi, file_path, row_index)
-    for doi, file_path, row_index in tqdm(doi_data, desc="下载进度", unit="paper"):
+    # doi_data is a list of tuples, each containing (doi, file_path, row_index)
+    for doi, file_path, row_index in tqdm(doi_data, desc="Download progress", unit="paper"):
         try:
             url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
             response = requests.get(url).json()
@@ -68,7 +44,7 @@ def download_papers_from_dois(doi_data, output_dir=PAPERS_DIR):
                         f.write(paper.content)
                     print(f"Downloaded: {doi}")
 
-                    # 更新Excel文件中的下载状态
+                    # Update download status in the table file
                     df = read_table(file_path)
                     if COL_DOWNLOAD_STATUS not in df.columns:
                         df[COL_DOWNLOAD_STATUS] = ""
@@ -106,11 +82,11 @@ def main():
 
     for file_path in input_files:
         dois, df = read_doi_from_excel(file_path)
-        if df is not None:  # 确保DataFrame读取成功
+        if df is not None:  # Ensure the DataFrame was read successfully
             doi_data = [(doi, file_path, row_index) for doi, row_index in dois]
             all_doi_data.extend(doi_data)
 
-    # 下载论文PDF
+    # Download paper PDFs
     download_papers_from_dois(all_doi_data)
 
 

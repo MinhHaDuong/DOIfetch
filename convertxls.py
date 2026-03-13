@@ -3,18 +3,24 @@ import os
 
 from config import REFERENCES_DIR
 
-data_dir = REFERENCES_DIR
-for file_name in os.listdir(data_dir):
-    if file_name.endswith(".xls"):
-        # 读取.xls文件
-        xls_path = os.path.join(data_dir, file_name)
-        df = pd.read_excel(xls_path)
 
-        # 保存为.xlsx文件
-        xlsx_file_name = file_name.replace(".xls", ".xlsx")
-        xlsx_path = os.path.join(data_dir, xlsx_file_name)
-        df.to_excel(xlsx_path, index=False)
+def main():
+    data_dir = REFERENCES_DIR
+    for file_name in os.listdir(data_dir):
+        if file_name.endswith(".xls"):
+            # Read the .xls file
+            xls_path = os.path.join(data_dir, file_name)
+            df = pd.read_excel(xls_path)
 
-        # 删除原始.xls文件（可选）
-        os.remove(xls_path)
-        print(f"Converted {file_name} to {xlsx_file_name}")
+            # Save as .xlsx file
+            xlsx_file_name = file_name.replace(".xls", ".xlsx")
+            xlsx_path = os.path.join(data_dir, xlsx_file_name)
+            df.to_excel(xlsx_path, index=False)
+
+            # Delete the original .xls file
+            os.remove(xls_path)
+            print(f"Converted {file_name} to {xlsx_file_name}")
+
+
+if __name__ == "__main__":
+    main()

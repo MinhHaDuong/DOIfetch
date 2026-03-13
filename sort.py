@@ -11,23 +11,23 @@ from table_utils import (
 
 
 def sort_excel_by_download_status(data_directory=REFERENCES_DIR, input_format="auto"):
-    """根据Download Status列对表格文件进行排序，空值排在前面，值为111的排在最后"""
+    """Sort table files by Download Status column: empty values first, STATUS_SUCCESS last."""
     excel_files = list_table_files(data_directory, input_format)
 
     if not excel_files:
-        print("未找到Excel文件")
+        print("No table files found")
         return
 
-    print(f"找到 {len(excel_files)} 个Excel文件")
+    print(f"Found {len(excel_files)} table file(s)")
 
-    # 处理每个Excel文件
+    # Process each table file
     for excel_file in excel_files:
         try:
             df = read_table(excel_file)
 
-            # 检查是否存在Download Status列
+            # Check whether the Download Status column exists
             if COL_DOWNLOAD_STATUS not in df.columns:
-                print(f"文件 {excel_file} 中没有找到'{COL_DOWNLOAD_STATUS}'列")
+                print(f"File {excel_file} has no '{COL_DOWNLOAD_STATUS}' column")
                 continue
 
             def create_sort_key(value):
@@ -40,19 +40,19 @@ def sort_excel_by_download_status(data_directory=REFERENCES_DIR, input_format="a
 
             df["sort_key"] = df[COL_DOWNLOAD_STATUS].apply(create_sort_key)
 
-            # 根据排序键进行排序
+            # Sort by the sort key
             df_sorted = df.sort_values("sort_key", ascending=True)
 
-            # 删除辅助排序列
+            # Drop the auxiliary sort column
             df_sorted = df_sorted.drop("sort_key", axis=1)
 
             write_table(df_sorted, excel_file)
-            print(f"已排序文件: {excel_file}")
+            print(f"Sorted file: {excel_file}")
 
         except Exception as e:
-            print(f"处理文件 {excel_file} 时出错: {str(e)}")
+            print(f"Error processing file {excel_file}: {str(e)}")
 
-    print("排序完成!")
+    print("Sorting complete!")
 
 
 def parse_args():

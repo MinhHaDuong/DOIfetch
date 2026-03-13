@@ -12,6 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from config import (
+    COL_DOI,
     COL_DOI_LINK,
     COL_DOWNLOAD_STATUS,
     COL_TITLE,
@@ -36,7 +37,7 @@ from table_utils import (
 )
 
 
-# 清理非法文件名字符
+# Remove illegal filename characters
 def clean_filename(title):
     illegal_chars = r'[\\/:*?"<>|]'
     return re.sub(illegal_chars, "", title)[:120]  # Limit filename length
@@ -138,7 +139,7 @@ def load_download_tasks(file_paths):
         try:
             dataframe = read_table(file_path)
             for _, row in dataframe.iterrows():
-                doi = row.get("DOI", "")
+                doi = row.get(COL_DOI, "")
                 title = row.get(COL_TITLE, f"Unknown_{int(time.time())}")
 
                 if pd.isna(doi) or not str(doi).strip():
@@ -228,7 +229,7 @@ def handle_single_download(args):
     return 0
 
 
-# 文献下载核心函数
+# Core paper download worker function
 def download_worker(queue, success_log, successful_records, error_log, failed_dois):
     while not queue.empty():
         doi, title = queue.get()
@@ -251,18 +252,17 @@ def download_worker(queue, success_log, successful_records, error_log, failed_do
 
 
 def validate_doi(doi):
-    """验证DOI格式是否正确"""
+    """Validate whether the DOI format is correct."""
     doi = doi.strip()
     if not doi:
         return False
-    # 移除可能的DOI前缀
+    # Remove possible DOI prefix
     doi = doi.replace("doi:", "").replace("DOI:", "").strip()
-    # 检查基本格式
-    # 当前验证正则表达式
-    return re.match(r"^10\.\d+\/.+$", doi) is not None  # 允许路径中的特殊字符
+    # Check basic format (allow special characters in path)
+    return re.match(r"^10\.\d+\/.+$", doi) is not None
 
 
-# 主控流程
+# Main control flow
 def main():
     args = parse_args()
     os.makedirs(PAPERS_DIR, exist_ok=True)

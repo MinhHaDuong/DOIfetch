@@ -2,7 +2,7 @@ import os
 
 import pandas as pd
 
-from config import COL_DOI, COL_TITLE, REFERENCES_DIR
+from config import COL_DOI, COL_DOWNLOAD_STATUS, COL_TITLE, REFERENCES_DIR
 
 SUPPORTED_INPUT_FORMATS = ("auto", "excel", "csv", "txt")
 
@@ -56,6 +56,35 @@ def read_table(file_path):
     if lower_path.endswith(".csv"):
         return pd.read_csv(file_path)
     return pd.read_excel(file_path)
+
+
+def read_doi_from_excel(file_path):
+    """Read DOI list from a table file.
+
+    Returns (dois_list, dataframe) where dois_list is a list of (doi, row_index) tuples,
+    or ([], None) on error.
+    """
+    dois = []
+    try:
+        df = read_table(file_path)
+        print(f"Successfully read file: {file_path}, {len(df)} rows")
+
+        # Add download status column if missing
+        if COL_DOWNLOAD_STATUS not in df.columns:
+            df[COL_DOWNLOAD_STATUS] = ""
+
+        # Extract DOIs from each row
+        for index, row in df.iterrows():
+            doi = row.get(COL_DOI, "")
+            if doi:
+                dois.append((doi, index))
+
+    except Exception as e:
+        print(f"Error reading file {file_path}: {str(e)}")
+        return [], None
+
+    print(f"Extracted {len(dois)} DOIs")
+    return dois, df
 
 
 def write_table(dataframe, file_path):
