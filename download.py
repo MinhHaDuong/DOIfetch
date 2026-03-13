@@ -89,7 +89,7 @@ def download_paper(doi, title, output_dir="output"):
 
             if not pdf_url or not pdf_url.startswith("http"):
                 last_error = (
-                    f"{doi or safe_title} | 错误: 未找到PDF链接 | 域名: {domain}"
+                    f"{doi or safe_title} | Error: PDF link not found | Domain: {domain}"
                 )
                 continue
 
@@ -109,7 +109,7 @@ def download_paper(doi, title, output_dir="output"):
                 "file_name": file_name,
             }
         except Exception as exc:
-            last_error = f"{doi or safe_title} | 错误: {str(exc)[:50]} | 域名: {domain}"
+            last_error = f"{doi or safe_title} | Error: {str(exc)[:50]} | Domain: {domain}"
 
     return {
         "status": "failed",
@@ -117,7 +117,7 @@ def download_paper(doi, title, output_dir="output"):
         "title": safe_title,
         "doi_link": doi_link,
         "file_name": file_name,
-        "error": last_error or f"{doi or safe_title} | 错误: 未知错误",
+        "error": last_error or f"{doi or safe_title} | Error: Unknown error",
     }
 
 
