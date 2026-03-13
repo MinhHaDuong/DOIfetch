@@ -1,9 +1,12 @@
+import argparse
 import requests
 import os
 import pandas as pd
 import warnings
 from tqdm import tqdm
 import urllib3
+
+from table_utils import SUPPORTED_INPUT_FORMATS, list_table_files, read_table, write_table
 
 # 忽略xlwt弃用警告
 warnings.filterwarnings('ignore', category=FutureWarning, module='pandas')
@@ -14,8 +17,7 @@ def read_doi_from_excel(file_path):
     """从Excel文件中读取DOI列表"""
     dois = []
     try:
-        # 读取Excel文件
-        df = pd.read_excel(file_path)
+        df = read_table(file_path)
         print(f"成功读取Excel文件: {file_path}, 共 {len(df)} 行数据")
         
         # 添加下载状态列（如果不存在）
@@ -85,11 +87,11 @@ def download_papers_from_dois(doi_data, output_dir="papers"):
                     print(f"成功下载: {doi}")
                     
                     # 更新Excel文件中的下载状态
-                    df = pd.read_excel(file_path)
+                    df = read_table(file_path)
                     if 'Download Status' not in df.columns:
                         df['Download Status'] = ''
                     df.at[row_index, 'Download Status'] = '成功'
-                    df.to_excel(file_path, index=False)
+                    write_table(df, file_path)
                 else:
                     print(f"无效的PDF响应: {doi}")
             else:
@@ -97,20 +99,28 @@ def download_papers_from_dois(doi_data, output_dir="papers"):
         except Exception as e:
             print(f"下载 {doi} 时出错: {str(e)}")
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Download open-access papers via Crossref")
+    parser.add_argument(
+        "--input-format",
+        choices=SUPPORTED_INPUT_FORMATS,
+        default="auto",
+        help="Choose input files from data/: excel, csv, or auto",
+    )
+    parser.add_argument("--data-dir", default="data", help="Directory containing input files")
+    return parser.parse_args()
+
 def main():
-    # 获取data文件夹中的所有Excel文件
-    data_dir = 'data'
-    excel_files = [f for f in os.listdir(data_dir) if f.endswith('.xlsx')]
+    args = parse_args()
+    input_files = list_table_files(args.data_dir, args.input_format)
     
     # 用于存储所有DOI数据的列表 (doi, file_path, row_index)
     all_doi_data = []
     
-    # 遍历所有Excel文件，读取DOI
-    for file_name in excel_files:
-        file_path = os.path.join(data_dir, file_name)
+    for file_path in input_files:
         dois, df = read_doi_from_excel(file_path)
         if df is not None:  # 确保DataFrame读取成功
-            # 将DOI数据转换为 (doi, file_path, row_index) 格式
             doi_data = [(doi, file_path, row_index) for doi, row_index in dois]
             all_doi_data.extend(doi_data)
     

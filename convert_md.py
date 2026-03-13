@@ -1,12 +1,13 @@
+import argparse
 import pandas as pd
 import os
-import glob
+
+from table_utils import SUPPORTED_INPUT_FORMATS, list_table_files, read_table
 
 def convert_excel_to_markdown(excel_file_path, markdown_file_path):
     """将单个Excel文件转换为指定格式的Markdown"""
     try:
-        # 读取Excel文件
-        df = pd.read_excel(excel_file_path)
+        df = read_table(excel_file_path)
         
         # 创建新的Markdown内容
         markdown_lines = []
@@ -36,31 +37,37 @@ def convert_excel_to_markdown(excel_file_path, markdown_file_path):
         print(f"转换失败: {excel_file_path} - {str(e)}")
         return False
 
-def convert_all_excel_files():
-    """将data目录下所有Excel文件转换为指定格式的Markdown"""
-    # 确保目标目录存在
+def convert_all_excel_files(data_directory="data", input_format="auto"):
+    """将data目录下所有表格文件转换为指定格式的Markdown"""
     os.makedirs("data_md", exist_ok=True)
+    input_files = list_table_files(data_directory, input_format)
     
-    # 获取所有Excel文件
-    excel_files = glob.glob("data/*.xls") + glob.glob("data/*.xlsx")
-    
-    if not excel_files:
-        print("未找到Excel文件")
+    if not input_files:
+        print("未找到表格文件")
         return
     
-    print(f"找到 {len(excel_files)} 个Excel文件")
+    print(f"找到 {len(input_files)} 个表格文件")
     
-    # 转换每个Excel文件
-    for excel_file in excel_files:
-        # 生成目标Markdown文件路径
-        filename = os.path.basename(excel_file)
+    for input_file in input_files:
+        filename = os.path.basename(input_file)
         name, ext = os.path.splitext(filename)
         markdown_file = os.path.join("data_md", f"{name}.md")
-        
-        # 转换文件
-        convert_excel_to_markdown(excel_file, markdown_file)
+        convert_excel_to_markdown(input_file, markdown_file)
     
     print("转换完成!")
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Convert data files to markdown")
+    parser.add_argument(
+        "--input-format",
+        choices=SUPPORTED_INPUT_FORMATS,
+        default="auto",
+        help="Choose input files from data/: excel, csv, or auto",
+    )
+    parser.add_argument("--data-dir", default="data", help="Directory containing input files")
+    return parser.parse_args()
+
 if __name__ == "__main__":
-    convert_all_excel_files()
+    arguments = parse_args()
+    convert_all_excel_files(arguments.data_dir, arguments.input_format)

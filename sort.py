@@ -1,11 +1,11 @@
+import argparse
 import pandas as pd
-import os
-import glob
 
-def sort_excel_by_download_status():
-    """根据Download Status列对Excel文件进行排序，空值排在前面，值为111的排在最后"""
-    # 获取所有Excel文件
-    excel_files = glob.glob("data/*.xls") + glob.glob("data/*.xlsx")
+from table_utils import SUPPORTED_INPUT_FORMATS, list_table_files, read_table, write_table
+
+def sort_excel_by_download_status(data_directory="data", input_format="auto"):
+    """根据Download Status列对表格文件进行排序，空值排在前面，值为111的排在最后"""
+    excel_files = list_table_files(data_directory, input_format)
     
     if not excel_files:
         print("未找到Excel文件")
@@ -16,8 +16,7 @@ def sort_excel_by_download_status():
     # 处理每个Excel文件
     for excel_file in excel_files:
         try:
-            # 读取Excel文件
-            df = pd.read_excel(excel_file)
+            df = read_table(excel_file)
             
             # 检查是否存在Download Status列
             if 'Download Status' not in df.columns:
@@ -45,8 +44,7 @@ def sort_excel_by_download_status():
             # 删除辅助排序列
             df_sorted = df_sorted.drop('sort_key', axis=1)
             
-            # 保存排序后的数据到原文件
-            df_sorted.to_excel(excel_file, index=False)
+            write_table(df_sorted, excel_file)
             print(f"已排序文件: {excel_file}")
             
         except Exception as e:
@@ -54,8 +52,21 @@ def sort_excel_by_download_status():
     
     print("排序完成!")
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Sort input files by download status")
+    parser.add_argument(
+        "--input-format",
+        choices=SUPPORTED_INPUT_FORMATS,
+        default="auto",
+        help="Choose input files from data/: excel, csv, or auto",
+    )
+    parser.add_argument("--data-dir", default="data", help="Directory containing input files")
+    return parser.parse_args()
+
 def main():
-    sort_excel_by_download_status()
+    arguments = parse_args()
+    sort_excel_by_download_status(arguments.data_dir, arguments.input_format)
 
 if __name__ == "__main__":
     main()

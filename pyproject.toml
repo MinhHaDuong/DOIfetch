@@ -1,0 +1,25 @@
+[project]
+name = "doiharvest"
+version = "0.1.0"
+description = "Batch academic paper downloader for Sci-Hub, Crossref, and Unpaywall"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "beautifulsoup4",
+    "openpyxl",
+    "pandas",
+    "requests",
+    "tqdm",
+    "xlrd",
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.uv]
+package = false

@@ -1,6 +1,8 @@
+import argparse
 import pandas as pd
 import os
-import glob
+
+from table_utils import SUPPORTED_INPUT_FORMATS, list_table_files, read_table, write_table
 
 
 def generate_doi_link(doi):
@@ -15,8 +17,7 @@ def generate_doi_link(doi):
 def update_excel_doi_column(excel_file_path):
     """更新单个Excel文件的DOI Link列"""
     try:
-        # 读取Excel文件
-        df = pd.read_excel(excel_file_path)
+        df = read_table(excel_file_path)
         
         # 确保有DOI列
         if 'DOI' not in df.columns:
@@ -42,8 +43,7 @@ def update_excel_doi_column(excel_file_path):
             doi_link = generate_doi_link(doi)
             df.at[index, 'DOI Link'] = doi_link
         
-        # 保存更新后的文件
-        df.to_excel(excel_file_path, index=False, engine='openpyxl')
+        write_table(df, excel_file_path)
         print(f"已更新文件: {excel_file_path}")
         return True
         
@@ -52,11 +52,9 @@ def update_excel_doi_column(excel_file_path):
         return False
 
 
-def update_multiple_excel_files(data_directory="data"):
-    """批量更新目录下所有Excel文件的DOI Link列"""
-    # 获取所有Excel文件
-    excel_files = glob.glob(os.path.join(data_directory, "*.xls")) + \
-                  glob.glob(os.path.join(data_directory, "*.xlsx"))
+def update_multiple_excel_files(data_directory="data", input_format="auto"):
+    """批量更新目录下所有表格文件的DOI Link列"""
+    excel_files = list_table_files(data_directory, input_format)
     
     if not excel_files:
         print(f"在目录 {data_directory} 中没有找到Excel文件")
@@ -73,6 +71,18 @@ def update_multiple_excel_files(data_directory="data"):
     print(f"\n处理完成: {success_count}/{len(excel_files)} 个文件成功更新")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate DOI links for input files")
+    parser.add_argument(
+        "--input-format",
+        choices=SUPPORTED_INPUT_FORMATS,
+        default="auto",
+        help="Choose input files from data/: excel, csv, or auto",
+    )
+    parser.add_argument("--data-dir", default="data", help="Directory containing input files")
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    # 更新data目录下的所有Excel文件
-    update_multiple_excel_files()
+    arguments = parse_args()
+    update_multiple_excel_files(arguments.data_dir, arguments.input_format)

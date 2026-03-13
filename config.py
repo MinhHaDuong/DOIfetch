@@ -1,6 +1,7 @@
 # Sci-Hub域名池（自动轮询避免封禁）
 SCI_HUB_DOMAINS = [
-    "https://sci-hub.hkvisa.net/",  
+    "https://sci-hub.fr/",
+    "https://sci-hub.hkvisa.net/",
     "https://sci-hub.ru/",
     "https://sci-hub.st/",
     "https://sci-hub.se/",

@@ -1,6 +1,0 @@
-requests
-beautifulsoup4
-pandas
-openpyxl
-xlrd
-tqdm
