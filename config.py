@@ -1,6 +1,8 @@
 import os
 
-# Sci-Hub domain pool (auto-rotated to avoid bans)
+# Sci-Hub domain pool (auto-rotated to avoid bans). Sci-Hub paused new uploads,
+# so this pool serves only the frozen pre-~2021 corpus, but its pages expose the
+# PDF in a freely scrapable iframe — kept as the reliable path for older papers.
 SCI_HUB_DOMAINS = [
     "https://sci-hub.fr/",
     "https://sci-hub.hkvisa.net/",
@@ -12,6 +14,16 @@ SCI_HUB_DOMAINS = [
     "https://sci-hub.ee/",
     "https://sci-hub.shop/",
     "https://sci-hub.la/",
+]
+
+# SciDB (the Sci-Hub database frontend hosted by Anna's Archive) serves the full
+# Sci-Hub corpus PLUS papers added after Sci-Hub froze uploads, reached at
+# {domain}scidb/{doi}. Anna's Archive is anti-bot/membership-gated, so automated
+# retrieval is best-effort; tried after the classic Sci-Hub pool.
+SCIDB_DOMAINS = [
+    "https://annas-archive.se/",
+    "https://annas-archive.org/",
+    "https://annas-archive.gd/",
 ]
 
 # Download parameters

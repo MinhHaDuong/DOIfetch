@@ -2,10 +2,13 @@
 Title: Retarget Sci-Hub fetcher to SciDB (Sci-Hub paused new uploads)
 Created: 2026-07-08
 Author: minh
+Closed: Retargeted fetch_scihub to SciDB (Anna's Archive /scidb/<doi>) as a fallback after the classic Sci-Hub pool; extracted build_query_urls + extract_pdf_url helpers with fixture tests; README documents coverage gain and anti-bot caveat
 
 --- log ---
 2026-07-08T15:50Z minh created
 
+2026-07-08T20:22Z claude note SciDB coverage question resolved: SciDB (Anna's Archive /scidb/<doi>) serves the full Sci-Hub corpus PLUS papers added after Sci-Hub froze uploads (~93M papers vs frozen Sci-Hub). Real coverage gain, not just a URL change. Caveat: Anna's Archive is anti-bot/membership-gated, so automated retrieval is best-effort; classic Sci-Hub domains stay as freely-scrapable fallback for the frozen corpus.
+2026-07-08T20:25Z HDMX-coding-agent closed — Retargeted fetch_scihub to SciDB (Anna's Archive /scidb/<doi>) as a fallback after the classic Sci-Hub pool; extracted build_query_urls + extract_pdf_url helpers with fixture tests; README documents coverage gain and anti-bot caveat
 --- body ---
 ## Context
 Sci-Hub paused new uploads: its corpus is frozen (no DOIs registered after

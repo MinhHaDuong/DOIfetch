@@ -1,4 +1,4 @@
-"""Fetch paper PDFs from Sci-Hub."""
+"""Fetch paper PDFs from Sci-Hub and its SciDB (Anna's Archive) successor."""
 
 import argparse
 import os
@@ -15,14 +15,42 @@ from config import (
     MAX_DELAY,
     MIN_DELAY,
     PAPERS_DIR,
-    RETRY_COUNT,
     SCI_HUB_DOMAINS,
+    SCIDB_DOMAINS,
     TIMEOUT,
 )
 
 
+def build_query_urls(doi, title):
+    """Resolver URLs to try in order, most reliable first.
+
+    With a DOI: classic Sci-Hub pages first (frozen corpus, freely scrapable
+    iframe), then SciDB via Anna's Archive (broader/updated corpus). Without a
+    DOI: fall back to a Sci-Hub title search, which SciDB does not offer.
+    """
+    if doi:
+        scihub = [f"{domain}{doi}" for domain in SCI_HUB_DOMAINS]
+        scidb = [f"{domain}scidb/{doi}" for domain in SCIDB_DOMAINS]
+        return scihub + scidb
+    return [f"{domain}?s={quote(title)}" for domain in SCI_HUB_DOMAINS]
+
+
+def extract_pdf_url(content):
+    """Return the embedded PDF URL from a Sci-Hub/SciDB viewer page, or None."""
+    soup = BeautifulSoup(content, "html.parser")
+    node = soup.find("iframe") or soup.find("embed")
+    if not node:
+        return None
+    src = node.get("src")
+    if not src:
+        return None
+    if src.startswith("//"):  # protocol-relative src, common on Sci-Hub
+        src = "https:" + src
+    return src if src.startswith("http") else None
+
+
 def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
-    """Download a single paper PDF from Sci-Hub.
+    """Download a single paper PDF from Sci-Hub, then SciDB (Anna's Archive).
 
     Returns dict with keys: status, doi, title, file_name, doi_link, error (if failed).
     """
@@ -48,23 +76,13 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
     last_error = ""
 
-    for _ in range(RETRY_COUNT):
-        domain = random.choice(SCI_HUB_DOMAINS)
+    for query_url in build_query_urls(doi, safe_title):
         try:
-            if doi:
-                response = requests.get(
-                    f"{domain}{doi}", headers=HEADERS, timeout=TIMEOUT
-                )
-            else:
-                search_url = f"{domain}?s={quote(safe_title)}"
-                response = requests.get(search_url, headers=HEADERS, timeout=TIMEOUT)
+            response = requests.get(query_url, headers=HEADERS, timeout=TIMEOUT)
+            pdf_url = extract_pdf_url(response.content)
 
-            soup = BeautifulSoup(response.content, "html.parser")
-            iframe = soup.find("iframe") or soup.find("embed")
-            pdf_url = iframe["src"] if iframe else None
-
-            if not pdf_url or not pdf_url.startswith("http"):
-                last_error = f"{doi or safe_title} | Error: PDF link not found | Domain: {domain}"
+            if not pdf_url:
+                last_error = f"{doi or safe_title} | Error: PDF link not found | URL: {query_url}"
                 continue
 
             pdf_response = requests.get(
@@ -78,7 +96,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             if not is_valid_pdf(file_path):
                 os.remove(file_path)
                 last_error = (
-                    f"{doi or safe_title} | Error: Broken PDF file | Domain: {domain}"
+                    f"{doi or safe_title} | Error: Broken PDF file | URL: {query_url}"
                 )
                 continue
 
@@ -91,7 +109,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             }
         except Exception as exc:
             last_error = (
-                f"{doi or safe_title} | Error: {str(exc)[:50]} | Domain: {domain}"
+                f"{doi or safe_title} | Error: {str(exc)[:50]} | URL: {query_url}"
             )
 
     return {
@@ -105,7 +123,9 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download a paper PDF from Sci-Hub")
+    parser = argparse.ArgumentParser(
+        description="Download a paper PDF from Sci-Hub / SciDB (Anna's Archive)"
+    )
     parser.add_argument("--doi", help="DOI of the paper")
     parser.add_argument("--title", help="Title of the paper")
     parser.add_argument("--output-dir", default=PAPERS_DIR, help="Output directory")
