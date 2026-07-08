@@ -4,7 +4,8 @@ ISTEX (https://www.istex.fr) hosts the full text of publisher back-catalogues
 licensed nationally for French higher education and research. Fulltext download
 requires a personal access token: generate one at https://api.istex.fr/token/
 (you are redirected to your institution's identity federation, e.g. Janus for
-CNRS) and expose it in the ISTEX_ACCESSTOKEN environment variable.
+CNRS). Provide it either in the ISTEX_ACCESSTOKEN environment variable or as an
+ISTEX_ACCESSTOKEN=... line in ~/.config/keys/istex.env (no export needed).
 
 Resolution is by DOI: the search API maps the DOI to an ISTEX document id, then
 the fulltext endpoint returns the PDF under a Bearer-token Authorization header.
@@ -18,13 +19,31 @@ import requests
 from config import PAPERS_DIR, TIMEOUT
 
 TOKEN_ENV = "ISTEX_ACCESSTOKEN"
+TOKEN_FILE = os.path.expanduser("~/.config/keys/istex.env")
 ISTEX_SEARCH_URL = "https://api.istex.fr/document/"
 ISTEX_FULLTEXT_URL = "https://api.istex.fr/document/{id}/fulltext/pdf"
 
 
+def _token_from_file(path):
+    """Return the ISTEX token from an unexported KEY=VALUE env file, or ''."""
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except OSError:
+        return ""
+    for line in lines:
+        line = line.strip()
+        if line.startswith("export "):
+            line = line[len("export ") :]
+        key, sep, value = line.partition("=")
+        if sep and key.strip() == TOKEN_ENV:
+            return value.strip().strip("\"'")
+    return ""
+
+
 def _get_token():
-    """Read the personal ISTEX access token from the environment."""
-    return os.environ.get(TOKEN_ENV, "").strip()
+    """Read the ISTEX access token from the environment, else ~/.config/keys."""
+    return os.environ.get(TOKEN_ENV, "").strip() or _token_from_file(TOKEN_FILE)
 
 
 def _resolve_istex_id(doi):

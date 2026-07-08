@@ -26,11 +26,29 @@ def _dispatch(search_resp, fulltext_resp):
     return fake_get
 
 
-def test_missing_token_fails(monkeypatch):
+def test_missing_token_fails(monkeypatch, tmp_path):
     monkeypatch.delenv("ISTEX_ACCESSTOKEN", raising=False)
+    monkeypatch.setattr(fetch_istex, "TOKEN_FILE", str(tmp_path / "absent.env"))
     result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir="/tmp")
     assert result["status"] == "failed"
     assert "ISTEX_ACCESSTOKEN" in result["error"]
+
+
+def test_token_read_from_file(monkeypatch, tmp_path):
+    monkeypatch.delenv("ISTEX_ACCESSTOKEN", raising=False)
+    key_file = tmp_path / "istex.env"
+    key_file.write_text("ISTEX_ACCESSTOKEN=filetoken\n")
+    monkeypatch.setattr(fetch_istex, "TOKEN_FILE", str(key_file))
+    monkeypatch.setattr(
+        fetch_istex.requests,
+        "get",
+        _dispatch(
+            _FakeResp(json_data={"hits": [{"id": "ABC123"}]}),
+            _FakeResp(content=VALID_PDF),
+        ),
+    )
+    result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
+    assert result["status"] == "success"
 
 
 def test_doi_not_in_istex_fails(monkeypatch):
