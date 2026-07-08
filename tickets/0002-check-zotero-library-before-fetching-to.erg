@@ -44,19 +44,25 @@ already owns.
   status so logs/summaries need no change) with a reason distinguishing
   "already in Zotero" from "already in papers/". Optionally record the Zotero
   attachment path.
-- **Opt-in**: gate behind config (e.g. `ZOTERO_DB_PATH` set / `--check-zotero`
-  flag) so users without Zotero are unaffected.
+- **Auto-enable on detection**: the check is ON by default whenever a Zotero
+  DB can be located. Probe the standard Zotero data-dir locations
+  (`~/Zotero/zotero.sqlite`, `~/.zotero/...`, respecting `ZOTERO_DATA_DIR` /
+  the OS-specific default) plus an optional `ZOTERO_DB_PATH` override. If a DB
+  is found, dedup against it; if none is found, silently skip the check (no
+  error, current behavior). Provide `--no-check-zotero` to force it off.
 - Cross-check the existing `zotero-import` skill (PDF -> Zotero direction) for
   any reusable DB-access code before writing new SQLite queries.
 
 ## Actions
-1. Add Zotero config to `config.py` (DB path or API creds; disabled by default).
+1. Add Zotero config to `config.py`: standard-location probe list, optional
+   `ZOTERO_DB_PATH` override. Auto-enabled when a DB is found; no enable flag.
 2. Implement `zotero_lookup(doi, title) -> dict | None` in `utils.py`:
    query the Zotero SQLite DB for a matching item; return item metadata (incl.
    any attachment path) on hit, `None` on miss.
 3. Wire a pre-fetch check into `fetch.py::_fetch_one` (and the single-download
    path) so a Zotero hit short-circuits to `"skipped"` before any source runs.
-4. Add a `--check-zotero` CLI flag (and/or config enable) in `parse_args`.
+4. Add a `--no-check-zotero` CLI flag in `parse_args` to force the check off;
+   default (flag absent) auto-enables when a DB is detected.
 5. Document the feature in `README.md` (English only).
 
 ## Test
@@ -71,16 +77,20 @@ already owns.
 - [ ] `zotero_lookup` returns hit by DOI, miss otherwise, against a fixture DB.
 - [ ] `_fetch_one` short-circuits to `"skipped"` on a Zotero hit; no source is
       invoked.
-- [ ] Feature is opt-in: with Zotero disabled, behavior is byte-for-byte the
-      current behavior.
+- [ ] Auto-enable: with a DB present, dedup runs with no flag; with no DB
+      found (and no override), behavior is byte-for-byte the current behavior.
+- [ ] `--no-check-zotero` forces the check off even when a DB is present.
 - [ ] Read-only DB access does not corrupt or lock a live Zotero DB.
 
 ## Invariants
 - Existing `PAPERS_DIR` filesystem skip logic keeps working unchanged.
-- No new hard dependency for users who do not enable Zotero.
+- No new hard dependency: when no Zotero DB is found the fetch path is
+  unchanged, and DB access must never raise into the fetch loop (a broken or
+  locked DB degrades to "no hit", not an error).
 - `make check` (or the project's test command) passes; ruff check + format clean.
 
 ## Exit criteria
 - With Zotero enabled and a DOI present in the library, DOIfetch skips the
   fetch and logs it as skipped-via-Zotero, invoking no download source.
-- Opt-out path is default and preserves current behavior.
+- Check is auto-enabled on detection; `--no-check-zotero` and the no-DB case
+  both preserve current behavior.
