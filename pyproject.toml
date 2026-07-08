@@ -20,6 +20,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = [
     "network: tests that make real HTTP requests (deselect with -m 'not network')",
 ]
