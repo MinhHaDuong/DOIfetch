@@ -17,6 +17,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 - Supports multi-threaded downloading to improve efficiency
 - Supports retry mechanisms and random delays to avoid being blocked
 - Automatically updates download status in the original input files
+- Skips papers already in your local Zotero library (auto-enabled when a Zotero database is found)
 - Unified fetcher interface: each source exposes the same `fetch_pdf()` convention
 
 ## File Descriptions
@@ -31,6 +32,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 - `fetch_url.py`: Direct URL fetcher
 - `config.py`: Configuration file containing domain pools, download parameters, and shared constants
 - `utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT) and DOI validation
+- `zotero.py`: Local Zotero-library lookup — locates the database and reports whether a paper is already held
 - `pyproject.toml`: Project metadata and dependencies for `uv`
 
 ## Configuration Instructions
@@ -58,6 +60,27 @@ export ISTEX_ACCESSTOKEN=<your token>
 Keep the token in a file outside the repository and `export` it (a plain
 `source` of a file without `export` sets a shell variable the child process
 cannot see). The token is strictly personal — never commit or share it.
+
+### Zotero library dedup
+
+Before downloading, DOIfetch checks your local Zotero library and skips any
+paper already held, so you never refetch what you own. The check runs
+automatically whenever a Zotero database is found; matching is by DOI first
+(case-insensitive), falling back to a near-exact title match when the DOI is
+absent.
+
+The database is located in this order: `$ZOTERO_DB_PATH`, then
+`$ZOTERO_DATA_DIR/zotero.sqlite`, then the standard Zotero data directories,
+then any `dataDir` declared in a `profiles.ini`. Point `ZOTERO_DB_PATH` at your
+`zotero.sqlite` if it lives elsewhere:
+
+```
+export ZOTERO_DB_PATH=/path/to/zotero.sqlite
+```
+
+Reads are read-only (`immutable=1`), so the check is safe while Zotero is
+running. When no database is found the check is silently skipped. Pass
+`--no-check-zotero` to turn it off.
 
 ## Directory Structure
 

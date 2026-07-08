@@ -1,3 +1,5 @@
+import os
+
 # Sci-Hub domain pool (auto-rotated to avoid bans)
 SCI_HUB_DOMAINS = [
     "https://sci-hub.fr/",
@@ -26,6 +28,10 @@ MAX_DELAY = 8  # maximum delay
 REFERENCES_DIR = "references"
 PAPERS_DIR = "papers"
 LOGS_DIR = "logs"
+
+# Zotero (optional local-library dedup; auto-enabled when a DB is found)
+# Explicit DB path override; when unset, zotero.find_zotero_db() auto-detects.
+ZOTERO_DB_PATH = os.environ.get("ZOTERO_DB_PATH")
 
 # API
 DOI_URL_BASE = "https://doi.org/"
