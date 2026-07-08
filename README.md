@@ -162,6 +162,7 @@ Major changes from the original:
 - Centralized shared constants into `config.py`
 - Added CSV and TXT input support with automatic format detection
 - Added HAL open archive fetcher (search by author + title)
+- Added ISTEX licensed-archive fetcher (resolve DOI to fulltext)
 - Added Library Genesis fetcher (search by ISBN)
 - Added direct URL fetcher
 - Added a test suite using pytest
