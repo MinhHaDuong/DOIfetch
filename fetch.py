@@ -62,6 +62,7 @@ def parse_args():
         description="Batch-fetch paper PDFs from Sci-Hub, Crossref, and/or Unpaywall"
     )
     parser.add_argument("--doi", help="Download a single paper by DOI")
+    parser.add_argument("--isbn", help="Download a single book by ISBN (via Libgen)")
     parser.add_argument("--title", help="Title for a single-paper download")
     parser.add_argument(
         "--source",
@@ -276,8 +277,10 @@ def fetch_worker(
 
 
 def handle_single_download(args):
-    """Handle --doi/--title single-paper mode."""
-    if args.doi:
+    """Handle --doi/--isbn/--title single-item mode."""
+    if getattr(args, "isbn", None):
+        doi = f"isbn:{str(args.isbn).strip()}"
+    elif args.doi:
         doi = str(args.doi).strip()
         if not validate_doi(doi):
             raise ValueError(f"Invalid DOI format: {args.doi}")
@@ -306,7 +309,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
 
-    if args.doi or args.title:
+    if args.doi or args.isbn or args.title:
         return handle_single_download(args)
 
     success_log = []

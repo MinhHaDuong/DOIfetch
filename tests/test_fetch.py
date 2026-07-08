@@ -52,3 +52,35 @@ def test_handle_single_download_rejects_invalid_doi():
 
     with pytest.raises(ValueError):
         fetch.handle_single_download(args)
+
+
+def test_parse_args_supports_isbn(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["fetch.py", "--isbn", "9780262033848"])
+
+    args = fetch.parse_args()
+
+    assert args.isbn == "9780262033848"
+
+
+def test_handle_single_download_routes_isbn_to_libgen(monkeypatch, tmp_path):
+    captured = {}
+
+    def fake_libgen(doi, title, output_dir):
+        captured["doi"] = doi
+        return {"status": "success", "doi": doi, "title": title, "file_name": "b.pdf"}
+
+    monkeypatch.setattr(fetch.fetch_libgen, "fetch_pdf", fake_libgen)
+
+    args = SimpleNamespace(
+        doi=None,
+        isbn="9780262033848",
+        title="Some Book",
+        source="libgen",
+        output_dir=str(tmp_path),
+        no_check_zotero=True,
+    )
+
+    rc = fetch.handle_single_download(args)
+
+    assert rc == 0
+    assert captured["doi"] == "isbn:9780262033848"
