@@ -27,6 +27,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 - `fetch_unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
 - `fetch_hal.py`: HAL open-archive fetcher — searches by author surname and title
 - `fetch_istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
+- `fetch_ezproxy.py`: EZproxy fetcher — institutional-subscription access (e.g. BibCNRS). Rewrites the publisher host into your institution's EZproxy form and downloads with your session cookies. The scriptable equivalent of a "Click & Read" button. Requires `EZPROXY_BASE` + `EZPROXY_COOKIES` (a cookies.txt exported after logging into the proxy); federated SSO cannot be scripted blind, so a live session is needed.
 - `fetch_libgen.py`: Library Genesis fetcher — downloads books by ISBN
 - `fetch_scihub.py`: Sci-Hub / SciDB fetcher — tries the frozen Sci-Hub corpus, then SciDB via Anna's Archive (may require proxy or VPN)
 - `fetch_url.py`: Direct URL fetcher

@@ -12,6 +12,7 @@ from queue import Queue
 import pandas as pd
 
 import fetch_crossref
+import fetch_ezproxy
 import fetch_hal
 import fetch_istex
 import fetch_libgen
@@ -47,14 +48,17 @@ SOURCES = {
     "unpaywall": fetch_unpaywall,
     "hal": fetch_hal,
     "istex": fetch_istex,
+    "ezproxy": fetch_ezproxy,
     "libgen": fetch_libgen,
     "url": fetch_url,
 }
 
 # When --source all, try sources in this order until one succeeds.
-# ISTEX (licensed national archive) precedes Sci-Hub: prefer a legitimate
-# source over the shadow library as last resort.
-SOURCE_ORDER = ["crossref", "unpaywall", "hal", "istex", "scihub"]
+# ISTEX (licensed national archive) and EZproxy (institutional subscription)
+# precede Sci-Hub: prefer legitimate access over the shadow library as last
+# resort. EZproxy only runs when EZPROXY_BASE + EZPROXY_COOKIES are configured;
+# otherwise it fails fast and the chain moves on.
+SOURCE_ORDER = ["crossref", "unpaywall", "hal", "istex", "ezproxy", "scihub"]
 
 
 def parse_args():
@@ -72,6 +76,7 @@ def parse_args():
             "unpaywall",
             "hal",
             "istex",
+            "ezproxy",
             "libgen",
             "url",
             "all",
