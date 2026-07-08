@@ -1,0 +1,6 @@
+# erg provenance manifest -- do not edit
+rev: 5158508
+date: 2026-06-18T09:23:57Z
+assets:
+  .ergrc sha256:6cbbb63eea88fffb5901ea294229beed296260c97fb507e25d947eba80aaa69a
+  AGENTS.md sha256:beda994b2c3752dff63e32d64dd02467ce65b8c6494169c06bd201417aaecb9e
