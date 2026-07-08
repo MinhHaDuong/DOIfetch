@@ -1,0 +1,86 @@
+%erg 0.1
+Title: Check Zotero library before fetching to avoid re-download
+Created: 2026-07-08
+Author: claude
+
+--- log ---
+2026-07-08T20:06Z claude created
+
+--- body ---
+## Context
+DOIfetch has no knowledge of the user's Zotero library. The only dedup today
+is a filesystem check in each fetcher: build a filename from the paper *title*
+(`clean_filename(title).pdf`), and if that exact file already exists in
+`PAPERS_DIR` and is a valid PDF, return `"skipped"`. Consequences:
+
+- A paper already in Zotero (but not sitting in `PAPERS_DIR`) is refetched.
+- The skip check keys on the cleaned *title*, not the DOI, so any title-string
+  mismatch defeats it even for papers DOIfetch itself downloaded.
+
+For robust use against an existing reference library, DOIfetch should consult
+Zotero first and skip papers already held, keyed on DOI (with title as
+fallback). This avoids hammering Sci-Hub/ISTEX/etc. for documents the user
+already owns.
+
+## Relevant files
+- `fetch.py` — orchestrator; `_fetch_one()` (line ~185) is the natural place
+  for a pre-fetch library check, ahead of the source loop.
+- `fetch_crossref.py:67`, `fetch_istex.py:70`, `fetch_hal.py:72`,
+  `fetch_scihub.py:36`, `fetch_unpaywall.py:27`, `fetch_url.py:22`,
+  `fetch_libgen.py:121` — the current per-source `os.path.exists` skip logic
+  (pattern to mirror; returns `status: "skipped"`).
+- `config.py` — add Zotero config (DB path / API creds, enable flag).
+- `utils.py` — home for a `zotero_lookup(doi, title)` helper.
+
+## Design notes / decisions to make
+- **Data source**: local Zotero SQLite DB (`zotero.sqlite`, read-only, no
+  network, must handle Zotero's DB lock while the app is open — open with
+  `?immutable=1` or copy) vs. the Zotero Web API (needs API key + library ID,
+  works remotely). Recommend local SQLite first, API as optional fallback.
+- **Match key**: DOI is authoritative (Zotero stores it in `itemDataValues`
+  via the `DOI` field). Fall back to normalized title match only when DOI is
+  absent.
+- **Behavior on hit**: return a new `"skipped"` result (reuse the existing
+  status so logs/summaries need no change) with a reason distinguishing
+  "already in Zotero" from "already in papers/". Optionally record the Zotero
+  attachment path.
+- **Opt-in**: gate behind config (e.g. `ZOTERO_DB_PATH` set / `--check-zotero`
+  flag) so users without Zotero are unaffected.
+- Cross-check the existing `zotero-import` skill (PDF -> Zotero direction) for
+  any reusable DB-access code before writing new SQLite queries.
+
+## Actions
+1. Add Zotero config to `config.py` (DB path or API creds; disabled by default).
+2. Implement `zotero_lookup(doi, title) -> dict | None` in `utils.py`:
+   query the Zotero SQLite DB for a matching item; return item metadata (incl.
+   any attachment path) on hit, `None` on miss.
+3. Wire a pre-fetch check into `fetch.py::_fetch_one` (and the single-download
+   path) so a Zotero hit short-circuits to `"skipped"` before any source runs.
+4. Add a `--check-zotero` CLI flag (and/or config enable) in `parse_args`.
+5. Document the feature in `README.md` (English only).
+
+## Test
+- Write `tests/test_zotero_lookup.py` first (TDD red step): build a tiny
+  temporary SQLite DB with Zotero's schema subset (itemData / itemDataValues /
+  fields for DOI + title), assert `zotero_lookup` returns a hit for a present
+  DOI and `None` for an absent one. Mark network-free (unit).
+- Add a `fetch._fetch_one` test asserting a stubbed Zotero hit yields
+  `status == "skipped"` without calling any source module.
+
+## Verification
+- [ ] `zotero_lookup` returns hit by DOI, miss otherwise, against a fixture DB.
+- [ ] `_fetch_one` short-circuits to `"skipped"` on a Zotero hit; no source is
+      invoked.
+- [ ] Feature is opt-in: with Zotero disabled, behavior is byte-for-byte the
+      current behavior.
+- [ ] Read-only DB access does not corrupt or lock a live Zotero DB.
+
+## Invariants
+- Existing `PAPERS_DIR` filesystem skip logic keeps working unchanged.
+- No new hard dependency for users who do not enable Zotero.
+- `make check` (or the project's test command) passes; ruff check + format clean.
+
+## Exit criteria
+- With Zotero enabled and a DOI present in the library, DOIfetch skips the
+  fetch and logs it as skipped-via-Zotero, invoking no download source.
+- Opt-out path is default and preserves current behavior.
