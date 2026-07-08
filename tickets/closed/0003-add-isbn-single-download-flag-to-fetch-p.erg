@@ -1,0 +1,46 @@
+%erg 0.1
+Title: Add --isbn single-download flag to fetch.py orchestrator
+Created: 2026-07-08
+Author: HDMX-coding-agent
+Closed: Implemented in PR #6: --isbn single-download flag
+
+--- log ---
+2026-07-08T20:24Z HDMX-coding-agent created
+
+2026-07-08T20:35Z HDMX-coding-agent closed — Implemented in PR #6: --isbn single-download flag
+--- body ---
+## Context
+The orchestrator dispatches by identifier prefix: `_fetch_one` routes
+`isbn:...` values to the Libgen fetcher, and batch mode (`load_download_tasks`)
+already accepts an `isbn:` prefix in the DOI column. But the single-download
+convenience path (`fetch.py --doi`) runs `validate_doi`, which rejects an ISBN.
+So a single book can only be fetched by invoking `fetch_libgen.py --isbn`
+directly — the orchestrator has no `--isbn` entry point. Close that gap so
+single-book fetches go through the same pipeline (Zotero dedup, logging) as DOIs.
+
+## Relevant files
+- `fetch.py` — `parse_args` (add `--isbn`), `handle_single_download` (route ISBN
+  without `validate_doi`), `main` (trigger single mode on `--isbn`).
+- `tests/test_fetch.py` — new test for the ISBN single-download route.
+
+## Actions
+1. Add `--isbn` to the orchestrator ArgumentParser.
+2. In `handle_single_download`, when `--isbn` is given, build `isbn:<value>` and
+   route through `_fetch_one` without calling `validate_doi`.
+3. Trigger single-download mode when `--isbn` is present (alongside `--doi`/`--title`).
+
+## Test
+- `handle_single_download` with `--isbn 9780262…` dispatches to `fetch_libgen`
+  (monkeypatched) and returns its result — asserted red-first.
+
+## Verification
+- [ ] `python fetch.py --isbn <isbn> --source libgen` fetches one book.
+- [ ] `--doi` path unchanged; `validate_doi` still rejects malformed DOIs.
+
+## Invariants
+- Batch dispatch and the DOI single path keep their current behavior.
+- `make check` (or repo test suite) passes; ruff clean.
+
+## Exit criteria
+- `fetch.py --isbn` fetches a single book through the Libgen route.
+- Test covers the new route; existing tests still pass.

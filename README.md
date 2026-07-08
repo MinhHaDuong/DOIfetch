@@ -131,6 +131,10 @@ uv run python fetch.py --help
    ```
    uv run fetch.py --doi 10.1000/example --title "Example Paper"
    ```
+   To download a single book by ISBN (routed to Libgen):
+   ```
+   uv run fetch.py --isbn 9780674009691 --title "Author 1998 - Book Title"
+   ```
    Individual fetchers also work standalone:
    ```
    uv run fetch_crossref.py --doi 10.1000/example
