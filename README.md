@@ -28,7 +28,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 - `fetch_hal.py`: HAL open-archive fetcher — searches by author surname and title
 - `fetch_istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
 - `fetch_libgen.py`: Library Genesis fetcher — downloads books by ISBN
-- `fetch_scihub.py`: Sci-Hub fetcher (may require proxy or VPN)
+- `fetch_scihub.py`: Sci-Hub / SciDB fetcher — tries the frozen Sci-Hub corpus, then SciDB via Anna's Archive (may require proxy or VPN)
 - `fetch_url.py`: Direct URL fetcher
 - `config.py`: Configuration file containing domain pools, download parameters, and shared constants
 - `utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT) and DOI validation
@@ -40,6 +40,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 The following parameters can be adjusted in `config.py`:
 
 - `SCI_HUB_DOMAINS`: Sci-Hub domain pool for rotation to avoid blocking
+- `SCIDB_DOMAINS`: Anna's Archive SciDB mirrors (tried after Sci-Hub)
 - `MAX_THREADS`: Number of concurrent download threads
 - `RETRY_COUNT`: Number of retries for download failures
 - `TIMEOUT`: Request timeout duration
@@ -95,7 +96,7 @@ running. When no database is found the check is silently skipped. Pass
 ├── fetch_hal.py          # HAL open-archive fetcher
 ├── fetch_istex.py        # ISTEX licensed-archive fetcher
 ├── fetch_libgen.py       # Library Genesis fetcher
-├── fetch_scihub.py       # Sci-Hub fetcher
+├── fetch_scihub.py       # Sci-Hub / SciDB fetcher
 ├── fetch_url.py          # Direct URL fetcher
 ├── config.py             # Configuration file and shared constants
 ├── utils.py              # Shared table I/O dispatch and DOI validation
@@ -150,6 +151,21 @@ uv run python fetch.py --help
    All three entry types are processed: `doi:` goes through the source cascade,
    `url:` is fetched directly, and `isbn:` is fetched from Library Genesis.
 5. Download status is automatically updated in the original input file.
+
+## Sci-Hub and SciDB access
+
+Sci-Hub paused new uploads, so its corpus is frozen at papers registered up to
+roughly 2021. SciDB, the Sci-Hub database frontend hosted by Anna's Archive,
+serves that full collection plus papers added since, reached at
+`{domain}scidb/{doi}`. The `scihub` source therefore tries the classic Sci-Hub
+domains first — their pages expose the PDF in a freely scrapable iframe — and
+falls back to SciDB for papers outside the frozen corpus.
+
+Anna's Archive is anti-bot and membership-gated, so automated SciDB retrieval is
+best-effort: some papers resolve only through slow downloads or a browser. When
+SciDB does not serve the PDF directly, the fetch fails gracefully and the paper
+stays in the failed-DOI list for manual retrieval. Sci-Hub/SciDB remains the
+last source in the cascade, after Crossref, Unpaywall, HAL, and ISTEX.
 
 ## Library Genesis access
 
