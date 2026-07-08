@@ -1,0 +1,53 @@
+%erg 0.1
+Title: Retarget Sci-Hub fetcher to SciDB (Sci-Hub paused new uploads)
+Created: 2026-07-08
+Author: minh
+
+--- log ---
+2026-07-08T15:50Z minh created
+
+--- body ---
+## Context
+Sci-Hub paused new uploads: its corpus is frozen (no DOIs registered after
+~2021, pending litigation), so `fetch_scihub.py` cannot retrieve recent papers.
+SciDB (the Sci-Hub database frontend, e.g. `sci-hub.se/scidb` / `annas-archive`
+SciDB mirror) is the successor access point the project should target.
+
+Open question to resolve first: does SciDB serve a broader/updated corpus than
+the classic Sci-Hub page, or only change the URL and delivery scheme over the
+same frozen corpus? The fix's value depends on the answer — verify before coding.
+
+## Relevant files
+- `fetch_scihub.py` — resolver: builds `{domain}{doi}`, scrapes an `<iframe>`/
+  `<embed>` src for the PDF URL, downloads and validates. Delivery mechanism is
+  already iframe-based, so SciDB may need only a domain/path change.
+- `config.py` — `SCI_HUB_DOMAINS` pool (retarget candidates), `HEADERS`,
+  delays, `RETRY_COUNT`.
+- `README.md` — Sci-Hub source description and standalone-usage example.
+
+## Actions
+1. Confirm the current SciDB access point(s) and whether coverage differs from
+   the frozen Sci-Hub corpus. Record the finding in the ticket log.
+2. Update the resolver (domain pool and/or URL/path scheme) to hit SciDB.
+3. If coverage is unchanged, document the limitation instead of implying new
+   reach; keep Sci-Hub/SciDB as the last-resort shadow source in the cascade.
+
+## Test
+- Add a unit test for the SciDB URL construction and iframe/src extraction
+  against a saved fixture page (no live network) — mirrors the pattern in
+  `tests/test_fetch_istex.py`.
+
+## Verification
+- [ ] A known DOI resolves via the SciDB path in a manual run.
+- [ ] README Sci-Hub section reflects the SciDB reality and any coverage caveat.
+- [ ] `uv run ruff check .` and `uv run pytest` clean.
+
+## Invariants
+- Sci-Hub/SciDB stays LAST in `SOURCE_ORDER` — legitimate sources (Crossref,
+  Unpaywall, HAL, ISTEX) are always tried first.
+- The `fetch_pdf()` return-dict contract is unchanged (status/doi/title/
+  file_name/error) so the orchestrator keeps working.
+
+## Exit criteria
+- `fetch_scihub.py` targets SciDB (or is documented as equivalent), tests cover
+  the new URL/extraction path, README updated, checks green.
