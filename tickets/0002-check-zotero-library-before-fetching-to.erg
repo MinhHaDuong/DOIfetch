@@ -2,10 +2,12 @@
 Title: Check Zotero library before fetching to avoid re-download
 Created: 2026-07-08
 Author: claude
+Closed: Implemented Zotero-first dedup: zotero.py lookup wired into fetch._fetch_one, auto-enabled on DB detection, --no-check-zotero to disable
 
 --- log ---
 2026-07-08T20:06Z claude created
 
+2026-07-08T20:16Z HDMX-coding-agent closed — Implemented Zotero-first dedup: zotero.py lookup wired into fetch._fetch_one, auto-enabled on DB detection, --no-check-zotero to disable
 --- body ---
 ## Context
 DOIfetch has no knowledge of the user's Zotero library. The only dedup today

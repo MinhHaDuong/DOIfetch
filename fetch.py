@@ -18,6 +18,7 @@ import fetch_libgen
 import fetch_scihub
 import fetch_unpaywall
 import fetch_url
+import zotero
 from config import (
     COL_DOI,
     COL_DOI_LINK,
@@ -29,7 +30,9 @@ from config import (
     PAPERS_DIR,
     REFERENCES_DIR,
     STATUS_SUCCESS,
+    ZOTERO_DB_PATH,
 )
+from pdf_utils import clean_filename
 from utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
@@ -91,7 +94,26 @@ def parse_args():
         default=PAPERS_DIR,
         help="Directory to save downloaded PDFs",
     )
+    parser.add_argument(
+        "--no-check-zotero",
+        action="store_true",
+        help="Do not skip papers already in the local Zotero library "
+        "(the check is auto-enabled when a Zotero database is found)",
+    )
     return parser.parse_args()
+
+
+def resolve_zotero_db(no_check_zotero):
+    """Return the Zotero DB path to dedup against, or None.
+
+    None means the check is off — either disabled via flag or no DB found.
+    """
+    if no_check_zotero:
+        return None
+    db_path = zotero.find_zotero_db(ZOTERO_DB_PATH)
+    if db_path is not None:
+        print(f"Zotero library detected: skipping papers already held ({db_path})")
+    return db_path
 
 
 def load_download_tasks(file_paths):
@@ -182,8 +204,28 @@ def _is_url(identifier):
     return identifier.startswith("http://") or identifier.startswith("https://")
 
 
-def _fetch_one(doi, title, output_dir, source):
+def _zotero_skip(doi, title, zotero_db):
+    """Return a 'skipped' result if the paper is already in Zotero, else None."""
+    if not zotero_db:
+        return None
+    match = zotero.zotero_lookup(doi, title, zotero_db)
+    if match is None:
+        return None
+    safe_title = title if title else f"Unknown_{doi}"
+    return {
+        "status": "skipped",
+        "doi": doi,
+        "title": title,
+        "file_name": f"{clean_filename(safe_title)}.pdf",
+        "reason": f"in Zotero ({match['reason']})",
+    }
+
+
+def _fetch_one(doi, title, output_dir, source, zotero_db=None):
     """Fetch a single paper using the specified source strategy."""
+    skip = _zotero_skip(doi, title, zotero_db)
+    if skip is not None:
+        return skip
     if _is_url(doi):
         return fetch_url.fetch_pdf(doi, title, output_dir)
     if doi.startswith("isbn:"):
@@ -198,19 +240,30 @@ def _fetch_one(doi, title, output_dir, source):
 
 
 def fetch_worker(
-    queue, source, output_dir, success_log, successful_records, error_log, failed_dois
+    queue,
+    source,
+    output_dir,
+    success_log,
+    successful_records,
+    error_log,
+    failed_dois,
+    zotero_db=None,
 ):
     """Thread worker: pull tasks from queue and fetch PDFs."""
     while not queue.empty():
         doi, title = queue.get()
         try:
-            result = _fetch_one(doi, title, output_dir, source)
+            result = _fetch_one(doi, title, output_dir, source, zotero_db)
             if result["status"] == "failed":
                 failed_dois.append((doi, title))
                 error_log.append(f"[FAILED] {result.get('error', 'Unknown error')}\n")
             else:
                 status_label = "SKIPPED" if result["status"] == "skipped" else "SUCCESS"
-                success_log.append(f"[{status_label}] {doi} | {result['file_name']}\n")
+                reason = result.get("reason")
+                suffix = f" ({reason})" if reason else ""
+                success_log.append(
+                    f"[{status_label}] {doi} | {result['file_name']}{suffix}\n"
+                )
                 if doi:
                     doi_link = result.get("doi_link", f"{DOI_URL_BASE}{doi}")
                     successful_records.append((result["title"], doi_link))
@@ -233,13 +286,16 @@ def handle_single_download(args):
 
     title = args.title.strip() if args.title else f"Unknown_{int(time.time())}"
     os.makedirs(args.output_dir, exist_ok=True)
-    result = _fetch_one(doi, title, args.output_dir, args.source)
+    zotero_db = resolve_zotero_db(args.no_check_zotero)
+    result = _fetch_one(doi, title, args.output_dir, args.source, zotero_db)
 
     if result["status"] == "failed":
         print(f"Download failed: {result.get('error', 'Unknown error')}")
         return 1
     if result["status"] == "skipped":
-        print(f"Skipped existing file: {result['file_name']}")
+        reason = result.get("reason")
+        detail = f" ({reason})" if reason else ""
+        print(f"Skipped existing file: {result['file_name']}{detail}")
     else:
         print(f"Download succeeded: {result['file_name']}")
     return 0
@@ -258,6 +314,7 @@ def main():
     error_log = []
     failed_dois = []
 
+    zotero_db = resolve_zotero_db(args.no_check_zotero)
     input_files = list_table_files(args.data_dir, args.input_format)
     doi_queue = Queue()
 
@@ -281,6 +338,7 @@ def main():
                     successful_records,
                     error_log,
                     failed_dois,
+                    zotero_db,
                 ),
             )
             t.daemon = True
