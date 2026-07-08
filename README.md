@@ -11,7 +11,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 ## Features
 
 - Supports reading literature DOI and title information from Excel, CSV, or text reference files
-- Automatically downloads paper PDFs from multiple sources (Sci-Hub, Crossref, Unpaywall)
+- Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, HAL, ISTEX, Sci-Hub)
 - Supports multi-threaded downloading to improve efficiency
 - Supports retry mechanisms and random delays to avoid being blocked
 - Automatically updates download status in the original input files
@@ -23,6 +23,8 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 - `fetch_scihub.py`: Sci-Hub fetcher (may require proxy)
 - `fetch_crossref.py`: Crossref open-access fetcher (no proxy required)
 - `fetch_unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
+- `fetch_hal.py`: HAL open-archive fetcher — searches by author surname and title
+- `fetch_istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
 - `config.py`: Configuration file containing Sci-Hub domain pool, download parameters, and shared constants
 - `utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT) and DOI validation
 - `pyproject.toml`: Project metadata and dependencies for `uv`
@@ -37,6 +39,22 @@ The following parameters can be adjusted in `config.py`:
 - `TIMEOUT`: Request timeout duration
 - `MIN_DELAY` and `MAX_DELAY`: Random delay range
 
+### ISTEX access token
+
+The ISTEX source downloads fulltext from a licensed national archive, so it
+needs a personal access token. Generate one at <https://api.istex.fr/token/>
+(you are redirected to your institution's identity federation, e.g. Janus for
+CNRS) and copy the `_accessToken` value from the JSON response. Expose it in the
+environment before running:
+
+```
+export ISTEX_ACCESSTOKEN=<your token>
+```
+
+Keep the token in a file outside the repository and `export` it (a plain
+`source` of a file without `export` sets a shell variable the child process
+cannot see). The token is strictly personal — never commit or share it.
+
 ## Directory Structure
 
 ```
@@ -48,6 +66,8 @@ The following parameters can be adjusted in `config.py`:
 ├── fetch_scihub.py       # Sci-Hub fetcher
 ├── fetch_crossref.py     # Crossref fetcher
 ├── fetch_unpaywall.py    # Unpaywall fetcher
+├── fetch_hal.py          # HAL open-archive fetcher
+├── fetch_istex.py        # ISTEX licensed-archive fetcher
 ├── config.py             # Configuration file and shared constants
 ├── utils.py              # Shared table I/O dispatch and DOI validation
 ├── pyproject.toml        # Project metadata and dependency file for uv
@@ -65,13 +85,14 @@ uv run python fetch.py --help
 
 1. Place the Excel file containing literature information in the `references` directory
    - The input file should contain at least `DOI` column
-2. Run `fetch.py` to start downloading literature from all sources (tries Crossref, Unpaywall, then Sci-Hub):
+2. Run `fetch.py` to start downloading literature from all sources (tries Crossref, Unpaywall, HAL, ISTEX, then Sci-Hub):
    ```
    uv run python fetch.py
    ```
    To use a specific source only:
    ```
    uv run python fetch.py --source crossref
+   uv run python fetch.py --source istex
    uv run python fetch.py --source scihub
    ```
    To download a single paper directly from the CLI:
@@ -83,6 +104,7 @@ uv run python fetch.py --help
    uv run python fetch_scihub.py --doi 10.1000/example --title "Example Paper"
    uv run python fetch_crossref.py --doi 10.1000/example
    uv run python fetch_unpaywall.py --doi 10.1000/example
+   uv run python fetch_istex.py --doi 10.1000/example
    ```
 3. Downloaded PDF files will be saved in the `papers` directory
 4. If your input files are CSV instead of Excel, run with `--input-format csv`

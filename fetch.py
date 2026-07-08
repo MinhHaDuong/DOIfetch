@@ -13,6 +13,7 @@ import pandas as pd
 
 import fetch_crossref
 import fetch_hal
+import fetch_istex
 import fetch_scihub
 import fetch_unpaywall
 import fetch_url
@@ -41,11 +42,14 @@ SOURCES = {
     "crossref": fetch_crossref,
     "unpaywall": fetch_unpaywall,
     "hal": fetch_hal,
+    "istex": fetch_istex,
     "url": fetch_url,
 }
 
-# When --source all, try sources in this order until one succeeds
-SOURCE_ORDER = ["crossref", "unpaywall", "hal", "scihub"]
+# When --source all, try sources in this order until one succeeds.
+# ISTEX (licensed national archive) precedes Sci-Hub: prefer a legitimate
+# source over the shadow library as last resort.
+SOURCE_ORDER = ["crossref", "unpaywall", "hal", "istex", "scihub"]
 
 
 def parse_args():
@@ -56,7 +60,7 @@ def parse_args():
     parser.add_argument("--title", help="Title for a single-paper download")
     parser.add_argument(
         "--source",
-        choices=["scihub", "crossref", "unpaywall", "hal", "url", "all"],
+        choices=["scihub", "crossref", "unpaywall", "hal", "istex", "url", "all"],
         default="all",
         help="Source to fetch from (default: all — tries each in order)",
     )
