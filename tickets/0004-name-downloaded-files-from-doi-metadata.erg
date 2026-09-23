@@ -1,0 +1,55 @@
+%erg 0.1
+Title: Name downloaded files from DOI metadata and flag title mismatches
+Created: 2026-09-23
+Author: haduong
+
+--- log ---
+2026-09-23T12:33Z haduong created
+
+--- body ---
+## Context
+
+DOIfetch names each downloaded file from the `--title` the caller passes
+(`fetch_istex.py`, l. 66–67: `safe_title = title if title else f"Unknown_{doi}"`).
+It never checks that title against the DOI. When the caller passes a wrong title, the file gets a
+wrong name and nothing warns.
+
+Observed on 2026-09-23. An agent fetched DOI 10.1016/j.worlddev.2004.03.004 through ISTEX. That DOI is
+Stern (2004), "The Rise and Fall of the Environmental Kuznets Curve", World Development 32(8). The
+download is correct: its first page carries that DOI. But the file was saved as
+`Stern_2004_Development_Discounting_Climate_Change.pdf`, a title the agent supplied. The misnamed file
+was then attached in Zotero, and it was caught only because the name looked odd next to the citation.
+Without a title, the name is `Unknown_<doi>.pdf`, which is uninformative. Stern, Gerlagh and Burke
+(2017) came out as `Unknown_10.1017S1355770X17000109.pdf` in the same session.
+
+The cause is the caller's wrong title. DOIfetch does not pick titles. The gap is that DOIfetch has the
+DOI and could name the file from the DOI's own metadata, or at least flag a mismatch.
+
+## Relevant files
+- `fetch_istex.py`, `fetch_crossref.py`, `fetch_unpaywall.py`, `fetch_hal.py`, `fetch_ezproxy.py`: each
+  builds `file_name` from the passed title.
+- `fetch_crossref.py`: already queries Crossref; its metadata call can be reused.
+- `utils.py`: shared helpers.
+
+## Actions
+1. When a DOI is known, fetch its Crossref metadata once and build the default name as
+   `<FirstAuthor> <Year> - <Title>`, so no fetcher needs `Unknown_<doi>`.
+2. When the caller also passes `--title`, compare it with the Crossref title using a normalized
+   similarity measure. On a clear mismatch, log a warning and name the file from Crossref.
+   Keep an option to force the caller's name.
+3. Optionally, check that the downloaded PDF's first pages contain the DOI, and log when they do not.
+
+## Test
+- Red: fetching the Stern 2004 DOI with `--title "Stern 2004 - Development Discounting Climate
+  Change"` produces a file named from Crossref and logs a title-mismatch warning. Mock the network
+  calls.
+- A DOI fetched without a title gets an author-year-title name, not `Unknown_…`.
+
+## Invariants
+- Behavior with a matching title is unchanged.
+- Offline or Crossref failure falls back to the current naming, with a logged note.
+
+## Exit criteria
+- [ ] Default file names come from DOI metadata
+- [ ] A title mismatch is detected and logged, and the file is named from metadata
+- [ ] Tests cover both cases; the existing suite passes
