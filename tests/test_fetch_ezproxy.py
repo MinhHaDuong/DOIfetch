@@ -7,18 +7,21 @@ VALID_PDF = b"%PDF-1.6\n" + b"0" * 2000
 
 def test_host_rewrite_reversible():
     # dots -> hyphens, literal hyphens doubled (EZproxy HttpsHyphens)
-    assert fetch_ezproxy.ezproxy_host(
-        "www.sciencedirect.com", "p.edu"
-    ) == "www-sciencedirect-com.p.edu"
-    assert fetch_ezproxy.ezproxy_host(
-        "link.springer-online.com", "p.edu"
-    ) == "link-springer--online-com.p.edu"
+    assert (
+        fetch_ezproxy.ezproxy_host("www.sciencedirect.com", "p.edu")
+        == "www-sciencedirect-com.p.edu"
+    )
+    assert (
+        fetch_ezproxy.ezproxy_host("link.springer-online.com", "p.edu")
+        == "link-springer--online-com.p.edu"
+    )
 
 
 def test_host_rewrite_simple():
-    assert fetch_ezproxy.ezproxy_host(
-        "www.tandfonline.com", "p.edu", hyphens="simple"
-    ) == "www-tandfonline-com.p.edu"
+    assert (
+        fetch_ezproxy.ezproxy_host("www.tandfonline.com", "p.edu", hyphens="simple")
+        == "www-tandfonline-com.p.edu"
+    )
 
 
 def test_url_rewrite_preserves_path_and_query():
@@ -69,6 +72,8 @@ def test_success_writes_pdf(monkeypatch, tmp_path):
 
     monkeypatch.setattr(fetch_ezproxy.requests, "Session", lambda: _Session())
     monkeypatch.setattr(fetch_ezproxy, "_load_cookies", lambda p: {})
-    result = fetch_ezproxy.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
+    result = fetch_ezproxy.fetch_pdf(
+        "10.1000/x", "Some Paper", output_dir=str(tmp_path)
+    )
     assert result["status"] == "success"
     assert (tmp_path / result["file_name"]).read_bytes().startswith(b"%PDF-")
