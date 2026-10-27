@@ -56,13 +56,15 @@ def ezproxy_url(url: str, base: str, hyphens: str = "reversible") -> str:
     parts = urlsplit(url)
     if not parts.hostname:
         return url
-    return urlunsplit((
-        parts.scheme or "https",
-        ezproxy_host(parts.hostname, base, hyphens),
-        parts.path,
-        parts.query,
-        parts.fragment,
-    ))
+    return urlunsplit(
+        (
+            parts.scheme or "https",
+            ezproxy_host(parts.hostname, base, hyphens),
+            parts.path,
+            parts.query,
+            parts.fragment,
+        )
+    )
 
 
 def _load_cookies(path: str) -> http.cookiejar.MozillaCookieJar:
@@ -74,8 +76,7 @@ def _load_cookies(path: str) -> http.cookiejar.MozillaCookieJar:
 def _resolve_publisher_url(doi: str, session: requests.Session) -> str:
     """Follow doi.org to the publisher landing URL (unproxied) for a DOI."""
     try:
-        r = session.get(f"https://doi.org/{doi}", allow_redirects=True,
-                        timeout=TIMEOUT)
+        r = session.get(f"https://doi.org/{doi}", allow_redirects=True, timeout=TIMEOUT)
         return r.url or f"https://doi.org/{doi}"
     except requests.RequestException:
         return f"https://doi.org/{doi}"
@@ -83,9 +84,11 @@ def _resolve_publisher_url(doi: str, session: requests.Session) -> str:
 
 def _extract_pdf_link(html: str, page_url: str) -> str | None:
     """Best-effort scrape of a PDF link from a publisher landing page."""
-    m = re.search(r'<meta[^>]+name=["\']citation_pdf_url["\'][^>]+content=["\']([^"\']+)',
-                  html, re.I) or re.search(
-        r'href=["\']([^"\']+\.pdf[^"\']*)["\']', html, re.I)
+    m = re.search(
+        r'<meta[^>]+name=["\']citation_pdf_url["\'][^>]+content=["\']([^"\']+)',
+        html,
+        re.I,
+    ) or re.search(r'href=["\']([^"\']+\.pdf[^"\']*)["\']', html, re.I)
     if not m:
         return None
     href = m.group(1)
@@ -109,13 +112,22 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     file_path = os.path.join(output_dir, file_name)
 
     def fail(error):
-        return {"status": "failed", "doi": doi, "title": title,
-                "file_name": file_name, "error": error}
+        return {
+            "status": "failed",
+            "doi": doi,
+            "title": title,
+            "file_name": file_name,
+            "error": error,
+        }
 
     if os.path.exists(file_path):
         if is_valid_pdf(file_path):
-            return {"status": "skipped", "doi": doi, "title": title,
-                    "file_name": file_name}
+            return {
+                "status": "skipped",
+                "doi": doi,
+                "title": title,
+                "file_name": file_name,
+            }
         os.remove(file_path)
 
     base = os.environ.get(BASE_ENV, "").strip()
@@ -124,8 +136,10 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     if not base:
         return fail(f"{BASE_ENV} not set (your institution's EZproxy host suffix)")
     if not cookies_path or not os.path.exists(cookies_path):
-        return fail(f"{COOKIES_ENV} not set or missing (export cookies.txt after "
-                    "logging into the proxy)")
+        return fail(
+            f"{COOKIES_ENV} not set or missing (export cookies.txt after "
+            "logging into the proxy)"
+        )
     if not doi:
         return fail("EZproxy resolution requires a DOI")
 
@@ -155,9 +169,10 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             fh.write(content)
         if not is_valid_pdf(file_path):
             os.remove(file_path)
-            return fail("downloaded file is not a valid PDF (auth expired or paywalled)")
-        return {"status": "success", "doi": doi, "title": title,
-                "file_name": file_name}
+            return fail(
+                "downloaded file is not a valid PDF (auth expired or paywalled)"
+            )
+        return {"status": "success", "doi": doi, "title": title, "file_name": file_name}
     except Exception as e:
         return fail(str(e))
 
