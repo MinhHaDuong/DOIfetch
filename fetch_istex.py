@@ -13,6 +13,9 @@ the fulltext endpoint returns the PDF under a Bearer-token Authorization header.
 
 import argparse
 import os
+import subprocess
+import sys
+import threading
 
 import requests
 
@@ -22,6 +25,52 @@ TOKEN_ENV = "ISTEX_ACCESSTOKEN"
 TOKEN_FILE = os.path.expanduser("~/.config/keys/istex.env")
 ISTEX_SEARCH_URL = "https://api.istex.fr/document/"
 ISTEX_FULLTEXT_URL = "https://api.istex.fr/document/{id}/fulltext/pdf"
+LOGIN_URL = "https://api.istex.fr/token/"
+AUTH_STATUSES = (401, 403)
+
+# One login prompt per run: worker threads share a single browser round-trip.
+_login_lock = threading.Lock()
+_login_attempted = False
+
+
+def _is_interactive():
+    """True when a person can answer: a TTY on both ends and a graphical display."""
+    has_tty = sys.stdin.isatty() and sys.stdout.isatty()
+    has_display = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+    return has_tty and has_display
+
+
+def _open_login_page(url):
+    subprocess.Popen(["firefox", url])
+
+
+def _refresh_login(stale_token):
+    """Return a fresh token after an authentication failure, or '' if none.
+
+    Interactive: open Firefox on the login page, wait for Enter, re-read the
+    token. Non-interactive: print one line and give up so other sources run.
+    Only the first failure of a run prompts; later ones just re-read.
+    """
+    global _login_attempted
+    with _login_lock:
+        token = _get_token()
+        if token and token != stale_token:
+            return token
+        if _login_attempted:
+            return ""
+        _login_attempted = True
+        if not _is_interactive():
+            print(f"ISTEX login needed: {LOGIN_URL}")
+            return ""
+        try:
+            _open_login_page(LOGIN_URL)
+            input("Log in to ISTEX in Firefox, save the token, then press Enter... ")
+        except (OSError, EOFError):
+            # No firefox on PATH, or stdin closed mid-prompt: degrade like a
+            # non-interactive run so the cascade moves on to the next source.
+            print(f"ISTEX login needed: {LOGIN_URL}")
+            return ""
+        return _get_token()
 
 
 def _token_from_file(path):
@@ -56,6 +105,14 @@ def _resolve_istex_id(doi):
     return hits[0]["id"] if hits else None
 
 
+def _download(istex_id, token):
+    return requests.get(
+        ISTEX_FULLTEXT_URL.format(id=istex_id),
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=TIMEOUT,
+    )
+
+
 def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     """Download a single paper PDF from ISTEX by DOI.
 
@@ -79,6 +136,8 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             os.remove(file_path)
 
     token = _get_token()
+    if not token:
+        token = _refresh_login("")
     if not token:
         return {
             "status": "failed",
@@ -107,11 +166,11 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
                 "file_name": file_name,
                 "error": "DOI not found in ISTEX",
             }
-        response = requests.get(
-            ISTEX_FULLTEXT_URL.format(id=istex_id),
-            headers={"Authorization": f"Bearer {token}"},
-            timeout=TIMEOUT,
-        )
+        response = _download(istex_id, token)
+        if response.status_code in AUTH_STATUSES:
+            fresh = _refresh_login(token)
+            if fresh:
+                response = _download(istex_id, fresh)
         if response.status_code != 200:
             return {
                 "status": "failed",

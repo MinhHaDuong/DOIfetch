@@ -1,5 +1,7 @@
 """Tests for the ISTEX licensed-archive fetcher."""
 
+import pytest
+
 import fetch_istex
 
 VALID_PDF = b"%PDF-1.6\n" + b"0" * 2000
@@ -103,3 +105,114 @@ def test_skips_existing_valid_pdf(monkeypatch, tmp_path):
     existing.write_bytes(VALID_PDF)
     result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
     assert result["status"] == "skipped"
+
+
+# --- login flow -------------------------------------------------------------
+
+
+class _Browser:
+    """Stub for the browser launcher; records URLs, never opens anything."""
+
+    def __init__(self):
+        self.opened = []
+
+    def __call__(self, url):
+        self.opened.append(url)
+
+
+@pytest.fixture(autouse=True)
+def _reset_login_state(monkeypatch):
+    monkeypatch.setattr(fetch_istex, "_login_attempted", False)
+
+
+def _token_sequence(monkeypatch, tokens):
+    seq = iter(tokens)
+    monkeypatch.setattr(fetch_istex, "_get_token", lambda: next(seq))
+
+
+def _auth_then_ok(statuses):
+    """requests.get stub: search ok, fulltext answers successive statuses."""
+    answers = iter(statuses)
+
+    def fake_get(url, **kwargs):
+        if "/fulltext/" in url:
+            code = next(answers)
+            return _FakeResp(
+                status_code=code, content=VALID_PDF if code == 200 else b""
+            )
+        return _FakeResp(json_data={"hits": [{"id": "ABC123"}]})
+
+    return fake_get
+
+
+def test_auth_needed_interactive_opens_firefox_and_retries(monkeypatch, tmp_path):
+    browser = _Browser()
+    monkeypatch.setattr(fetch_istex, "_is_interactive", lambda: True)
+    monkeypatch.setattr(fetch_istex, "_open_login_page", browser)
+    monkeypatch.setattr("builtins.input", lambda *_: "")
+    _token_sequence(monkeypatch, ["old", "old", "new"])
+    monkeypatch.setattr(fetch_istex.requests, "get", _auth_then_ok([401, 200]))
+    result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
+    assert result["status"] == "success"
+    assert browser.opened == [fetch_istex.LOGIN_URL]
+
+
+def test_auth_needed_retries_only_once(monkeypatch, tmp_path):
+    browser = _Browser()
+    monkeypatch.setattr(fetch_istex, "_is_interactive", lambda: True)
+    monkeypatch.setattr(fetch_istex, "_open_login_page", browser)
+    monkeypatch.setattr("builtins.input", lambda *_: "")
+    _token_sequence(monkeypatch, ["old", "old", "new"])
+    monkeypatch.setattr(fetch_istex.requests, "get", _auth_then_ok([401, 401]))
+    result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
+    assert result["status"] == "failed"
+    assert "401" in result["error"]
+    assert len(browser.opened) == 1
+
+
+def test_auth_needed_non_interactive_prints_one_line(monkeypatch, tmp_path, capsys):
+    browser = _Browser()
+    monkeypatch.setattr(fetch_istex, "_is_interactive", lambda: False)
+    monkeypatch.setattr(fetch_istex, "_open_login_page", browser)
+    _token_sequence(monkeypatch, ["old", "old"])
+    monkeypatch.setattr(fetch_istex.requests, "get", _auth_then_ok([401]))
+    result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
+    assert result["status"] == "failed"
+    assert browser.opened == []
+    out = capsys.readouterr().out
+    assert out == f"ISTEX login needed: {fetch_istex.LOGIN_URL}\n"
+
+
+def test_missing_token_interactive_logs_in(monkeypatch, tmp_path):
+    browser = _Browser()
+    monkeypatch.setattr(fetch_istex, "_is_interactive", lambda: True)
+    monkeypatch.setattr(fetch_istex, "_open_login_page", browser)
+    monkeypatch.setattr("builtins.input", lambda *_: "")
+    _token_sequence(monkeypatch, ["", "", "fresh"])
+    monkeypatch.setattr(fetch_istex.requests, "get", _auth_then_ok([200]))
+    result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
+    assert result["status"] == "success"
+    assert browser.opened == [fetch_istex.LOGIN_URL]
+
+
+def test_missing_browser_degrades_to_one_line(monkeypatch, tmp_path, capsys):
+    def no_firefox(url):
+        raise FileNotFoundError("firefox")
+
+    monkeypatch.setattr(fetch_istex, "_is_interactive", lambda: True)
+    monkeypatch.setattr(fetch_istex, "_open_login_page", no_firefox)
+    _token_sequence(monkeypatch, ["", ""])
+    result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
+    assert result["status"] == "failed"
+    out = capsys.readouterr().out
+    assert out == f"ISTEX login needed: {fetch_istex.LOGIN_URL}\n"
+
+
+def test_is_interactive_needs_tty_and_display(monkeypatch):
+    monkeypatch.setattr(fetch_istex.sys.stdin, "isatty", lambda: True, raising=False)
+    monkeypatch.setattr(fetch_istex.sys.stdout, "isatty", lambda: True, raising=False)
+    monkeypatch.delenv("DISPLAY", raising=False)
+    monkeypatch.delenv("WAYLAND_DISPLAY", raising=False)
+    assert fetch_istex._is_interactive() is False
+    monkeypatch.setenv("WAYLAND_DISPLAY", "wayland-0")
+    assert fetch_istex._is_interactive() is True

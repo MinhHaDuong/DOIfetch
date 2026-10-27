@@ -104,6 +104,41 @@ running. When no database is found the check is silently skipped. Pass
 ├── pyproject.toml        # Project metadata and dependency file for uv
 └── README.md
 ```
+## Install
+
+One command, with [uv](https://docs.astral.sh/uv/):
+
+```
+uv tool install git+https://github.com/MinhHaDuong/DOIfetch
+doifetch --help
+```
+
+### Default sources
+
+With no `--source`, `doifetch` tries the open and institutional sources in
+order until one succeeds: Crossref, Unpaywall, HAL, ISTEX, EZproxy (EZproxy
+needs `EZPROXY_BASE` and `EZPROXY_COOKIES`; otherwise it is skipped).
+
+### Other sources
+
+Sci-Hub and Libgen are never tried by default. Name them to use them:
+
+```
+doifetch --source scihub --doi 10.1000/example
+doifetch --source libgen --isbn 9780000000000
+```
+
+### ISTEX login
+
+If ISTEX answers that authentication is needed (token missing or expired):
+
+- In an interactive session (terminal and graphical display), `doifetch` opens
+  Firefox on <https://api.istex.fr/token/>. Log in, save the new token
+  (`ISTEX_ACCESSTOKEN`, or `~/.config/keys/istex.env`), press Enter, and the
+  download is retried once.
+- Otherwise it prints one line, `ISTEX login needed: <url>`, and carries on
+  with the other sources.
+
 ## Run With UV
 
 This repository uses `uv` and `pyproject.toml` as the dependency source of truth. Do not use `pip` or create a virtual environment manually. Run commands from the repository root with `uv run`, and `uv` will resolve the required dependencies automatically.
@@ -115,7 +150,7 @@ uv run python fetch.py --help
 ## Usage
 
 1. Place the reference file in the `references` directory.
-2. Run `fetch.py` to start downloading (tries Crossref → Unpaywall → HAL → ISTEX → Sci-Hub in order):
+2. Run `fetch.py` to start downloading (tries Crossref → Unpaywall → HAL → ISTEX → EZproxy in order):
    ```
    uv run fetch.py
    ```
