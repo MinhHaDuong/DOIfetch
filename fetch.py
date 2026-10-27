@@ -53,17 +53,17 @@ SOURCES = {
     "url": fetch_url,
 }
 
-# When --source all, try sources in this order until one succeeds.
-# ISTEX (licensed national archive) and EZproxy (institutional subscription)
-# precede Sci-Hub: prefer legitimate access over the shadow library as last
-# resort. EZproxy only runs when EZPROXY_BASE + EZPROXY_COOKIES are configured;
-# otherwise it fails fast and the chain moves on.
-SOURCE_ORDER = ["crossref", "unpaywall", "hal", "istex", "ezproxy", "scihub"]
+# When --source all (the default), try sources in this order until one succeeds.
+# Open and institutional sources only: Crossref/Unpaywall/HAL (open access),
+# ISTEX (licensed national archive) and EZproxy (institutional subscription;
+# fails fast unless EZPROXY_BASE + EZPROXY_COOKIES are configured). Shadow
+# libraries (scihub, libgen) are opt-in: pass --source scihub / --source libgen.
+SOURCE_ORDER = ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Batch-fetch paper PDFs from Sci-Hub, Crossref, and/or Unpaywall"
+        description="Batch-fetch paper PDFs from open and institutional sources"
     )
     parser.add_argument("--doi", help="Download a single paper by DOI")
     parser.add_argument("--isbn", help="Download a single book by ISBN (via Libgen)")
@@ -82,7 +82,8 @@ def parse_args():
             "all",
         ],
         default="all",
-        help="Source to fetch from (default: all — tries each in order)",
+        help="Source to fetch from (default: all — Crossref, Unpaywall, HAL, "
+        "ISTEX, EZproxy in order; scihub and libgen only when named here)",
     )
     parser.add_argument(
         "--input-format",
