@@ -62,8 +62,14 @@ def _refresh_login(stale_token):
         if not _is_interactive():
             print(f"ISTEX login needed: {LOGIN_URL}")
             return ""
-        _open_login_page(LOGIN_URL)
-        input("Log in to ISTEX in Firefox, save the token, then press Enter... ")
+        try:
+            _open_login_page(LOGIN_URL)
+            input("Log in to ISTEX in Firefox, save the token, then press Enter... ")
+        except (OSError, EOFError):
+            # No firefox on PATH, or stdin closed mid-prompt: degrade like a
+            # non-interactive run so the cascade moves on to the next source.
+            print(f"ISTEX login needed: {LOGIN_URL}")
+            return ""
         return _get_token()
 
 

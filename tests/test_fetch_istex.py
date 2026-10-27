@@ -195,6 +195,19 @@ def test_missing_token_interactive_logs_in(monkeypatch, tmp_path):
     assert browser.opened == [fetch_istex.LOGIN_URL]
 
 
+def test_missing_browser_degrades_to_one_line(monkeypatch, tmp_path, capsys):
+    def no_firefox(url):
+        raise FileNotFoundError("firefox")
+
+    monkeypatch.setattr(fetch_istex, "_is_interactive", lambda: True)
+    monkeypatch.setattr(fetch_istex, "_open_login_page", no_firefox)
+    _token_sequence(monkeypatch, ["", ""])
+    result = fetch_istex.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
+    assert result["status"] == "failed"
+    out = capsys.readouterr().out
+    assert out == f"ISTEX login needed: {fetch_istex.LOGIN_URL}\n"
+
+
 def test_is_interactive_needs_tty_and_display(monkeypatch):
     monkeypatch.setattr(fetch_istex.sys.stdin, "isatty", lambda: True, raising=False)
     monkeypatch.setattr(fetch_istex.sys.stdout, "isatty", lambda: True, raising=False)
