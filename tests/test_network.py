@@ -4,11 +4,14 @@ Run with:  uv run --group dev pytest -m network
 Skip with: uv run --group dev pytest -m 'not network'
 """
 
+import json
+
 import pytest
-import requests
 from conftest import SAMPLE_DOIS
 
 from doifetch.config import UNPAYWALL_EMAIL
+from doifetch.sources import _http
+from doifetch.sources.contract import Request
 
 # First DOI is PLOS ONE (open access), most likely to have PDFs available.
 OA_DOI = SAMPLE_DOIS[0][0]  # 10.1371/journal.pone.0001636
@@ -19,9 +22,9 @@ class TestCrossref:
     def test_crossref_api_resolves_doi(self):
         """Crossref API returns metadata for a known DOI."""
         url = f"https://api.crossref.org/works/{OA_DOI}"
-        resp = requests.get(url, timeout=30)
-        assert resp.status_code == 200
-        data = resp.json()
+        resp = _http.get(url, timeout=30)
+        assert resp.status == 200
+        data = json.loads(resp.text)
         assert data["message"]["DOI"].lower() == OA_DOI.lower()
 
     def test_crossref_get_pdf_url(self):
@@ -35,11 +38,12 @@ class TestCrossref:
 
     def test_crossref_404_for_unknown_doi(self, tmp_path):
         """fetch_pdf reports a clear error for a DOI that does not exist in Crossref."""
-        from doifetch.sources.crossref import fetch_pdf
+        from doifetch.sources.crossref import fetch
 
-        result = fetch_pdf("10.9999/nonexistent.doi.000", "Test", str(tmp_path))
-        assert result["status"] == "failed"
-        error = result.get("error", "").lower()
+        req = Request("doi", "10.9999/nonexistent.doi.000", str(tmp_path / "t.pdf"))
+        result = fetch(req)
+        assert result.status == "failed"
+        error = (result.error or "").lower()
         assert "404" in error or "not found" in error
 
     def test_crossref_downloads_pdf(self, tmp_path):
@@ -49,8 +53,8 @@ class TestCrossref:
         pdf_url = get_pdf_url(OA_DOI)
         if not pdf_url:
             pytest.skip("Crossref has no PDF link for this DOI")
-        resp = requests.get(pdf_url, timeout=60)
-        assert resp.status_code == 200
+        resp = _http.get(pdf_url, timeout=60)
+        assert resp.status == 200
         pdf_path = tmp_path / "paper.pdf"
         pdf_path.write_bytes(resp.content)
         assert pdf_path.stat().st_size > 1000, (
@@ -64,20 +68,20 @@ class TestUnpaywall:
     def test_unpaywall_api_resolves_doi(self):
         """Unpaywall API returns OA location for a known OA DOI."""
         url = f"https://api.unpaywall.org/v2/{OA_DOI}?email={UNPAYWALL_EMAIL}"
-        resp = requests.get(url, timeout=30)
-        assert resp.status_code == 200
-        data = resp.json()
+        resp = _http.get(url, timeout=30)
+        assert resp.status == 200
+        data = json.loads(resp.text)
         assert data["is_oa"] is True
         assert data["best_oa_location"] is not None
 
     def test_unpaywall_downloads_pdf(self, tmp_path):
         """Unpaywall PDF URL delivers a real PDF file to disk."""
         url = f"https://api.unpaywall.org/v2/{OA_DOI}?email={UNPAYWALL_EMAIL}"
-        data = requests.get(url, timeout=30).json()
+        data = json.loads(_http.get(url, timeout=30).text)
         pdf_url = data["best_oa_location"]["url_for_pdf"]
         assert pdf_url, "Unpaywall returned no PDF URL for known OA DOI"
-        resp = requests.get(pdf_url, timeout=60)
-        assert resp.status_code == 200
+        resp = _http.get(pdf_url, timeout=60)
+        assert resp.status == 200
         pdf_path = tmp_path / "paper.pdf"
         pdf_path.write_bytes(resp.content)
         assert pdf_path.stat().st_size > 1000, (
