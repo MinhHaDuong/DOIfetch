@@ -2,11 +2,11 @@
 Title: Batch input keeps .txt reference lists only; drop CSV and Excel
 Created: 2026-10-29
 Author: haduong
-Blocked-by: 0004
 
 --- log ---
 2026-10-29T18:36Z haduong created
 
+2026-10-29T18:43Z MinhHaDuong note blocker 0004 closed — Blocked-by removed.
 --- body ---
 ## Context
 
