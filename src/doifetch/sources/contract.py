@@ -22,13 +22,13 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
-Kind = Literal["doi", "isbn", "url"]
+Kind = Literal["doi", "isbn", "url", "title"]
 Status = Literal["success", "failed", "skipped"]
 
 
 @dataclass(frozen=True)
 class Request:
-    """What to fetch (a bare DOI, ISBN or URL) and where to put it."""
+    """What to fetch (a bare DOI, ISBN, URL or title to search for) and where to put it."""
 
     kind: Kind
     identifier: str

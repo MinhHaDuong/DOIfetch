@@ -53,7 +53,7 @@ def extract_pdf_url(content):
 
 
 NAME = "scihub"
-ACCEPTS: frozenset[Kind] = frozenset({"doi"})
+ACCEPTS: frozenset[Kind] = frozenset({"doi", "title"})
 
 
 def fetch(req: Request) -> Result:
@@ -66,7 +66,9 @@ def fetch(req: Request) -> Result:
     except ImportError as exc:
         return Result("failed", NAME, error=str(exc))
 
-    doi = req.identifier
+    doi = req.identifier if req.kind == "doi" else ""
+    title = req.identifier if req.kind == "title" else ""
+    label = doi or title
     if os.path.exists(req.path):
         if is_valid_pdf(req.path):
             return Result("skipped", NAME, path=req.path)
@@ -75,30 +77,30 @@ def fetch(req: Request) -> Result:
     time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
     last_error = ""
 
-    for query_url in build_query_urls(doi, ""):
+    for query_url in build_query_urls(doi, title):
         try:
             response = _http.get(query_url, headers=HEADERS, timeout=TIMEOUT)
             pdf_url = extract_pdf_url(response.content)
             if not pdf_url:
-                last_error = f"{doi} | Error: PDF link not found | URL: {query_url}"
+                last_error = f"{label} | Error: PDF link not found | URL: {query_url}"
                 continue
 
             pdf_response = _http.get(pdf_url, headers=HEADERS, timeout=TIMEOUT)
             if not pdf_response.ok:
                 last_error = (
-                    f"{doi} | Error: HTTP {pdf_response.status} | URL: {pdf_url}"
+                    f"{label} | Error: HTTP {pdf_response.status} | URL: {pdf_url}"
                 )
                 continue
             with open(req.path, "wb") as file_handle:
                 file_handle.write(pdf_response.content)
             if not is_valid_pdf(req.path):
                 os.remove(req.path)
-                last_error = f"{doi} | Error: Broken PDF file | URL: {query_url}"
+                last_error = f"{label} | Error: Broken PDF file | URL: {query_url}"
                 continue
             return Result("success", NAME, path=req.path)
         except Exception as exc:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
             if os.path.exists(req.path) and not is_valid_pdf(req.path):
                 os.remove(req.path)
-            last_error = f"{doi} | Error: {str(exc)[:50]} | URL: {query_url}"
+            last_error = f"{label} | Error: {str(exc)[:50]} | URL: {query_url}"
 
-    return Result("failed", NAME, error=last_error or f"{doi} | Error: Unknown error")
+    return Result("failed", NAME, error=last_error or f"{label} | Error: Unknown error")

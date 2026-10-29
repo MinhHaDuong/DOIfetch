@@ -247,8 +247,17 @@ def _kind(identifier):
     return "isbn" if identifier.startswith("isbn:") else "doi"
 
 
-def _request(identifier, name, output_dir):
-    """Build the contract request: the caller decides the target file name."""
+def _request(identifier, name, output_dir, title=""):
+    """Build the contract request: the caller decides the target file name.
+
+    A row with no identifier becomes a "title" request searching for `title`.
+    """
+    if not identifier and title:
+        return Request(
+            "title",
+            title,
+            os.path.join(output_dir, f"{clean_filename(name or title)}.pdf"),
+        )
     kind = _kind(identifier)
     bare = identifier[len("isbn:") :] if kind == "isbn" else identifier
     stem = name or f"Unknown_{hash(bare) if kind == 'url' else bare}"
@@ -287,7 +296,7 @@ def _fetch_one(doi, title, output_dir, source, zotero_db=None, keep_title=False)
     skip = _zotero_skip(doi, title, zotero_db, name)
     if skip is not None:
         return skip
-    req = _request(doi, name, output_dir)
+    req = _request(doi, name, output_dir, title)
     for src_name in _candidates(req.kind, source):
         result = SOURCES[src_name](req)
         if result.status == "success":
