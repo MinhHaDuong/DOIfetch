@@ -1,6 +1,5 @@
 """Fetch paper PDFs from Sci-Hub and its SciDB (Anna's Archive) successor."""
 
-import argparse
 import os
 import random
 import time
@@ -8,7 +7,7 @@ from urllib.parse import quote
 
 import requests
 
-from config import (
+from doifetch.config import (
     DOI_URL_BASE,
     HEADERS,
     MAX_DELAY,
@@ -22,7 +21,7 @@ from config import (
 
 def _soup(html):
     """Parse HTML with bs4, which ships in the 'shadow' extra only."""
-    from utils import require
+    from doifetch.utils import require
 
     return require("bs4", "shadow").BeautifulSoup(html, "html.parser")
 
@@ -60,8 +59,8 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
 
     Returns dict with keys: status, doi, title, file_name, doi_link, error (if failed).
     """
-    from pdf_utils import clean_filename, is_valid_pdf
-    from utils import require
+    from doifetch.pdf_utils import clean_filename, is_valid_pdf
+    from doifetch.utils import require
 
     try:
         require("bs4", "shadow")
@@ -132,37 +131,3 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
         "file_name": file_name,
         "error": last_error or f"{doi or safe_title} | Error: Unknown error",
     }
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Download a paper PDF from Sci-Hub / SciDB (Anna's Archive)"
-    )
-    parser.add_argument("--doi", help="DOI of the paper")
-    parser.add_argument("--title", help="Title of the paper")
-    parser.add_argument("--output-dir", default=PAPERS_DIR, help="Output directory")
-    args = parser.parse_args()
-
-    if not args.doi and not args.title:
-        parser.error("At least one of --doi or --title is required")
-
-    from utils import validate_doi
-
-    if args.doi and not validate_doi(args.doi):
-        raise ValueError(f"Invalid DOI format: {args.doi}")
-
-    os.makedirs(args.output_dir, exist_ok=True)
-    result = fetch_pdf(args.doi or "", args.title or "", args.output_dir)
-
-    if result["status"] == "failed":
-        print(f"Download failed: {result['error']}")
-        return 1
-    if result["status"] == "skipped":
-        print(f"Skipped existing file: {result['file_name']}")
-    else:
-        print(f"Download succeeded: {result['file_name']}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

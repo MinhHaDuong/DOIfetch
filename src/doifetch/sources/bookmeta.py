@@ -10,7 +10,7 @@ import re
 
 import requests
 
-from config import TIMEOUT
+from doifetch.config import TIMEOUT
 
 logger = logging.getLogger(__name__)
 

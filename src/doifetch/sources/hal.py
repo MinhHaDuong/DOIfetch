@@ -1,12 +1,11 @@
 """Fetch open-access paper PDFs from the HAL archive by author and title search."""
 
-import argparse
 import os
 import re
 
 import requests
 
-from config import HEADERS, PAPERS_DIR, TIMEOUT
+from doifetch.config import HEADERS, PAPERS_DIR, TIMEOUT
 
 HAL_SEARCH_URL = "https://api.archives-ouvertes.fr/search/"
 
@@ -63,7 +62,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
 
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
-    from pdf_utils import clean_filename, is_valid_pdf
+    from doifetch.pdf_utils import clean_filename, is_valid_pdf
 
     safe_title = title if title else f"Unknown_{doi}"
     file_name = f"{clean_filename(safe_title)}.pdf"
@@ -134,29 +133,3 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "file_name": file_name,
             "error": str(e),
         }
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Download a paper PDF from HAL")
-    parser.add_argument("--doi", default="", help="DOI of the paper (optional)")
-    parser.add_argument(
-        "--title", required=True, help="Title in 'Author Year - Title' format"
-    )
-    parser.add_argument("--output-dir", default=PAPERS_DIR, help="Output directory")
-    args = parser.parse_args()
-
-    os.makedirs(args.output_dir, exist_ok=True)
-    result = fetch_pdf(args.doi, args.title, args.output_dir)
-
-    if result["status"] == "failed":
-        print(f"Download failed: {result['error']}")
-        return 1
-    if result["status"] == "skipped":
-        print(f"Skipped existing file: {result['file_name']}")
-    else:
-        print(f"Download succeeded: {result['file_name']}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

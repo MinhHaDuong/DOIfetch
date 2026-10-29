@@ -2,6 +2,7 @@
 Title: Package the code as src/doifetch with a sources/ subpackage
 Created: 2026-10-29
 Author: haduong
+Closed: autoclosed — PR #19
 
 --- log ---
 2026-10-29T18:18Z haduong created
@@ -9,6 +10,7 @@ Author: haduong
 2026-10-29T18:29Z haduong note Consumer: keep the doifetch console entry point working through the move; the IDH harness calls uvx --from git+...@3f6507c doifetch until 0008 lands (harness ticket 1343)
 2026-10-29T18:43Z MinhHaDuong note blocker 0004 closed — Blocked-by removed.
 2026-10-29T18:53Z note Imagine (raid f9e483): premise valid; naming.py is missing from py-modules, so an install from current main fails at import (pinned consumer @3f6507c unaffected); the move fixes it. Add src/doifetch/naming.py. Watch test_utils subprocess scripts with literal 'import fetch_X' strings and the conftest sys.path hack. Drop per-source __main__ blocks (0008 rewrites signatures). Validate by wheel listing, fresh-clone --help diff, mocked single-DOI byte-compare.
+2026-10-29T19:43Z MinhHaDuong closed — autoclosed — PR #19
 --- body ---
 ## Context
 

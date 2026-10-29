@@ -6,10 +6,9 @@ import re
 import unicodedata
 from difflib import SequenceMatcher
 
-import fetch_bookmeta
-import fetch_crossref
-from pdf_utils import MAX_NAME_LENGTH, clean_filename
-from utils import normalize_isbn
+from doifetch.pdf_utils import MAX_NAME_LENGTH, clean_filename
+from doifetch.sources import bookmeta, crossref
+from doifetch.utils import normalize_isbn
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +103,7 @@ def titles_match(caller_title, message):
 def resolve_name(doi, title, keep_title=False):
     """Return the name (without extension) to give the file for `doi`.
 
-    `doi` may also be `isbn:<isbn>`, looked up through fetch_bookmeta's provider chain.
+    `doi` may also be `isbn:<isbn>`, looked up through bookmeta's provider chain.
 
     The caller's `title` is returned byte-identical when it matches Crossref or
     `keep_title` is set. A clear mismatch logs a warning and yields the name built
@@ -116,12 +115,12 @@ def resolve_name(doi, title, keep_title=False):
         return title
     if not doi or doi.startswith(("http://", "https://")):
         return title
-    lookup = fetch_crossref.get_metadata
+    lookup = crossref.get_metadata
     if doi.startswith("isbn:"):
         doi = normalize_isbn(doi)
         if not doi:
             return title
-        lookup = fetch_bookmeta.get_metadata
+        lookup = bookmeta.get_metadata
     try:
         message = lookup(doi)
         composed = compose_name(message) if message else None

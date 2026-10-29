@@ -1,11 +1,10 @@
 """Fetch open-access paper PDFs via the Unpaywall API."""
 
-import argparse
 import os
 
 import urllib3
 
-from config import PAPERS_DIR, UNPAYWALL_EMAIL
+from doifetch.config import PAPERS_DIR, UNPAYWALL_EMAIL
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -17,7 +16,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     """
     import requests
 
-    from pdf_utils import clean_filename, is_valid_pdf
+    from doifetch.pdf_utils import clean_filename, is_valid_pdf
 
     safe_title = title if title else f"Unknown_{doi}"
     file_name = f"{clean_filename(safe_title)}.pdf"
@@ -90,27 +89,3 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "file_name": file_name,
             "error": str(e),
         }
-
-
-def main():
-    parser = argparse.ArgumentParser(description="Download a paper PDF via Unpaywall")
-    parser.add_argument("--doi", required=True, help="DOI of the paper")
-    parser.add_argument("--title", default="", help="Title of the paper")
-    parser.add_argument("--output-dir", default=PAPERS_DIR, help="Output directory")
-    args = parser.parse_args()
-
-    os.makedirs(args.output_dir, exist_ok=True)
-    result = fetch_pdf(args.doi, args.title, args.output_dir)
-
-    if result["status"] == "failed":
-        print(f"Download failed: {result['error']}")
-        return 1
-    if result["status"] == "skipped":
-        print(f"Skipped existing file: {result['file_name']}")
-    else:
-        print(f"Download succeeded: {result['file_name']}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from utils import list_table_files, read_table, require, write_table
+from doifetch.utils import list_table_files, read_table, require, write_table
 
 
 def test_list_table_files_lists_txt_only(tmp_path):
@@ -66,7 +66,7 @@ def _run_core(code, *args, cwd):
     return subprocess.run(
         [sys.executable, "-c", _BLOCK_EXTRAS + code, *args],
         cwd=cwd,
-        env={"PYTHONPATH": str(ROOT), "PATH": "/usr/bin:/bin"},
+        env={"PYTHONPATH": str(ROOT / "src"), "PATH": "/usr/bin:/bin"},
         capture_output=True,
         text=True,
         timeout=60,
@@ -74,7 +74,7 @@ def _run_core(code, *args, cwd):
 
 
 def test_core_runs_without_extras(tmp_path):
-    done = _run_core("import fetch; fetch.main()", "--help", cwd=tmp_path)
+    done = _run_core("from doifetch import cli; cli.main()", "--help", cwd=tmp_path)
     assert done.returncode == 0, done.stderr
     assert "--doi" in done.stdout
 
@@ -87,8 +87,8 @@ def test_doi_mode_needs_no_extras(tmp_path):
         "    raise requests.ConnectionError('offline')\n"
         "requests.get = requests.head = requests.post = offline\n"
         "requests.Session.get = requests.Session.request = offline\n"
-        "import fetch\n"
-        "raise SystemExit(fetch.main())\n"
+        "from doifetch import cli\n"
+        "raise SystemExit(cli.main())\n"
     )
     done = _run_core(
         code, "--doi", "10.1000/a", "--title", "T", "--no-check-zotero", cwd=tmp_path
@@ -103,11 +103,11 @@ def test_txt_batch_needs_no_extras(tmp_path):
         "doi:10.1000/a\tA\ndoi:10.1000/b\tB\n", encoding="utf-8"
     )
     code = (
-        "import fetch, utils\n"
+        "from doifetch import cli, utils\n"
         "files = utils.list_table_files('.')\n"
-        "tasks, skipped = fetch.load_download_tasks(files)\n"
+        "tasks, skipped = cli.load_download_tasks(files)\n"
         "print(sorted(tasks), skipped)\n"
-        "fetch.update_source_files(files, [('B', 'https://doi.org/10.1000/b')])\n"
+        "cli.update_source_files(files, [('B', 'https://doi.org/10.1000/b')])\n"
     )
     done = _run_core(code, cwd=tmp_path)
     assert done.returncode == 0, done.stderr
@@ -125,8 +125,8 @@ def test_shadow_source_without_extra_fails_clearly(tmp_path, source, identifier)
         "def no_network(*a, **k):\n"
         "    raise AssertionError('network call')\n"
         "requests.get = requests.Session.get = no_network\n"
-        f"import fetch_{source}\n"
-        f"result = fetch_{source}.fetch_pdf({identifier!r}, 'T', '.')\n"
+        f"from doifetch.sources import {source}\n"
+        f"result = {source}.fetch_pdf({identifier!r}, 'T', '.')\n"
         "print(result['status'], result['error'])\n"
     )
     done = _run_core(code, cwd=tmp_path)

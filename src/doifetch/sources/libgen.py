@@ -1,12 +1,11 @@
 """Fetch book PDFs from Library Genesis by ISBN."""
 
-import argparse
 import os
 import re
 
 import requests
 
-from config import HEADERS, PAPERS_DIR, TIMEOUT
+from doifetch.config import HEADERS, PAPERS_DIR, TIMEOUT
 
 SEARCH_MIRRORS = [
     "https://libgen.rs",
@@ -20,7 +19,7 @@ _MD5_RE = re.compile(r"[Mm][Dd]5[=:]([a-fA-F0-9]{32})")
 
 def _soup(html):
     """Parse HTML with bs4, which ships in the 'shadow' extra only."""
-    from utils import require
+    from doifetch.utils import require
 
     return require("bs4", "shadow").BeautifulSoup(html, "html.parser")
 
@@ -116,8 +115,8 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     doi should be in 'isbn:XXXXXXXXXX' format.
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
-    from pdf_utils import clean_filename, is_valid_pdf
-    from utils import require
+    from doifetch.pdf_utils import clean_filename, is_valid_pdf
+    from doifetch.utils import require
 
     try:
         require("bs4", "shadow")
@@ -221,29 +220,3 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "file_name": file_name,
             "error": str(e),
         }
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Download a book PDF from Library Genesis"
-    )
-    parser.add_argument("--isbn", required=True, help="ISBN of the book")
-    parser.add_argument("--title", default="", help="Title for the output filename")
-    parser.add_argument("--output-dir", default=PAPERS_DIR, help="Output directory")
-    args = parser.parse_args()
-
-    os.makedirs(args.output_dir, exist_ok=True)
-    result = fetch_pdf(f"isbn:{args.isbn}", args.title or args.isbn, args.output_dir)
-
-    if result["status"] == "failed":
-        print(f"Download failed: {result['error']}")
-        return 1
-    if result["status"] == "skipped":
-        print(f"Skipped existing file: {result['file_name']}")
-    else:
-        print(f"Download succeeded: {result['file_name']}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

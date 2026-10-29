@@ -1,6 +1,6 @@
 """Unit tests for validate_doi edge cases."""
 
-from utils import validate_doi
+from doifetch.utils import validate_doi
 
 
 def test_valid_doi():

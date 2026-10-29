@@ -4,8 +4,7 @@ import sqlite3
 
 import pytest
 
-import fetch
-import zotero
+from doifetch import cli, zotero
 
 
 def _build_zotero_db(path, items):
@@ -131,10 +130,10 @@ def test_fetch_one_short_circuits_on_zotero_hit(zotero_db, monkeypatch):
     def _boom(*_args, **_kwargs):
         raise AssertionError("no source should be called when the paper is in Zotero")
 
-    for module in fetch.SOURCES.values():
+    for module in cli.SOURCES.values():
         monkeypatch.setattr(module, "fetch_pdf", _boom)
 
-    result = fetch._fetch_one(
+    result = cli._fetch_one(
         "10.1371/journal.pone.0001636",
         "Cognitive Constraints on Group Size",
         "papers",
@@ -153,8 +152,8 @@ def test_fetch_one_falls_through_when_not_in_zotero(zotero_db, monkeypatch):
         calls["hit"] = True
         return {"status": "success", "doi": doi, "title": title, "file_name": "x.pdf"}
 
-    monkeypatch.setattr(fetch.fetch_crossref, "fetch_pdf", _fake_success)
-    result = fetch._fetch_one(
+    monkeypatch.setattr(cli.crossref, "fetch_pdf", _fake_success)
+    result = cli._fetch_one(
         "10.9999/not.present", "Unrelated words", "papers", "crossref", zotero_db
     )
     assert calls.get("hit") is True
@@ -162,4 +161,4 @@ def test_fetch_one_falls_through_when_not_in_zotero(zotero_db, monkeypatch):
 
 
 def test_resolve_zotero_db_disabled_by_flag():
-    assert fetch.resolve_zotero_db(no_check_zotero=True) is None
+    assert cli.resolve_zotero_db(no_check_zotero=True) is None

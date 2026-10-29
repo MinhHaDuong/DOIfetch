@@ -2,7 +2,7 @@ import importlib
 import os
 import re
 
-from config import COL_DOI, COL_DOWNLOAD_STATUS, COL_TITLE, REFERENCES_DIR
+from doifetch.config import COL_DOI, COL_DOWNLOAD_STATUS, COL_TITLE, REFERENCES_DIR
 
 
 def list_table_files(data_directory=REFERENCES_DIR):

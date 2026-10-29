@@ -3,10 +3,9 @@ from types import SimpleNamespace
 
 import pytest
 
-import fetch
-import fetch_crossref
-import naming
-from pdf_utils import clean_filename
+from doifetch import cli, naming
+from doifetch.pdf_utils import clean_filename
+from doifetch.sources import crossref as crossref_mod
 
 STERN = {
     "title": ["The Rise and Fall of the Environmental Kuznets Curve"],
@@ -28,7 +27,7 @@ def crossref(monkeypatch):
             raise state["message"]
         return state["message"]
 
-    monkeypatch.setattr(fetch_crossref, "get_metadata", fake)
+    monkeypatch.setattr(crossref_mod, "get_metadata", fake)
     return state
 
 
@@ -64,7 +63,7 @@ def test_matching_title_is_kept_byte_identical(crossref, caller, caplog):
     assert "mismatch" not in caplog.text
 
 
-@pytest.mark.parametrize("failure", [None, fetch_crossref.DoiNotFoundError("404")])
+@pytest.mark.parametrize("failure", [None, crossref_mod.DoiNotFoundError("404")])
 def test_lookup_failure_falls_back_to_caller_name(crossref, caplog, failure):
     crossref["message"] = failure
     with caplog.at_level(logging.INFO):
@@ -108,19 +107,19 @@ def test_metadata_request_is_verified_and_has_timeout(monkeypatch):
             status_code=200, json=lambda: {"message": {"title": ["T"]}}
         )
 
-    monkeypatch.setattr(fetch_crossref.requests, "get", fake_get)
-    assert fetch_crossref.get_metadata(DOI) == {"title": ["T"]}
+    monkeypatch.setattr(crossref_mod.requests, "get", fake_get)
+    assert crossref_mod.get_metadata(DOI) == {"title": ["T"]}
     assert "verify" not in seen and seen["timeout"]
     assert "mailto:" in seen["headers"]["User-Agent"]
 
 
 def test_metadata_with_non_dict_json_body_returns_none(monkeypatch):
     monkeypatch.setattr(
-        fetch_crossref.requests,
+        crossref_mod.requests,
         "get",
         lambda url, **kw: SimpleNamespace(status_code=200, json=lambda: ["oops"]),
     )
-    assert fetch_crossref.get_metadata(DOI) is None
+    assert crossref_mod.get_metadata(DOI) is None
 
 
 def test_single_download_names_file_from_crossref(
@@ -132,7 +131,7 @@ def test_single_download_names_file_from_crossref(
         seen["title"] = title
         return {"status": "success", "doi": doi, "title": title, "file_name": "x.pdf"}
 
-    monkeypatch.setattr(fetch.fetch_istex, "fetch_pdf", fake_istex)
+    monkeypatch.setattr(cli.istex, "fetch_pdf", fake_istex)
     args = SimpleNamespace(
         doi=DOI,
         isbn=None,
@@ -142,7 +141,7 @@ def test_single_download_names_file_from_crossref(
         no_check_zotero=True,
     )
     with caplog.at_level(logging.WARNING):
-        assert fetch.handle_single_download(args) == 0
+        assert cli.handle_single_download(args) == 0
     assert seen["title"] == STERN_NAME
     assert "Title mismatch" in caplog.text
 
@@ -161,10 +160,10 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
         renamed[doi] = title
         return {"status": "success", "doi": doi, "title": title, "file_name": "x.pdf"}
 
-    monkeypatch.setattr(fetch.fetch_istex, "fetch_pdf", fake_istex)
-    monkeypatch.setattr(fetch, "SOURCE_ORDER", ["istex"])
+    monkeypatch.setattr(cli.istex, "fetch_pdf", fake_istex)
+    monkeypatch.setattr(cli, "SOURCE_ORDER", ["istex"])
 
-    tasks, _ = fetch.load_download_tasks([str(table)])
+    tasks, _ = cli.load_download_tasks([str(table)])
     assert tasks == [
         (DOI, "Wrong Title Entirely"),
         ("10.1000/blank", ""),
@@ -177,13 +176,13 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
     q = Queue()
     for task in tasks:
         q.put(task)
-    fetch.fetch_worker(q, "all", str(tmp_path), [], records, [], [], None)
+    cli.fetch_worker(q, "all", str(tmp_path), [], records, [], [], None)
     assert renamed[DOI] == STERN_NAME
     assert not renamed["10.1000/blank"].startswith("Unknown_")
 
-    fetch.update_source_files([str(table)], records)
+    cli.update_source_files([str(table)], records)
     # Every row was fetched: the retry list is empty.
-    assert fetch.read_table(str(table)) == []
+    assert cli.read_table(str(table)) == []
 
 
 @pytest.mark.parametrize(
