@@ -1,0 +1,14 @@
+merge-gate-record: v1
+result: pass
+time: 2026-10-29T21:48:10Z
+actor: runtime=not-stated · model=not-stated · effort=not-stated · user=haduong · git-name=MinhHaDuong
+host: padme
+revision: candidate=afb526fd7d41363b335658a927735f2748123eb4 base=9d02b400a16d169ba0e50b62aa3a9d0254bd1643 head=84a80aa5c8660d69ca14fc646c59af78366ad08e
+command: merge-gate run --base origin/main --head HEAD
+scope: 0007-local-gate/before-merge: validate-tickets format lint types tests
+versions: git git version 2.43.0 · uv uv 0.12.7 (x86_64-unknown-linux-gnu) · python Python 3.11.15 · erg-blob 777912ec9f40294609837707d6c03f5687e7f611
+check: validate-tickets pass 0.0s :: tickets/erg check tickets/
+check: format pass 0.8s :: uv run ruff format --check .
+check: lint pass 0.1s :: uv run ruff check .
+check: types pass 0.2s :: uv run --group dev mypy
+check: tests pass 14.4s :: uv run --group dev pytest -q -m not network
