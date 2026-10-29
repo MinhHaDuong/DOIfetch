@@ -8,6 +8,7 @@ Blocked-by: 0006
 2026-10-29T18:24Z haduong created
 
 2026-10-29T18:26Z haduong note Contract as data plus a function signature, not an ABC (author, 2026-10-29)
+2026-10-29T18:29Z haduong note Consumer: the IDH harness zotero skill plans to import doifetch as a library (PEP 723 git dep). Needs (1) a stable public import path for Request, Result and a top-level fetch running the default cascade; (2) import doifetch side-effect free and extras-free (no Firefox/ISTEX prompt on import); (3) default cascade stays open plus institutional sources only
 --- body ---
 ## Context
 
