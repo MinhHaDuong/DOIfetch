@@ -11,7 +11,7 @@ import time
 from queue import Queue
 
 from doifetch import naming, zotero
-from doifetch.api import DEFAULT_ORDER
+from doifetch.api import DEFAULT_ORDER, cascade
 from doifetch.config import (
     COL_DOI,
     COL_DOWNLOAD_STATUS,
@@ -267,6 +267,11 @@ def _candidates(kind, source):
     return names or [n for n in SOURCES if kind in ACCEPTS[n]]
 
 
+def _load(name):
+    """The cascade's view of a source, through this module's registry."""
+    return ACCEPTS[name], SOURCES[name]
+
+
 def _legacy_dict(doi, name, result: Result):
     out = {"status": result.status, "doi": doi, "title": name}
     if result.path:
@@ -288,11 +293,8 @@ def _fetch_one(doi, title, output_dir, source, zotero_db=None, keep_title=False)
     if skip is not None:
         return skip
     req = _request(doi, name, output_dir)
-    for src_name in _candidates(req.kind, source):
-        result = SOURCES[src_name](req)
-        if result.status == "success":
-            break
-    return _legacy_dict(doi, name, result)  # the last result: success or last failure
+    result = cascade(req, _candidates(req.kind, source), _load)
+    return _legacy_dict(doi, name, result)  # the deciding result
 
 
 def fetch_worker(

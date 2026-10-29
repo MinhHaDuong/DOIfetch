@@ -37,7 +37,7 @@ class TestCrossref:
             assert pdf_url.startswith("http")
 
     def test_crossref_404_for_unknown_doi(self, tmp_path):
-        """fetch_pdf reports a clear error for a DOI that does not exist in Crossref."""
+        """crossref.fetch reports a clear error for a DOI that does not exist in Crossref."""
         from doifetch.sources.crossref import fetch
 
         req = Request("doi", "10.9999/nonexistent.doi.000", str(tmp_path / "t.pdf"))
@@ -92,8 +92,8 @@ class TestUnpaywall:
 
 @pytest.mark.network
 class TestSciHub:
-    def test_fetch_pdf_to_disk(self, tmp_path):
-        """fetch_pdf fetches a PDF to disk via Sci-Hub."""
+    def test_fetch_to_disk(self, tmp_path):
+        """scihub.fetch fetches a PDF to disk via Sci-Hub."""
         from doifetch.sources.contract import Request
         from doifetch.sources.scihub import fetch
 

@@ -64,7 +64,7 @@ def _dispatch(viewer_html, pdf_bytes):
     return fake_get
 
 
-def test_fetch_pdf_success_via_embedded_viewer(monkeypatch, tmp_path):
+def test_fetch_success_via_embedded_viewer(monkeypatch, tmp_path):
     monkeypatch.setattr(scihub.time, "sleep", lambda *_: None)
     monkeypatch.setattr(
         scihub._http,
@@ -81,7 +81,7 @@ def test_fetch_pdf_success_via_embedded_viewer(monkeypatch, tmp_path):
     assert path.read_bytes() == VALID_PDF
 
 
-def test_fetch_pdf_failed_when_no_link(monkeypatch, tmp_path):
+def test_fetch_failed_when_no_link(monkeypatch, tmp_path):
     monkeypatch.setattr(scihub.time, "sleep", lambda *_: None)
     monkeypatch.setattr(
         scihub._http,
