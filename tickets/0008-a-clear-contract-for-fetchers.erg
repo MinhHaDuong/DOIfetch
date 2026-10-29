@@ -7,6 +7,7 @@ Blocked-by: 0006
 --- log ---
 2026-10-29T18:24Z haduong created
 
+2026-10-29T18:26Z haduong note Contract as data plus a function signature, not an ABC (author, 2026-10-29)
 --- body ---
 ## Context
 
@@ -21,17 +22,23 @@ After 0004 (the caller decides the file name) and 0006 (sources live in `doifetc
 contract can be written once.
 
 ## Actions
-1. `doifetch/sources/base.py`: a typed request (identifier kind DOI/ISBN/URL, the identifier, target
-   path decided by the caller) and a typed result (`status`, `source`, `path`, `error`, `detail_url`),
-   frozen dataclasses or TypedDicts; a `Source` Protocol with `name`, `accepts(identifier_kind)` and
-   `fetch(request) -> Result`.
-2. Contract rules in the module docstring: never raises into the fetch loop (errors become
-   `status=failed` with a reason); writes only the target path; never leaves a partial file; returns
-   `success` only for a file that passed the PDF check.
-3. Port every source; the registry in `cli.py` dispatches on `accepts()`, not on string prefixes.
-4. Run a type checker (mypy or pyright, lenient) on `src/doifetch/sources/` in the gate of 0007.
+1. The contract is data and a function signature, not a class hierarchy: no ABC, no base class, no
+   `Protocol` to inherit or implement. A source stays a plain module.
+   `doifetch/sources/contract.py` holds only:
+   - frozen dataclasses `Request` (identifier kind DOI/ISBN/URL, the identifier, target path decided by
+     the caller) and `Result` (`status`, `source`, `path`, `error`, `detail_url`), `status` a `Literal`;
+   - the type alias `Fetch = Callable[[Request], Result]`;
+   - the contract rules, in the module docstring.
+2. Each source module exposes `NAME: str`, `ACCEPTS: frozenset[Kind]` and `def fetch(req: Request) -> Result`.
+3. Contract rules: never raises into the fetch loop (errors become `status="failed"` with a reason);
+   writes only `req.path`; never leaves a partial file; returns `success` only for a file that passed
+   the PDF check.
+4. The registry in `cli.py` is a typed table `dict[str, Fetch]` built from the modules; dispatch reads
+   `ACCEPTS`, not string prefixes.
+5. Enforcement is by the type checker (mypy or pyright, lenient, on `src/doifetch/sources/`, in
+   0007's gate) and by 0009's conformance suite, not by inheritance.
 
 ## Exit criteria
-- [ ] Every source implements the Protocol; the type checker passes on `sources/`
+- [ ] Every source exposes `NAME`, `ACCEPTS`, `fetch`; no class in `sources/`; the type checker passes
 - [ ] `cli.py` has no per-source special case
 - [ ] Behaviour unchanged on the existing suite
