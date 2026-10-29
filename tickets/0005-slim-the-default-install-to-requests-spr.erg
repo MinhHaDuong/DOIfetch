@@ -1,0 +1,45 @@
+%erg 0.1
+Title: Slim the default install to requests: spreadsheet and shadow-library deps become extras
+Created: 2026-10-29
+Author: haduong
+
+--- log ---
+2026-10-29T18:10Z haduong created
+
+--- body ---
+## Context
+`uv tool install git+https://github.com/MinhHaDuong/DOIfetch` builds a 111 MB virtualenv (measured on
+padme, 2026-10-29, at 3e07479): pandas 45 MB and numpy 58 MB, plus tzdata, dateutil, openpyxl and xlrd.
+DOIfetch itself is about 2,100 lines.
+
+- pandas is used only for table I/O: `utils.py` read/write and about ten lines in `fetch.py`
+  (`load_download_tasks`, `update_source_files`). Single-item mode (`--doi/--isbn/--title`) never
+  touches a DataFrame, but it pays for the top-level import.
+- openpyxl and xlrd serve `.xlsx`/`.xls` input only.
+- beautifulsoup4 serves only `fetch_scihub.py` and `fetch_libgen.py`, which are opt-in sources since PR 11.
+- tqdm is declared but never imported.
+
+The Imperial Dragon harness installs DOIfetch for its zotero skill, which uses only single-item mode
+with the default sources. The weight gets in its way (harness ticket 1343: a home without doifetch is 4
+files and byte-reproducible; with it, 3,650 files and 109 MB). Unpinned PyPI resolution also makes the
+install drift by date.
+
+## Actions
+1. Table I/O with stdlib `csv` and lists of dicts; drop pandas.
+2. Import openpyxl/xlrd only when an Excel file is read or written. Move them to an `excel` extra, and
+   when they are missing, give a clear error that names the extra.
+3. Import bs4 only inside the shadow-library fetchers. Move it to a `shadow` extra, with the same kind of
+   error. The default install then cannot reach the shadow libraries.
+4. Drop tqdm.
+5. README: install lines for the core and for the extras.
+
+## Invariants
+- CLI, sources, file naming and the `.txt` round trip stay unchanged.
+- CSV and `.xlsx` batch files read and write back as before, with the extra installed.
+
+## Exit criteria
+- [ ] `[project] dependencies` is `requests` only; `excel` and `shadow` extras declared
+- [ ] `doifetch --help` and `--doi` mode run in a venv without pandas, openpyxl or bs4 (a test proves it)
+- [ ] CSV, xlsx and txt round trips are tested without pandas
+- [ ] The installed tool size is measured before and after, and the numbers are recorded in the PR
+- [ ] `uv run pytest -m "not network"` passes; ruff check and format are clean on the touched files
