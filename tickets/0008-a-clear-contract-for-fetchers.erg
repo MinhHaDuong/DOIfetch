@@ -9,6 +9,7 @@ Blocked-by: 0006
 
 2026-10-29T18:26Z haduong note Contract as data plus a function signature, not an ABC (author, 2026-10-29)
 2026-10-29T18:29Z haduong note Consumer: the IDH harness zotero skill plans to import doifetch as a library (PEP 723 git dep). Needs (1) a stable public import path for Request, Result and a top-level fetch running the default cascade; (2) import doifetch side-effect free and extras-free (no Firefox/ISTEX prompt on import); (3) default cascade stays open plus institutional sources only
+2026-10-29T18:32Z haduong note Author promoted consumer needs (1) public Request/Result/fetch and (2) side-effect-free import to exit criteria
 --- body ---
 ## Context
 
@@ -43,3 +44,7 @@ contract can be written once.
 - [ ] Every source exposes `NAME`, `ACCEPTS`, `fetch`; no class in `sources/`; the type checker passes
 - [ ] `cli.py` has no per-source special case
 - [ ] Behaviour unchanged on the existing suite
+- [ ] Public library API: `from doifetch import Request, Result, fetch` is the stable import path;
+      `doifetch.fetch(req)` runs the default source cascade, not one source
+- [ ] `import doifetch` has no side effects and needs no extra: no network, no prompt (Firefox cookie,
+      ISTEX), no optional dependency imported; a test imports it with the extras absent
