@@ -1,5 +1,5 @@
 %erg 0.1
-Title: An open-access book source (DOAB/OAPEN) selected by the fetcher contract
+Title: Fetch open-access books by ISBN through a Crossref DOI lookup
 Created: 2026-10-29
 Author: haduong
 Blocked-by: 0008
@@ -9,25 +9,31 @@ Blocked-by: 0008
 
 2026-10-29T18:53Z note Premise objection (raid f9e483, reproduced on padme 2026-10-29): DOAB REST /rest/search and OAPEN /rest/search both answer 403 'You address is not allowed to access this API'; DOAB OAI-PMH answers 200 but has no ISBN filter; no documented public ISBN search found. Alternative seen: Crossref works?filter=isbn: returns DOIs (book or chapter level, untested which), feeding the existing Unpaywall/HAL path. Returned to the author: reshape (ISBN->Crossref DOI->open sources), ask DOAB for API access, or defer. Pulled from the raid.
 2026-10-29T18:54Z note Blind-spot (raid f9e483): the 403 was measured from padme only and reads like an IP block; a second-network probe (hotspot or cloud shell) settles whether the premise objection is host-specific.
+2026-10-29T19:38Z note Author ruling 2026-10-29: reshape — ISBN -> Crossref DOI -> open DOI sources replaces the DOAB/OAPEN source; title, actions and exit criterion 3 rewritten accordingly. Back in the queue after 0008.
 --- body ---
 ## Context
 
-`fetch.py:279` routes every ISBN to LibGen whatever `--source` says. LibGen is a shadow library behind
-the opt-in `shadow` extra, so a default install cannot fetch any book. DOAB (Directory of Open Access
-Books) and OAPEN list open-access books with PDFs and are searchable by ISBN. Many books also carry a
-Crossref DOI, which already takes the DOI path.
+`fetch.py` routes every ISBN to LibGen whatever `--source` says. LibGen is a shadow library behind
+the opt-in `shadow` extra, so a default install cannot fetch any book.
 
-New capability: the author confirmed it on 2026-10-29.
+The original plan, a DOAB/OAPEN source, fails its premise: both REST search endpoints answer
+403 "You address is not allowed to access this API" (padme, 2026-10-29), and OAI-PMH has no ISBN
+filter. Author ruling, 2026-10-29: reshape. Crossref `works?filter=isbn:<isbn>` returns the DOIs
+registered for a book (OAPEN/DOAB titles are mostly DOI-registered), and the existing open DOI
+sources (Unpaywall, HAL, later OpenAlex) already find their open-access PDFs.
 
 ## Actions
-1. A `doab` source under 0008's contract: `ACCEPTS` holds ISBN; it looks the ISBN up in DOAB/OAPEN and
-   downloads the open-access PDF when one is listed.
-2. ISBN dispatch goes through `ACCEPTS` like every other kind: drop the LibGen special case. The
-   default cascade for ISBNs is the open source(s) only; LibGen runs only when selected explicitly,
-   consistent with the open-plus-institutional default (0008 log).
-3. README: books are fetched from DOAB by default, LibGen opt-in.
+1. An ISBN resolver under 0008's contract: Crossref `works?filter=isbn:<isbn>` -> candidate DOIs,
+   book-level records (`type` book, monograph, edited-book, reference-book) preferred over chapters.
+   Check on real ISBNs which `type` values come back before fixing the preference order.
+2. ISBN requests in the default cascade: resolve to a DOI, then run the open DOI sources on it; the
+   file is named from the book metadata (0011). No DOI found or no open copy -> `failed` with a reason.
+3. ISBN dispatch goes through `ACCEPTS` like every other kind: drop the LibGen special case. LibGen
+   runs only when selected explicitly, consistent with the open-plus-institutional default (0008 log).
+4. README: books are fetched from open sources via their DOI by default; LibGen opt-in.
+5. Mock all network in tests; one `network`-marked test on a known open-access book ISBN.
 
 ## Exit criteria
 - [ ] An open-access book is fetched by ISBN on a default install (no extras)
 - [ ] No ISBN special case left in the CLI dispatch
-- [ ] Conformance suite (0009) covers the new source
+- [ ] Conformance suite (0009) covers the ISBN resolution path
