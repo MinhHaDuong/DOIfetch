@@ -261,3 +261,16 @@ def test_truncated_last_gzip_member_fails():
     body = gzip.compress(b"first") + gzip.compress(b"second" * 100)[:-20]
     with pytest.raises(_http.HttpError):
         _http._decode_body(body, "gzip")
+
+
+@pytest.mark.parametrize(
+    "url, newurl",
+    [
+        ("https://a.example/x", "https://a.example:443/y"),
+        ("https://a.example:443/x", "https://a.example/y"),
+        ("http://a.example/x", "http://a.example:80/y"),
+    ],
+)
+def test_default_port_is_same_origin(url, newurl):
+    new_req = _redirected(url, newurl, {"Authorization": "Bearer SECRET"})
+    assert new_req.get_header("Authorization") == "Bearer SECRET"
