@@ -7,6 +7,7 @@ Author: haduong
 2026-10-29T18:36Z haduong created
 
 2026-10-29T18:43Z MinhHaDuong note blocker 0004 closed — Blocked-by removed.
+2026-10-29T18:46Z haduong note Gaze on PR #8 (correctness seat + self, reproduced): fetch.py:213-214 title fallback still applies to rows that carry their own DOI; two .txt rows with the same title, one fails, one succeeds: the failed row is marked success and dropped from the retry list. Pre-existing on main. Fix here: title fallback only for rows without a DOI (elif not row_doi and row.get(COL_TITLE)), plus a shared-title test
 --- body ---
 ## Context
 
@@ -37,5 +38,6 @@ batch mode keeps `.txt` reference lists only.
 ## Exit criteria
 - [ ] No CSV or Excel code path, extra or dependency left
 - [ ] `.txt` batch and its missing-works write-back unchanged, covered by a round-trip test
+- [ ] A row with a DOI is matched by its DOI only: two rows sharing a title, one failing, leave the failed one on the retry list (log note, PR #8 gaze)
 - [ ] README documents the `.txt` input format
 - [ ] Suite passes
