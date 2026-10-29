@@ -82,11 +82,10 @@ def test_core_runs_without_extras(tmp_path):
 def test_doi_mode_needs_no_extras(tmp_path):
     """--doi runs the default cascade to the end with the optional libraries blocked."""
     code = (
-        "import requests\n"
+        "from doifetch.sources import _http\n"
         "def offline(*a, **k):\n"
-        "    raise requests.ConnectionError('offline')\n"
-        "requests.get = requests.head = requests.post = offline\n"
-        "requests.Session.get = requests.Session.request = offline\n"
+        "    raise _http.HttpError('offline')\n"
+        "_http.Session.request = offline\n"
         "from doifetch import cli\n"
         "raise SystemExit(cli.main())\n"
     )
