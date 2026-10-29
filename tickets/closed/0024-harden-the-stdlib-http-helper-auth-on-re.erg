@@ -2,10 +2,13 @@
 Title: Harden the stdlib HTTP helper: auth on redirects, schemes, size caps
 Created: 2026-10-29
 Author: MinhHaDuong
+Closed: autoclosed — PR #33
 
 --- log ---
 2026-10-29T21:03Z MinhHaDuong created
 
+2026-10-29T21:34Z MinhHaDuong closed — autoclosed — PR #33
+2026-10-29T21:34Z note Follow-ups below the bar (panel gaze 24a2ef5, cross-family seat gpt-6.1-sol): a truncated chunked body raises raw http.client.IncompleteRead (pre-existing; add HTTPException to the except tuple); a HEAD/204/304 response with Content-Length raises 'truncated body' (latent, nothing issues HEAD); an absurd Content-Length makes int() raise ValueError (hostile server). Not fixed here: fix rounds exhausted.
 --- body ---
 ## Context
 
