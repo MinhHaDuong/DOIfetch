@@ -1,4 +1,4 @@
-"""Name downloaded files from DOI metadata (Crossref) and flag title mismatches."""
+"""Name downloaded files from DOI (Crossref) or ISBN (book providers) metadata and flag title mismatches."""
 
 import html
 import logging
@@ -6,7 +6,9 @@ import re
 import unicodedata
 from difflib import SequenceMatcher
 
+import fetch_bookmeta
 import fetch_crossref
+from utils import normalize_isbn
 from pdf_utils import MAX_NAME_LENGTH, clean_filename
 
 logger = logging.getLogger(__name__)
@@ -102,6 +104,8 @@ def titles_match(caller_title, message):
 def resolve_name(doi, title, keep_title=False):
     """Return the name (without extension) to give the file for `doi`.
 
+    `doi` may also be `isbn:<isbn>`, looked up through fetch_bookmeta's provider chain.
+
     The caller's `title` is returned byte-identical when it matches Crossref or
     `keep_title` is set. A clear mismatch logs a warning and yields the name built
     from Crossref. Without a title the Crossref name is used. Any lookup failure
@@ -110,10 +114,16 @@ def resolve_name(doi, title, keep_title=False):
     title = title or ""
     if keep_title and title:
         return title
-    if not doi or doi.startswith(("isbn:", "http://", "https://")):
+    if not doi or doi.startswith(("http://", "https://")):
         return title
+    lookup = fetch_crossref.get_metadata
+    if doi.startswith("isbn:"):
+        doi = normalize_isbn(doi)
+        if not doi:
+            return title
+        lookup = fetch_bookmeta.get_metadata
     try:
-        message = fetch_crossref.get_metadata(doi)
+        message = lookup(doi)
         composed = compose_name(message) if message else None
     except Exception as exc:
         logger.info("No DOI metadata for %s (%s); keeping caller name", doi, exc)
@@ -126,7 +136,7 @@ def resolve_name(doi, title, keep_title=False):
     if titles_match(title, message):
         return title
     logger.warning(
-        "Title mismatch for %s: caller gave %r, Crossref has %r; naming file %r "
+        "Title mismatch for %s: caller gave %r, metadata has %r; naming file %r "
         "(pass --keep-title to force the caller's name)",
         doi,
         title,

@@ -2,6 +2,7 @@
 Title: Name ISBN downloads from book metadata and validate ISBN check digits
 Created: 2026-10-29
 Author: haduong
+Closed: autoclosed — PR #17
 
 --- log ---
 2026-10-29T18:42Z haduong created
@@ -9,6 +10,8 @@ Author: haduong
 2026-10-29T18:43Z MinhHaDuong note blocker 0004 closed — Blocked-by removed.
 2026-10-29T18:53Z note Imagine (raid f9e483): Google Books keyless returned 429 (shared daily quota); Open Library /isbn/*.json redirects and lacks author names. Use Open Library api/books?bibkeys=ISBN:<isbn>&jscmd=data first, Google Books as best-effort second (implementation choice; exit criteria unchanged). ISBN check digits hand-rolled (~15 lines): isbnlib is stale since 2023, python-stdnum a dependency for one function against 0005's slim install. One normalize_isbn() for single and batch paths. Shape naming lookups as an ordered provider chain so 0013 appends OpenAlex.
 2026-10-29T18:54Z note Blind-spot (raid f9e483): in batch mode an invalid ISBN is handled exactly as an invalid DOI is today (row-level, the run continues), per the ticket's 'like an invalid DOI'; the Google Books 429 was measured from padme only, so Open Library first is the robust order either way.
+2026-10-29T19:10Z note circuit-breaker — gaze on PR #17 recorded ESCALATE three times on a clean review: its close step refuses the review worktree over a gitignored doifetch.egg-info/ (harness ticket 1345, cause isolated by the harness session); waiting on the harness fix
+2026-10-29T19:24Z MinhHaDuong closed — autoclosed — PR #17
 --- body ---
 ## Context
 
