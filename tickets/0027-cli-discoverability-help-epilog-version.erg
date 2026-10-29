@@ -1,0 +1,40 @@
+%erg 0.1
+Title: CLI discoverability: help epilog, --version, --url, defaults shown
+Created: 2026-10-29
+Author: MinhHaDuong
+Blocked-by: 0012
+
+--- log ---
+2026-10-29T21:41Z MinhHaDuong created
+
+--- body ---
+## Context
+
+Author request 2026-10-29, before the v0.2.0 tag. `doifetch --help` serves single-DOI use but does not
+teach the rest: batch mode is invisible (running with no arguments processes the `.txt` files in the
+data directory, but help never says so nor shows the line format), and with no input it prints
+"References to fetch: 0 ... Exiting" without saying where it looked. No `--version`, although the
+harness pins by version from v0.2.0. Defaults of `--data-dir` and `--output-dir` are not shown.
+`--isbn` still says "(via Libgen)" (stale after 0012) and the description says "paper PDFs" though
+books are in scope. Configuration (`EZPROXY_BASE`, the ISTEX token, the OpenAlex key file) and the
+exit codes callers rely on are undocumented in the CLI. There is a `url` source but no `--url` flag.
+Leftover: the cli module docstring and copilot-instructions should match the final help.
+
+## Actions
+1. Help epilog: 3-4 examples (single DOI, single ISBN, batch run, a named source), the `.txt` line
+   format, the environment variables and key files each source reads, and the exit codes.
+2. `--version`, from the installed package metadata (`importlib.metadata`), not a duplicated literal.
+3. Show defaults (`ArgumentDefaultsHelpFormatter` or explicit text) for `--data-dir`, `--output-dir`.
+4. Fix stale strings: `--isbn` help per 0012's dispatch; description covers papers and books.
+5. No input found: say which directory was searched and the expected file pattern and line format.
+6. `--url URL`: single download through the `url` kind, as `--doi`/`--isbn` do.
+7. README usage section matches the help.
+
+Out of scope (author 2026-10-29): bare positional identifiers with kind detection.
+
+## Exit criteria
+- [ ] `doifetch --version` prints the package version
+- [ ] `doifetch --help` shows examples, the batch line format, env vars/key files, exit codes and defaults
+- [ ] No-input run names the searched directory and expected format (test)
+- [ ] `--url` performs a single download (test); no stale "via Libgen" or "paper PDFs" text
+- [ ] Suite and gate pass
