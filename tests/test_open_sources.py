@@ -162,3 +162,22 @@ def test_broken_leftover_is_replaced(monkeypatch, tmp_path):
 @pytest.mark.parametrize("module", [crossref, unpaywall, hal, url])
 def test_no_requests_import(module):
     assert not hasattr(module, "requests")
+
+
+def test_failed_write_leaves_no_partial_file(monkeypatch, tmp_path):
+    module, req, _ = _setup(monkeypatch, tmp_path, "url")
+
+    real_open = open
+
+    def dying_open(path, mode="r", *a, **k):
+        f = real_open(path, mode, *a, **k)
+        if str(path) == req.path and "w" in mode:
+            f.write(b"%PDF-")
+            f.write = lambda data: (_ for _ in ()).throw(OSError("disk full"))
+        return f
+
+    monkeypatch.setattr("builtins.open", dying_open)
+    result = module.fetch(req)
+    monkeypatch.undo()
+    assert result.status == "failed" and "disk full" in result.error
+    assert os.listdir(tmp_path) == []
