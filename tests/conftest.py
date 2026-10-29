@@ -1,7 +1,6 @@
 from pathlib import Path
 import sys
 
-import pandas as pd
 import pytest
 
 
@@ -23,9 +22,7 @@ def sample_data_dir(tmp_path):
     data_dir = tmp_path / "references"
     data_dir.mkdir()
 
-    df = pd.DataFrame(
-        [{"DOI": doi, "Article Title": title} for doi, title in SAMPLE_DOIS]
-    )
+    df = [{"DOI": doi, "Article Title": title} for doi, title in SAMPLE_DOIS]
 
     # CSV
     write_table(df, str(data_dir / "refs.csv"))
