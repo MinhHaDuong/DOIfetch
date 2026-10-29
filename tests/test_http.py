@@ -228,3 +228,18 @@ def test_proxy_authorization_dropped_on_every_redirect(newurl):
         "https://a.example/x", newurl, {"Proxy-Authorization": "Basic c2VjcmV0"}
     )
     assert "proxy-authorization" not in {k.lower() for k in new_req.headers}
+
+
+def test_redirect_response_body_not_drained():
+    class Fp:
+        def read(self, *args):
+            raise AssertionError("redirect body read without a bound")
+
+        def close(self):
+            pass
+
+    fp = Fp()
+    handler = _http._LimitedRedirects()
+    req = urllib.request.Request("https://a.example/x")
+    handler.redirect_request(req, fp, 302, "", {}, "https://a.example/y")
+    assert fp.read() == b""
