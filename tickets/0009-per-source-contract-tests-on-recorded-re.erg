@@ -1,0 +1,27 @@
+%erg 0.1
+Title: Per-source contract tests on recorded responses
+Created: 2026-10-29
+Author: haduong
+Blocked-by: 0008
+
+--- log ---
+2026-10-29T18:24Z haduong created
+
+--- body ---
+## Context
+
+Five of the eight sources have no test file (crossref, unpaywall, hal, libgen, url). The sources that
+fail in practice are scrapers whose upstream changes without notice (ticket 0001 retargeted Sci-Hub).
+
+## Actions
+1. One parametrised conformance suite run against every source of 0008's registry: success, not found,
+   HTTP error, timeout, non-PDF body; each must yield the contract's result and leave no partial file.
+2. Per-source tests on recorded HTTP responses (saved fixtures, no network) for the parsing each
+   scraper does.
+3. The `network` tests stay out of the gate; run them periodically on the author's machine (a /lair or
+   /molt step, or a local timer), a red there being a drift signal for a fix ticket.
+
+## Exit criteria
+- [ ] Every registered source passes the conformance suite
+- [ ] Each source has at least one fixture-based parsing test
+- [ ] Offline suite stays under a few seconds and inside 0007's gate
