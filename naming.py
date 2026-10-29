@@ -8,8 +8,8 @@ from difflib import SequenceMatcher
 
 import fetch_bookmeta
 import fetch_crossref
-from utils import normalize_isbn
 from pdf_utils import MAX_NAME_LENGTH, clean_filename
+from utils import normalize_isbn
 
 logger = logging.getLogger(__name__)
 
