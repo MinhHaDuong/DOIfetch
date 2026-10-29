@@ -117,7 +117,7 @@ uv tool install git+https://github.com/MinhHaDuong/DOIfetch
 doifetch --help
 ```
 
-The core depends on `requests` only and reads `.txt` reference lists. The
+The core has no third-party dependency (standard library only) and reads `.txt` reference lists. The
 `shadow` extra adds the opt-in Sci-Hub and Libgen sources (beautifulsoup4):
 
 ```
