@@ -7,6 +7,7 @@ Blocked-by: 0008
 --- log ---
 2026-10-29T18:42Z haduong created
 
+2026-10-29T18:53Z note Premise objection (raid f9e483, reproduced on padme 2026-10-29): DOAB REST /rest/search and OAPEN /rest/search both answer 403 'You address is not allowed to access this API'; DOAB OAI-PMH answers 200 but has no ISBN filter; no documented public ISBN search found. Alternative seen: Crossref works?filter=isbn: returns DOIs (book or chapter level, untested which), feeding the existing Unpaywall/HAL path. Returned to the author: reshape (ISBN->Crossref DOI->open sources), ask DOAB for API access, or defer. Pulled from the raid.
 --- body ---
 ## Context
 

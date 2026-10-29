@@ -7,6 +7,7 @@ Blocked-by: 0008
 --- log ---
 2026-10-29T18:24Z haduong created
 
+2026-10-29T18:53Z note Imagine (raid f9e483): keep the conformance suite to never-raises / no partial file / non-PDF rejected through one shared fake transport (anything more asserts the mock); weight effort on recorded-response parsing tests; ezproxy (Firefox cookies) and scihub (domain rotation) need a scoped transport seam decided up front.
 --- body ---
 ## Context
 

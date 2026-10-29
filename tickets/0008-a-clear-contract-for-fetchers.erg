@@ -11,6 +11,7 @@ Blocked-by: 0006
 2026-10-29T18:29Z haduong note Consumer: the IDH harness zotero skill plans to import doifetch as a library (PEP 723 git dep). Needs (1) a stable public import path for Request, Result and a top-level fetch running the default cascade; (2) import doifetch side-effect free and extras-free (no Firefox/ISTEX prompt on import); (3) default cascade stays open plus institutional sources only
 2026-10-29T18:32Z haduong note Author promoted consumer needs (1) public Request/Result/fetch and (2) side-effect-free import to exit criteria
 2026-10-29T18:52Z note Option (author, relayed by harness session 2026-10-29), not a decision: drop requests for stdlib urllib.request+http.cookiejar while sources are rewritten to the contract. Gain: zero dependencies, no PyPI drift (urllib3/certifi/idna/charset_normalizer), runnable with system python3, ~0.3 MB vs 2.6 MB installed (estimate). Cost: ~8 HTTP call sites with redirects/timeouts/cookies/encoding by hand; CA certs from system store not certifi. Price: ~3 USD agent + 10 min author review folded into 0008, ~double as a separate pass. Harness does not need it (pins DOIfetch commit).
+2026-10-29T18:53Z note Imagine (raid f9e483): a Literal kind plus ACCEPTS frozenset[str] may suffice over a Kind enum; detail_url has no named consumer, check before building; state the default cascade order as one constant; the type-checker criterion needs mypy/pyright which 0007 does not add, so 0008 adds it to the gate itself.
 --- body ---
 ## Context
 

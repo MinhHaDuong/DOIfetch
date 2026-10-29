@@ -7,6 +7,7 @@ Author: haduong
 2026-10-29T18:42Z haduong created
 
 2026-10-29T18:43Z MinhHaDuong note blocker 0004 closed — Blocked-by removed.
+2026-10-29T18:53Z note Imagine (raid f9e483): Google Books keyless returned 429 (shared daily quota); Open Library /isbn/*.json redirects and lacks author names. Use Open Library api/books?bibkeys=ISBN:<isbn>&jscmd=data first, Google Books as best-effort second (implementation choice; exit criteria unchanged). ISBN check digits hand-rolled (~15 lines): isbnlib is stale since 2023, python-stdnum a dependency for one function against 0005's slim install. One normalize_isbn() for single and batch paths. Shape naming lookups as an ordered provider chain so 0013 appends OpenAlex.
 --- body ---
 ## Context
 

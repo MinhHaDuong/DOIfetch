@@ -7,6 +7,7 @@ Blocked-by: 0008
 --- log ---
 2026-10-29T18:46Z haduong created
 
+2026-10-29T18:53Z note Imagine (raid f9e483): keyless OpenAlex answers today but pricing is usage-based since 2026-02 with a tiny keyless budget: 429/key-required -> failed with reason, warn once per run. Cascade after unpaywall. Naming fallback must not import the source module (side-effect-free import, 0008). For the author: the default key-file path ~/.config/keys/openalex.env is a personal path in a public repo; keep or env-var only?
 --- body ---
 ## Context
 
