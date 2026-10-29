@@ -66,16 +66,27 @@ def _read_txt(file_path):
 
 
 def _rows_from_cells(cells):
-    """Turn a header row plus data rows into dicts; empty cells become ""."""
+    """Turn a header row plus data rows into dicts.
+
+    Empty and missing cells become "", cells beyond the header are dropped,
+    and blank rows are skipped.
+    """
     cells = list(cells)
     if not cells:
         return []
     header = [str(name) if name is not None else "" for name in cells[0]]
-    return [
-        {name: ("" if value is None else value) for name, value in zip(header, row)}
-        for row in cells[1:]
-        if any(value not in (None, "") for value in row)
-    ]
+    rows = []
+    for row in cells[1:]:
+        values = list(row)[: len(header)]
+        values += [""] * (len(header) - len(values))
+        if any(value not in (None, "") for value in values):
+            rows.append(
+                {
+                    name: "" if value is None else value
+                    for name, value in zip(header, values)
+                }
+            )
+    return rows
 
 
 def _read_excel(file_path):
@@ -97,8 +108,10 @@ def read_table(file_path):
     if lower_path.endswith(".txt"):
         return _read_txt(file_path)
     if lower_path.endswith(".csv"):
-        with open(file_path, encoding="utf-8", newline="") as f:
-            return [dict(row) for row in csv.DictReader(f)]
+        # utf-8-sig: spreadsheet apps prefix "CSV UTF-8" exports with a BOM.
+        with open(file_path, encoding="utf-8-sig", newline="") as f:
+            reader = csv.reader(f)
+            return _rows_from_cells(reader)
     return _read_excel(file_path)
 
 
