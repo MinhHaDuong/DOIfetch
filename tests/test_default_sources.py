@@ -10,6 +10,7 @@ def test_default_order_is_open_and_institutional():
         "unpaywall",
         "openalex",
         "hal",
+        "core",
         "istex",
         "ezproxy",
         "isbn",

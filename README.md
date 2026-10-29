@@ -6,12 +6,12 @@ A tool for batch downloading academic paper PDFs and books from multiple open-ac
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 ## Project Introduction
 
-DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper and book PDF files. It supports obtaining papers from Crossref, Unpaywall, OpenAlex, HAL, ISTEX and EZproxy by DOI (Sci-Hub on request); books by ISBN through their Crossref DOI (Library Genesis on request); and arbitrary documents by URL. It features multi-threaded downloading and falls back across Sci-Hub mirror domains.
+DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper and book PDF files. It supports obtaining papers from Crossref, Unpaywall, OpenAlex, HAL, CORE, ISTEX and EZproxy by DOI (Sci-Hub on request); books by ISBN through their Crossref DOI (Library Genesis on request); and arbitrary documents by URL. It features multi-threaded downloading and falls back across Sci-Hub mirror domains.
 
 ## Features
 
 - Supports reading literature DOI, ISBN, and URL information from `.txt` reference lists
-- Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, OpenAlex, HAL, ISTEX, EZproxy; Sci-Hub on request) by DOI
+- Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, OpenAlex, HAL, CORE, ISTEX, EZproxy; Sci-Hub on request) by DOI
 - Downloads open-access books by ISBN (Crossref book DOI, then the open DOI sources); Library Genesis on request
 - Downloads documents directly from URLs
 - Supports multi-threaded downloading to improve efficiency
@@ -28,6 +28,7 @@ Everything lives in the `doifetch` package under `src/doifetch/`; the paths belo
 - `sources/crossref.py`: Crossref open-access fetcher (no proxy required)
 - `sources/unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
 - `sources/openalex.py`: OpenAlex open-access fetcher (tries every known PDF location)
+- `sources/core.py`: CORE open-access fetcher (full texts harvested from institutional repositories)
 - `sources/hal.py`: HAL open-archive fetcher — searches by author surname and title
 - `sources/istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
 - `sources/ezproxy.py`: EZproxy fetcher — institutional-subscription access (e.g. BibCNRS). Rewrites the publisher host into your institution's EZproxy form and downloads with your session cookies. The scriptable equivalent of a "Click & Read" button. Requires `EZPROXY_BASE` + `EZPROXY_COOKIES` (a cookies.txt exported after logging into the proxy); federated SSO cannot be scripted blind, so a live session is needed.
@@ -68,6 +69,18 @@ export ISTEX_ACCESSTOKEN=<your token>
 Keep the token in a file outside the repository and `export` it (a plain
 `source` of a file without `export` sets a shell variable the child process
 cannot see). The token is strictly personal — never commit or share it.
+
+### CORE key
+
+The CORE source (core.ac.uk, API v3) looks a DOI up and downloads the full text
+CORE harvested from institutional repositories. It runs without a key under
+CORE's anonymous token budget (100 tokens per day, 10 per minute at the time of
+writing); a registered key raises it. Set `CORE_API_KEY` in the environment, or
+put a `CORE_API_KEY=...` line in `~/.config/keys/core.env` (the default; point
+`CORE_KEY_FILE` at another file to change it). The key is sent to the CORE API
+only, never to a download host, and is never printed or logged. When CORE
+refuses a request the source reports a failure with the reason and the cascade
+moves on.
 
 ### OpenAlex key
 
@@ -114,7 +127,7 @@ running. When no database is found the check is silently skipped. Pass
 │   ├── utils.py          # Shared table I/O dispatch and DOI validation
 │   ├── naming.py  pdf_utils.py  zotero.py
 │   └── sources/          # One module per --source
-│       ├── crossref.py  unpaywall.py  openalex.py  hal.py  istex.py  ezproxy.py
+│       ├── crossref.py  unpaywall.py  openalex.py  hal.py  core.py  istex.py  ezproxy.py
 │       └── libgen.py  bookmeta.py  scihub.py  url.py
 ├── tests/
 ├── pyproject.toml        # Metadata, `shadow` extra, dev tools (no runtime dependency)
@@ -143,7 +156,7 @@ In a development checkout, `uv run` also installs the extra and the dev tools (r
 ### Default sources
 
 With no `--source`, `doifetch` tries the open and institutional sources in
-order until one succeeds: Crossref, Unpaywall, OpenAlex, HAL, ISTEX, EZproxy (EZproxy
+order until one succeeds: Crossref, Unpaywall, OpenAlex, HAL, CORE, ISTEX, EZproxy (EZproxy
 needs `EZPROXY_BASE` and `EZPROXY_COOKIES`; otherwise it is skipped). An ISBN is
 first looked up in Crossref for its book-level DOI (chapters are ignored), then
 that DOI goes through the same sources.
@@ -202,7 +215,7 @@ are listed in `logs/`), 1 a single download failed or its identifier is invalid,
 2 usage error.
 
 1. Place the reference file in the `references` directory.
-2. Run `doifetch` to start downloading (tries Crossref → Unpaywall → OpenAlex → HAL → ISTEX → EZproxy in order):
+2. Run `doifetch` to start downloading (tries Crossref → Unpaywall → OpenAlex → HAL → CORE → ISTEX → EZproxy in order):
    ```
    uv run doifetch
    ```
@@ -259,7 +272,7 @@ Anna's Archive is anti-bot and membership-gated, so automated SciDB retrieval is
 best-effort: some papers resolve only through slow downloads or a browser. When
 SciDB does not serve the PDF directly, the fetch fails gracefully and the paper
 stays in the failed-DOI list for manual retrieval. Sci-Hub/SciDB is not part of
-the default cascade (Crossref, Unpaywall, OpenAlex, HAL, ISTEX, EZproxy); name it with
+the default cascade (Crossref, Unpaywall, OpenAlex, HAL, CORE, ISTEX, EZproxy); name it with
 `--source scihub`.
 
 ## Library Genesis access

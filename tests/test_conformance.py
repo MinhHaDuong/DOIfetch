@@ -15,6 +15,7 @@ import pytest
 from doifetch.sources import (
     _http,
     _openalex,
+    core,
     crossref,
     ezproxy,
     hal,
@@ -57,6 +58,11 @@ def _crossref():
 def _unpaywall():
     data = {"best_oa_location": {"url_for_pdf": PDF_URL}}
     return lambda u: _json(data) if "unpaywall" in u else None
+
+
+def _core_page():
+    data = {"results": [{"doi": "10.1/x", "downloadUrl": PDF_URL}]}
+    return lambda u: _json(data) if "core.ac.uk/v3" in u else None
 
 
 def _openalex_page():
@@ -107,6 +113,7 @@ SOURCES = {
     "crossref": (crossref, "doi", "10.1/x", _crossref),
     "unpaywall": (unpaywall, "doi", "10.1/x", _unpaywall),
     "openalex": (openalex, "doi", "10.1/x", _openalex_page),
+    "core": (core, "doi", "10.1/x", _core_page),
     "hal": (hal, "doi", "10.1/x", _hal),
     "istex": (istex, "doi", "10.1/x", _istex),
     "ezproxy": (ezproxy, "doi", "10.1/x", _ezproxy),
@@ -165,6 +172,8 @@ def run(monkeypatch, tmp_path):
     monkeypatch.setenv("ISTEX_ACCESSTOKEN", "tok")
     monkeypatch.setattr(_openalex, "KEY_FILE", str(key_file))
     monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
+    monkeypatch.setattr(core, "KEY_FILE", str(key_file))
+    monkeypatch.delenv("CORE_API_KEY", raising=False)
     cookies = tmp_path / "cookies.txt"
     cookies.write_text("# Netscape HTTP Cookie File\n")
     monkeypatch.setenv("EZPROXY_BASE", "p.edu")

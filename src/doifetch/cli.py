@@ -27,6 +27,7 @@ from doifetch.config import (
 )
 from doifetch.pdf_utils import clean_filename
 from doifetch.sources import (
+    core,
     crossref,
     ezproxy,
     hal,
@@ -55,6 +56,7 @@ _MODULES = (
     unpaywall,
     openalex,
     hal,
+    core,
     istex,
     ezproxy,
     isbn,
@@ -83,6 +85,8 @@ After a run each file is rewritten to the works still missing (the retry list).
 
 Configuration (environment variables and key files; unset means that source
 is skipped or runs unauthenticated):
+  CORE_API_KEY         CORE API key, else the CORE_API_KEY= line of CORE_KEY_FILE
+                       (default ~/.config/keys/core.env); works without, rate-limited
   EZPROXY_BASE         EZproxy host suffix of your institution (ezproxy source)
   EZPROXY_COOKIES      cookies.txt exported after logging into the proxy
   EZPROXY_HYPHENS      "reversible" (default) or "simple" host rewriting
@@ -142,7 +146,7 @@ def parse_args():
         choices=[*SOURCES, "all"],
         default="all",
         help="Source to fetch from (default: all — Crossref, Unpaywall, OpenAlex, "
-        "HAL, ISTEX, EZproxy in order, and ISBNs through their book DOI; "
+        "HAL, CORE, ISTEX, EZproxy in order, and ISBNs through their book DOI; "
         "scihub and libgen only when named here)",
     )
     parser.add_argument(

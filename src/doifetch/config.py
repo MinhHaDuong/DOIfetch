@@ -62,3 +62,9 @@ COL_DOWNLOAD_STATUS = "Download Status"
 
 # Status values
 STATUS_SUCCESS = "success"
+
+# CORE API key: CORE_API_KEY in the environment, else a CORE_API_KEY=... line in
+# this file (override the path with CORE_KEY_FILE).
+CORE_KEY_FILE = os.path.expanduser(
+    os.environ.get("CORE_KEY_FILE", "~/.config/keys/core.env")
+)
