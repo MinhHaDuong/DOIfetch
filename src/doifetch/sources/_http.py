@@ -119,20 +119,31 @@ def _read_capped(resp) -> bytes:
     return raw
 
 
-def _inflate(body: bytes, wbits: int) -> bytes:
-    d = zlib.decompressobj(wbits)
-    out = d.decompress(body, MAX_BODY_BYTES + 1)
-    if len(out) > MAX_BODY_BYTES or d.unconsumed_tail:
-        raise HttpError(f"decompressed body exceeds {MAX_BODY_BYTES} bytes")
-    if not d.eof:
-        raise HttpError("truncated compressed body")
-    return out
+def _inflate(body: bytes, wbits: int, *, multi_member: bool = False) -> bytes:
+    """Decompress under one cumulative size budget.
+
+    ``multi_member`` decodes concatenated gzip members like ``gzip.decompress``
+    (trailing NUL padding tolerated); every member must be complete.
+    """
+    out = bytearray()
+    data = body
+    while True:
+        d = zlib.decompressobj(wbits)
+        chunk = d.decompress(data, MAX_BODY_BYTES + 1 - len(out))
+        out += chunk
+        if len(out) > MAX_BODY_BYTES or d.unconsumed_tail:
+            raise HttpError(f"decompressed body exceeds {MAX_BODY_BYTES} bytes")
+        if not d.eof:
+            raise HttpError("truncated compressed body")
+        data = d.unused_data
+        if not multi_member or not data.strip(b"\0"):
+            return bytes(out)
 
 
 def _decode_body(body: bytes, encoding: str) -> bytes:
     encoding = encoding.strip().lower()
     if encoding in ("gzip", "x-gzip"):
-        return _inflate(body, 16 + zlib.MAX_WBITS)
+        return _inflate(body, 16 + zlib.MAX_WBITS, multi_member=True)
     if encoding == "deflate":
         try:
             return _inflate(body, zlib.MAX_WBITS)

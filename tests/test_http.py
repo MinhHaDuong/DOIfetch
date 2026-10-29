@@ -243,3 +243,21 @@ def test_redirect_response_body_not_drained():
     req = urllib.request.Request("https://a.example/x")
     handler.redirect_request(req, fp, 302, "", {}, "https://a.example/y")
     assert fp.read() == b""
+
+
+def test_multi_member_gzip_fully_decoded():
+    body = gzip.compress(b"first,") + gzip.compress(b"second")
+    assert _http._decode_body(body, "gzip") == b"first,second"
+
+
+def test_multi_member_gzip_shares_one_budget(monkeypatch):
+    monkeypatch.setattr(_http, "MAX_BODY_BYTES", 1000)
+    body = gzip.compress(b"\0" * 600) + gzip.compress(b"\0" * 600)
+    with pytest.raises(_http.HttpError):
+        _http._decode_body(body, "gzip")
+
+
+def test_truncated_last_gzip_member_fails():
+    body = gzip.compress(b"first") + gzip.compress(b"second" * 100)[:-20]
+    with pytest.raises(_http.HttpError):
+        _http._decode_body(body, "gzip")
