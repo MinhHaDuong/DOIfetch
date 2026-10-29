@@ -22,17 +22,21 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 
 ## File Descriptions
 
-- `fetch.py`: Orchestrator — batch-fetches papers with table I/O, parallelism, retries, and source selection
-- `fetch_crossref.py`: Crossref open-access fetcher (no proxy required)
-- `fetch_unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
-- `fetch_hal.py`: HAL open-archive fetcher — searches by author surname and title
-- `fetch_istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
-- `fetch_ezproxy.py`: EZproxy fetcher — institutional-subscription access (e.g. BibCNRS). Rewrites the publisher host into your institution's EZproxy form and downloads with your session cookies. The scriptable equivalent of a "Click & Read" button. Requires `EZPROXY_BASE` + `EZPROXY_COOKIES` (a cookies.txt exported after logging into the proxy); federated SSO cannot be scripted blind, so a live session is needed.
-- `fetch_libgen.py`: Library Genesis fetcher — downloads books by ISBN
-- `fetch_bookmeta.py`: book metadata by ISBN (Open Library, then Google Books), used to name ISBN downloads `<Author> <Year> - <Title>`; invalid ISBN check digits are rejected
-- `fetch_scihub.py`: Sci-Hub / SciDB fetcher — tries the frozen Sci-Hub corpus, then SciDB via Anna's Archive (may require proxy or VPN)
-- `fetch_url.py`: Direct URL fetcher
+Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each `sources/` module is one `--source` value and exposes `fetch_pdf()`.
+
+- `cli.py`: Orchestrator (the `doifetch` console command) — batch-fetches papers with table I/O, parallelism, retries, and source selection
+- `sources/crossref.py`: Crossref open-access fetcher (no proxy required)
+- `sources/unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
+- `sources/hal.py`: HAL open-archive fetcher — searches by author surname and title
+- `sources/istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
+- `sources/ezproxy.py`: EZproxy fetcher — institutional-subscription access (e.g. BibCNRS). Rewrites the publisher host into your institution's EZproxy form and downloads with your session cookies. The scriptable equivalent of a "Click & Read" button. Requires `EZPROXY_BASE` + `EZPROXY_COOKIES` (a cookies.txt exported after logging into the proxy); federated SSO cannot be scripted blind, so a live session is needed.
+- `sources/libgen.py`: Library Genesis fetcher — downloads books by ISBN
+- `sources/bookmeta.py`: book metadata by ISBN (Open Library, then Google Books), used to name ISBN downloads `<Author> <Year> - <Title>`; invalid ISBN check digits are rejected
+- `sources/scihub.py`: Sci-Hub / SciDB fetcher — tries the frozen Sci-Hub corpus, then SciDB via Anna's Archive (may require proxy or VPN)
+- `sources/url.py`: Direct URL fetcher
 - `config.py`: Configuration file containing domain pools, download parameters, and shared constants
+- `naming.py`: Output file naming (`<Author> <Year> - <Title>`) from Crossref or book metadata
+- `pdf_utils.py`: Filename cleaning and PDF validity check
 - `utils.py`: Shared `.txt` list I/O (read/write/list) and DOI validation
 - `zotero.py`: Local Zotero-library lookup — locates the database and reports whether a paper is already held
 - `pyproject.toml`: Project metadata and dependencies for `uv`
@@ -90,18 +94,17 @@ running. When no database is found the check is silently skipped. Pass
 ```
 .
 ├── references/           # Store input reference files to be processed
-├── logs/                 # Store fetch.py logs
+├── logs/                 # Store doifetch logs
 ├── papers/               # Store all downloaded PDF files
-├── fetch.py              # Orchestrator: batch fetch with source selection
-├── fetch_crossref.py     # Crossref fetcher
-├── fetch_unpaywall.py    # Unpaywall fetcher
-├── fetch_hal.py          # HAL open-archive fetcher
-├── fetch_istex.py        # ISTEX licensed-archive fetcher
-├── fetch_libgen.py       # Library Genesis fetcher
-├── fetch_scihub.py       # Sci-Hub / SciDB fetcher
-├── fetch_url.py          # Direct URL fetcher
-├── config.py             # Configuration file and shared constants
-├── utils.py              # Shared table I/O dispatch and DOI validation
+├── src/doifetch/
+│   ├── cli.py            # Orchestrator: batch fetch with source selection
+│   ├── config.py         # Configuration file and shared constants
+│   ├── utils.py          # Shared table I/O dispatch and DOI validation
+│   ├── naming.py  pdf_utils.py  zotero.py
+│   └── sources/          # One module per --source
+│       ├── crossref.py  unpaywall.py  hal.py  istex.py  ezproxy.py
+│       └── libgen.py  bookmeta.py  scihub.py  url.py
+├── tests/
 ├── pyproject.toml        # Project metadata and dependency file for uv
 └── README.md
 ```
@@ -156,28 +159,28 @@ If ISTEX answers that authentication is needed (token missing or expired):
 This repository uses `uv` and `pyproject.toml` as the dependency source of truth. Do not use `pip` or create a virtual environment manually. Run commands from the repository root with `uv run`, and `uv` will resolve the required dependencies automatically.
 
 ```
-uv run python fetch.py --help
+uv run doifetch --help
 ```
 
 ## Usage
 
 1. Place the reference file in the `references` directory.
-2. Run `fetch.py` to start downloading (tries Crossref → Unpaywall → HAL → ISTEX → EZproxy in order):
+2. Run `doifetch` to start downloading (tries Crossref → Unpaywall → HAL → ISTEX → EZproxy in order):
    ```
-   uv run fetch.py
+   uv run doifetch
    ```
    To use a specific source only:
    ```
-   uv run fetch.py --source crossref
-   uv run fetch.py --source unpaywall
-   uv run fetch.py --source hal
-   uv run fetch.py --source istex
-   uv run fetch.py --source libgen
-   uv run fetch.py --source scihub
+   uv run doifetch --source crossref
+   uv run doifetch --source unpaywall
+   uv run doifetch --source hal
+   uv run doifetch --source istex
+   uv run doifetch --source libgen
+   uv run doifetch --source scihub
    ```
    To download a single paper directly from the CLI:
    ```
-   uv run fetch.py --doi 10.1000/example --title "Example Paper"
+   uv run doifetch --doi 10.1000/example --title "Example Paper"
    ```
    Files are named `<FirstAuthor> <Year> - <Title>` from the DOI's Crossref
    metadata. Without `--title` that name is used as is. A supplied title that
@@ -186,16 +189,7 @@ uv run python fetch.py --help
    Crossref is unreachable, your title is used.
    To download a single book by ISBN (routed to Libgen):
    ```
-   uv run fetch.py --isbn 9780674009691 --title "Author 1998 - Book Title"
-   ```
-   Individual fetchers also work standalone:
-   ```
-   uv run fetch_crossref.py --doi 10.1000/example
-   uv run fetch_unpaywall.py --doi 10.1000/example
-   uv run fetch_hal.py --title "Author et al. 2015 - The Title"
-   uv run fetch_istex.py --doi 10.1000/example
-   uv run fetch_libgen.py --isbn 9780674009691 --title "Author 1998 - Book Title"
-   uv run fetch_scihub.py --doi 10.1000/example --title "Example Paper"
+   uv run doifetch --isbn 9780674009691 --title "Author 1998 - Book Title"
    ```
 3. Downloaded files will be saved in the `papers` directory as `.pdf` or `.epub` depending on what Libgen provides.
 4. Batch input is a `.txt` list in the data directory, one entry per line: an identifier, a TAB, then the title. Blank lines and lines starting with `#` are ignored:
@@ -270,7 +264,7 @@ This project is a fork of [DoiHarvest](https://github.com/hanhan6688/DoiHarvest)
 
 Major changes from the original:
 
-- Restructured CLI into `fetch_*.py` source-specific fetchers with a unified interface and `fetch.py` orchestrator
+- Restructured CLI into source-specific fetchers (`doifetch.sources`) with a unified interface and a `doifetch.cli` orchestrator
 - Centralized shared constants into `config.py`
 - Added CSV and TXT input support with automatic format detection
 - Added HAL open archive fetcher (search by author + title)
