@@ -117,6 +117,12 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
     from pdf_utils import clean_filename, is_valid_pdf
+    from utils import require
+
+    try:
+        require("bs4", "shadow")
+    except ImportError as exc:
+        return {"status": "failed", "doi": doi, "title": title, "error": str(exc)}
 
     safe_title = title if title else f"Unknown_{doi}"
     base_name = clean_filename(safe_title)

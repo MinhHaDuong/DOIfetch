@@ -44,6 +44,18 @@ def test_csv_round_trip(tmp_path):
     assert actual == expected
 
 
+def test_csv_bom_short_and_long_rows(tmp_path):
+    file_path = tmp_path / "excel-export.csv"
+    file_path.write_bytes(
+        b"\xef\xbb\xbfDOI,Article Title\n10.1000/a,A,surplus\n10.1000/b\n,\n"
+    )
+
+    assert read_table(str(file_path)) == [
+        {"DOI": "10.1000/a", "Article Title": "A"},
+        {"DOI": "10.1000/b", "Article Title": ""},
+    ]
+
+
 def test_xlsx_round_trip(tmp_path):
     file_path = tmp_path / "input.xlsx"
     expected = [
@@ -116,17 +128,24 @@ def test_txt_and_csv_batch_need_no_extras(tmp_path):
     assert "success" in (tmp_path / "refs.csv").read_text(encoding="utf-8")
 
 
-def test_shadow_source_without_extra_fails_clearly(tmp_path):
+@pytest.mark.parametrize(
+    "source, identifier", [("scihub", "10.1000/a"), ("libgen", "isbn:9780000000000")]
+)
+def test_shadow_source_without_extra_fails_clearly(tmp_path, source, identifier):
+    """No network call: the missing extra is reported before any request."""
     code = (
-        "import fetch_scihub\n"
-        "try:\n"
-        "    fetch_scihub.extract_pdf_url('<html></html>')\n"
-        "except ImportError as exc:\n"
-        "    print(exc)\n"
+        "import requests\n"
+        "def no_network(*a, **k):\n"
+        "    raise AssertionError('network call')\n"
+        "requests.get = requests.Session.get = no_network\n"
+        f"import fetch_{source}\n"
+        f"result = fetch_{source}.fetch_pdf({identifier!r}, 'T', '.')\n"
+        "print(result['status'], result['error'])\n"
     )
     done = _run_core(code, cwd=tmp_path)
     assert done.returncode == 0, done.stderr
-    assert "'shadow' extra" in done.stdout
+    assert done.stdout.startswith("failed ")
+    assert "doifetch[shadow]" in done.stdout
 
 
 def test_read_txt(tmp_path):
