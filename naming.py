@@ -115,7 +115,7 @@ def resolve_name(doi, title, keep_title=False):
     try:
         message = fetch_crossref.get_metadata(doi)
         composed = compose_name(message) if message else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - naming is best effort; fall back to the caller name
         logger.info("No DOI metadata for %s (%s); keeping caller name", doi, exc)
         return title
     if composed is None:

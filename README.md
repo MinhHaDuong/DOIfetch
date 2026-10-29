@@ -242,6 +242,22 @@ uv run --group dev pytest
 ```
 
 
+## Development
+
+Python 3.10 or newer. There is no forge CI; the checks run locally through the
+IDH merge gate, configured in `.merge-gate.json`:
+
+```
+uv run ruff format --check .
+uv run ruff check .
+uv run --group dev pytest -q -m "not network"
+tickets/erg check tickets/
+```
+
+The harness runs the same set with `merge-gate.py run` (record on a candidate)
+and `merge-gate.py check` (verify the record). Ruff rules are pinned in
+`[tool.ruff]` in `pyproject.toml`.
+
 ## Notes
 
 - Use `uv run` from the repository root so dependencies come from `pyproject.toml`

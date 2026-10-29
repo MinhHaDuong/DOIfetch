@@ -1,9 +1,9 @@
 """Smoke tests: verify that the same 2 DOIs load correctly from all input formats."""
 
-import fetch
-from utils import list_table_files, read_doi_from_table
 from conftest import SAMPLE_DOIS
 
+import fetch
+from utils import list_table_files, read_doi_from_table
 
 EXPECTED_DOIS = {doi for doi, _ in SAMPLE_DOIS}
 

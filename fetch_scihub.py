@@ -119,7 +119,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
                 "doi_link": doi_link,
                 "file_name": file_name,
             }
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
             last_error = (
                 f"{doi or safe_title} | Error: {str(exc)[:50]} | URL: {query_url}"
             )

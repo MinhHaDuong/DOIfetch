@@ -1,8 +1,7 @@
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
-
 
 from utils import write_table
 

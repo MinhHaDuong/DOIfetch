@@ -21,5 +21,5 @@ def is_valid_pdf(file_path):
             if size < 1000:
                 return False
         return True
-    except Exception:
+    except OSError:
         return False

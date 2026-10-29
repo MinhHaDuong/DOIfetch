@@ -94,7 +94,7 @@ def _rows_from_cells(cells):
             rows.append(
                 {
                     name: "" if value is None else value
-                    for name, value in zip(header, values)
+                    for name, value in zip(header, values, strict=False)
                 }
             )
     return rows
@@ -152,7 +152,7 @@ def read_doi_from_table(file_path):
             if doi:
                 dois.append((doi, index))
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - unreadable input file is reported
         print(f"Error reading file {file_path}: {str(e)}")
         return [], None
 

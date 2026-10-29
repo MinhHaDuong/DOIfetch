@@ -166,7 +166,7 @@ def load_download_tasks(file_paths):
                     continue
 
                 download_tasks.append((doi, title))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - unreadable input file is reported and skipped
             print(f"Failed to read file {file_path}: {str(exc)}")
 
     return download_tasks, skipped_count
@@ -218,7 +218,7 @@ def update_source_files(file_paths, successful_records):
 
             write_table(rows, file_path)
             print(f"Updated file: {file_path}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - reported, batch continues
             print(f"Failed to update file {file_path}: {str(exc)}")
 
 
@@ -316,7 +316,7 @@ def fetch_worker(
                 if doi:
                     doi_link = result.get("doi_link", f"{DOI_URL_BASE}{doi}")
                     successful_records.append((title, doi_link))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - one bad download must not stop the batch
             error_msg = f"Download failed: {doi} | Error: {str(exc)}"
             error_log.append(f"[ERROR] {error_msg}\n")
             failed_dois.append((doi, title))
