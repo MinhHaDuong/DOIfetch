@@ -2,7 +2,6 @@
 Title: A clear contract for fetchers
 Created: 2026-10-29
 Author: haduong
-Blocked-by: 0015
 Blocked-by: 0017
 Blocked-by: 0018
 Blocked-by: 0019
@@ -22,6 +21,7 @@ Blocked-by: 0022
 2026-10-29T19:43Z MinhHaDuong note blocker 0006 closed — Blocked-by removed.
 2026-10-29T20:09Z note Monster split (raid f9e483): executor hunt judged 15+ files, bundled sign-off units and a dependency chain; split into 0015-0022, tracker closes after integration review
 2026-10-29T20:12Z MinhHaDuong note blocker 0016 closed — Blocked-by removed.
+2026-10-29T20:14Z MinhHaDuong note blocker 0015 closed — Blocked-by removed.
 --- body ---
 ## Tracker (split by raid f9e483, 2026-10-29)
 
