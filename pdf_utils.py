@@ -1,10 +1,12 @@
 import re
 
+MAX_NAME_LENGTH = 120
+
 
 def clean_filename(title):
     """Remove illegal filename characters and truncate."""
     illegal_chars = r'[\\/:*?"<>|]'
-    return re.sub(illegal_chars, "", title)[:120]
+    return re.sub(illegal_chars, "", title)[:MAX_NAME_LENGTH]
 
 
 def is_valid_pdf(file_path):

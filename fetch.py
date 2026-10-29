@@ -4,6 +4,7 @@ Manages table I/O, parallelism, retries across sources, logging, and status upda
 """
 
 import argparse
+import logging
 import os
 import threading
 import time
@@ -17,6 +18,7 @@ import fetch_libgen
 import fetch_scihub
 import fetch_unpaywall
 import fetch_url
+import naming
 import zotero
 from config import (
     COL_DOI,
@@ -40,6 +42,8 @@ from utils import (
     validate_doi,
     write_table,
 )
+
+logger = logging.getLogger(__name__)
 
 SOURCES = {
     "scihub": fetch_scihub,
@@ -67,6 +71,12 @@ def parse_args():
     parser.add_argument("--doi", help="Download a single paper by DOI")
     parser.add_argument("--isbn", help="Download a single book by ISBN (via Libgen)")
     parser.add_argument("--title", help="Title for a single-paper download")
+    parser.add_argument(
+        "--keep-title",
+        action="store_true",
+        help="Name files from the supplied title even when it does not match "
+        "the DOI's Crossref title",
+    )
     parser.add_argument(
         "--source",
         choices=[
@@ -132,7 +142,7 @@ def load_download_tasks(file_paths):
         try:
             for row in read_table(file_path):
                 doi = row.get(COL_DOI, "")
-                title = row.get(COL_TITLE, f"Unknown_{int(time.time())}")
+                title = row.get(COL_TITLE, "")
 
                 if not str(doi).strip():
                     if not str(title).strip():
@@ -162,8 +172,17 @@ def load_download_tasks(file_paths):
     return download_tasks, skipped_count
 
 
+def _row_doi(row):
+    doi = str(row.get(COL_DOI, "") or "").strip()
+    return doi[len("url:") :] if doi.startswith("url:") else doi
+
+
 def update_source_files(file_paths, successful_records):
-    """Write back DOI links and download status to source files."""
+    """Write back DOI links and download status to source files.
+
+    `successful_records` holds (row title as read from the table, DOI link): the
+    title is the row's own, not the resolved file name, so the row is found.
+    """
     for file_path in file_paths:
         try:
             rows = read_table(file_path)
@@ -177,14 +196,24 @@ def update_source_files(file_paths, successful_records):
                 columns.append(COL_DOWNLOAD_STATUS)
             rows = [{name: row.get(name, "") for name in columns} for row in rows]
 
-            links = {
-                title: doi_link
+            records = [
+                (title, doi_link)
                 for title, doi_link in successful_records
                 if doi_link and doi_link != "No DOI"
-            }
+            ]
+            by_link = {doi_link for _, doi_link in records}
+            by_title = {title: doi_link for title, doi_link in records if title}
             for row in rows:
-                if row.get(COL_TITLE) in links:
-                    row[COL_DOI_LINK] = links[row[COL_TITLE]]
+                # A row with a DOI is matched by that DOI; the title is only the
+                # fallback, so a row never takes another row's link.
+                row_doi = _row_doi(row)
+                link = None
+                if row_doi and f"{DOI_URL_BASE}{row_doi}" in by_link:
+                    link = f"{DOI_URL_BASE}{row_doi}"
+                elif row.get(COL_TITLE):
+                    link = by_title.get(row[COL_TITLE])
+                if link is not None:
+                    row[COL_DOI_LINK] = link
                     row[COL_DOWNLOAD_STATUS] = STATUS_SUCCESS
 
             write_table(rows, file_path)
@@ -216,28 +245,35 @@ def _is_url(identifier):
     return identifier.startswith("http://") or identifier.startswith("https://")
 
 
-def _zotero_skip(doi, title, zotero_db):
+def _zotero_skip(doi, title, zotero_db, name):
     """Return a 'skipped' result if the paper is already in Zotero, else None."""
     if not zotero_db:
         return None
     match = zotero.zotero_lookup(doi, title, zotero_db)
     if match is None:
         return None
-    safe_title = title if title else f"Unknown_{doi}"
+    safe_title = name if name else f"Unknown_{doi}"
     return {
         "status": "skipped",
         "doi": doi,
-        "title": title,
+        "title": name,
         "file_name": f"{clean_filename(safe_title)}.pdf",
         "reason": f"in Zotero ({match['reason']})",
     }
 
 
-def _fetch_one(doi, title, output_dir, source, zotero_db=None):
-    """Fetch a single paper using the specified source strategy."""
-    skip = _zotero_skip(doi, title, zotero_db)
+def _fetch_one(doi, title, output_dir, source, zotero_db=None, keep_title=False):
+    """Fetch a single paper using the specified source strategy.
+
+    The file name is resolved once here (from DOI metadata when available) and
+    passed to the fetchers in their `title` slot. Zotero is matched on the
+    caller's bare title.
+    """
+    name = naming.resolve_name(doi, title, keep_title)
+    skip = _zotero_skip(doi, title, zotero_db, name)
     if skip is not None:
         return skip
+    title = name
     if _is_url(doi):
         return fetch_url.fetch_pdf(doi, title, output_dir)
     if doi.startswith("isbn:"):
@@ -260,12 +296,13 @@ def fetch_worker(
     error_log,
     failed_dois,
     zotero_db=None,
+    keep_title=False,
 ):
     """Thread worker: pull tasks from queue and fetch PDFs."""
     while not queue.empty():
         doi, title = queue.get()
         try:
-            result = _fetch_one(doi, title, output_dir, source, zotero_db)
+            result = _fetch_one(doi, title, output_dir, source, zotero_db, keep_title)
             if result["status"] == "failed":
                 failed_dois.append((doi, title))
                 error_log.append(f"[FAILED] {result.get('error', 'Unknown error')}\n")
@@ -278,7 +315,7 @@ def fetch_worker(
                 )
                 if doi:
                     doi_link = result.get("doi_link", f"{DOI_URL_BASE}{doi}")
-                    successful_records.append((result["title"], doi_link))
+                    successful_records.append((title, doi_link))
         except Exception as exc:
             error_msg = f"Download failed: {doi} | Error: {str(exc)}"
             error_log.append(f"[ERROR] {error_msg}\n")
@@ -298,10 +335,17 @@ def handle_single_download(args):
     else:
         doi = ""
 
-    title = args.title.strip() if args.title else f"Unknown_{int(time.time())}"
+    title = args.title.strip() if args.title else ""
     os.makedirs(args.output_dir, exist_ok=True)
     zotero_db = resolve_zotero_db(args.no_check_zotero)
-    result = _fetch_one(doi, title, args.output_dir, args.source, zotero_db)
+    result = _fetch_one(
+        doi,
+        title,
+        args.output_dir,
+        args.source,
+        zotero_db,
+        getattr(args, "keep_title", False),
+    )
 
     if result["status"] == "failed":
         print(f"Download failed: {result.get('error', 'Unknown error')}")
@@ -353,6 +397,7 @@ def main():
                     error_log,
                     failed_dois,
                     zotero_db,
+                    args.keep_title,
                 ),
             )
             t.daemon = True

@@ -181,6 +181,11 @@ uv run python fetch.py --help
    ```
    uv run fetch.py --doi 10.1000/example --title "Example Paper"
    ```
+   Files are named `<FirstAuthor> <Year> - <Title>` from the DOI's Crossref
+   metadata. Without `--title` that name is used as is. A supplied title that
+   matches Crossref's is kept unchanged; a clear mismatch logs a warning and the
+   file is named from Crossref. Pass `--keep-title` to force your own name. If
+   Crossref is unreachable, your title is used.
    To download a single book by ISBN (routed to Libgen):
    ```
    uv run fetch.py --isbn 9780674009691 --title "Author 1998 - Book Title"
