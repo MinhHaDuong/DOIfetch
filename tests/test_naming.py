@@ -141,10 +141,9 @@ def test_single_download_names_file_from_crossref(
 def test_batch_round_trip_writes_status_for_renamed_rows(
     crossref, monkeypatch, tmp_path
 ):
-    table = tmp_path / "refs.csv"
+    table = tmp_path / "refs.txt"
     table.write_text(
-        f"DOI,Article Title\n{DOI},Wrong Title Entirely\n"
-        "10.1000/blank,\n10.1000/blank2,\n",
+        f"doi:{DOI}\tWrong Title Entirely\ndoi:10.1000/blank\t\ndoi:10.1000/blank2\t\n",
         encoding="utf-8",
     )
     renamed = {}
@@ -174,9 +173,8 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
     assert not renamed["10.1000/blank"].startswith("Unknown_")
 
     fetch.update_source_files([str(table)], records)
-    rows = fetch.read_table(str(table))
-    assert [r["Download Status"] for r in rows] == ["success"] * 3
-    assert rows[0]["Article Title"] == "Wrong Title Entirely"
+    # Every row was fetched: the retry list is empty.
+    assert fetch.read_table(str(table)) == []
 
 
 @pytest.mark.parametrize(

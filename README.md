@@ -10,7 +10,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 
 ## Features
 
-- Supports reading literature DOI, ISBN, and URL information from Excel, CSV, or text reference files
+- Supports reading literature DOI, ISBN, and URL information from `.txt` reference lists
 - Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, HAL, ISTEX, Sci-Hub) by DOI
 - Downloads books from Library Genesis by ISBN
 - Downloads documents directly from URLs
@@ -32,7 +32,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 - `fetch_scihub.py`: Sci-Hub / SciDB fetcher — tries the frozen Sci-Hub corpus, then SciDB via Anna's Archive (may require proxy or VPN)
 - `fetch_url.py`: Direct URL fetcher
 - `config.py`: Configuration file containing domain pools, download parameters, and shared constants
-- `utils.py`: Shared table I/O dispatch (read/write/list for Excel, CSV, TXT) and DOI validation
+- `utils.py`: Shared `.txt` list I/O (read/write/list) and DOI validation
 - `zotero.py`: Local Zotero-library lookup — locates the database and reports whether a paper is already held
 - `pyproject.toml`: Project metadata and dependencies for `uv`
 
@@ -113,18 +113,15 @@ uv tool install git+https://github.com/MinhHaDuong/DOIfetch
 doifetch --help
 ```
 
-The core depends on `requests` only and reads `.txt` and `.csv` reference
-files. Two extras add the rest:
-
-- `excel`: `.xlsx` and `.xls` reference files (openpyxl, xlrd)
-- `shadow`: the opt-in Sci-Hub and Libgen sources (beautifulsoup4)
+The core depends on `requests` only and reads `.txt` reference lists. The
+`shadow` extra adds the opt-in Sci-Hub and Libgen sources (beautifulsoup4):
 
 ```
-uv tool install 'doifetch[excel] @ git+https://github.com/MinhHaDuong/DOIfetch'
+uv tool install 'doifetch[shadow] @ git+https://github.com/MinhHaDuong/DOIfetch'
 ```
 
 Without the extra, the missing feature fails with a message naming it.
-`uv run` in this repository installs both extras.
+`uv run` in this repository installs the extra.
 
 ### Default sources
 
@@ -200,7 +197,7 @@ uv run python fetch.py --help
    uv run fetch_scihub.py --doi 10.1000/example --title "Example Paper"
    ```
 3. Downloaded files will be saved in the `papers` directory as `.pdf` or `.epub` depending on what Libgen provides.
-4. Input files can be Excel (with the `excel` extra), CSV, or plain text. Text files use tab-separated lines:
+4. Batch input is a `.txt` list in the data directory, one entry per line: an identifier, a TAB, then the title. Blank lines and lines starting with `#` are ignored:
    ```
    doi:10.1080/03085140903020580	Author 2009 - Title
    url:https://example.com/doc.pdf	Document Name
@@ -209,7 +206,7 @@ uv run python fetch.py --help
    ```
    All three entry types are processed: `doi:` goes through the source cascade,
    `url:` is fetched directly, and `isbn:` is fetched from Library Genesis.
-5. Download status is automatically updated in the original input file.
+5. After a run the input file is rewritten to the works still missing, so it is the retry list. Comment lines are not kept.
 
 ## Sci-Hub and SciDB access
 

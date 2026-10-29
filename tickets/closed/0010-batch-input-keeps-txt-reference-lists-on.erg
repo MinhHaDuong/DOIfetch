@@ -2,6 +2,7 @@
 Title: Batch input keeps .txt reference lists only; drop CSV and Excel
 Created: 2026-10-29
 Author: haduong
+Closed: autoclosed — PR #15
 
 --- log ---
 2026-10-29T18:36Z haduong created
@@ -10,6 +11,7 @@ Author: haduong
 2026-10-29T18:46Z haduong note Gaze on PR #8 (correctness seat + self, reproduced): fetch.py:213-214 title fallback still applies to rows that carry their own DOI; two .txt rows with the same title, one fails, one succeeds: the failed row is marked success and dropped from the retry list. Pre-existing on main. Fix here: title fallback only for rows without a DOI (elif not row_doi and row.get(COL_TITLE)), plus a shared-title test
 2026-10-29T18:53Z note Imagine (raid f9e483): premise valid. Drop --input-format entirely (sole reader fetch.py:376, not in README). Title fallback: delete it rather than guard, once checked that no url:/isbn: source returns a doi_link differing from DOI_URL_BASE+identifier; else take the ticket's guard. First test: two .txt rows sharing a title, one succeeds, the other stays. CSV/xlsx test matrix (conftest, test_smoke, test_utils, test_fetch) rewritten to .txt, not just deleted.
 2026-10-29T18:54Z note Blind-spot (raid f9e483): the real producer (climate-finance-het scripts/qa/qa_missing_references.py) writes '#<TAB><label>' lines for identifier-less references; the .txt round-trip test uses that shape (copy of docs/missing_references.txt or equivalent) and documents what write_table does with those lines today, unchanged.
+2026-10-29T18:59Z MinhHaDuong closed — autoclosed — PR #15
 --- body ---
 ## Context
 
