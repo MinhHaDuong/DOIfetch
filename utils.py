@@ -1,31 +1,20 @@
-import csv
 import importlib
 import os
 import re
 
 from config import COL_DOI, COL_DOWNLOAD_STATUS, COL_TITLE, REFERENCES_DIR
 
-SUPPORTED_INPUT_FORMATS = ("auto", "excel", "csv", "txt")
 
-
-def list_table_files(data_directory=REFERENCES_DIR, input_format="auto"):
-    if input_format not in SUPPORTED_INPUT_FORMATS:
-        raise ValueError(f"Unsupported input format: {input_format}")
-
+def list_table_files(data_directory=REFERENCES_DIR):
+    """The `.txt` reference lists in a directory, sorted."""
     if not os.path.isdir(data_directory):
         return []
 
-    file_paths = []
-    for file_name in os.listdir(data_directory):
-        lower_name = file_name.lower()
-        if input_format in ("auto", "excel") and lower_name.endswith((".xls", ".xlsx")):
-            file_paths.append(os.path.join(data_directory, file_name))
-        elif input_format in ("auto", "csv") and lower_name.endswith(".csv"):
-            file_paths.append(os.path.join(data_directory, file_name))
-        elif input_format in ("auto", "txt") and lower_name.endswith(".txt"):
-            file_paths.append(os.path.join(data_directory, file_name))
-
-    return sorted(file_paths)
+    return sorted(
+        os.path.join(data_directory, name)
+        for name in os.listdir(data_directory)
+        if name.lower().endswith(".txt")
+    )
 
 
 EXTRA_INSTALL = (
@@ -65,73 +54,11 @@ def _read_txt(file_path):
     return rows
 
 
-def _rows_from_cells(cells):
-    """Turn a header row plus data rows into dicts.
-
-    Empty and missing cells become "", cells beyond the header are dropped,
-    and blank rows are skipped.
-    """
-    cells = [list(row) for row in cells]
-    # Like pandas: leading blank rows are skipped, the first non-blank row is the header.
-    while cells and all(value in (None, "") for value in cells[0]):
-        cells.pop(0)
-    if not cells:
-        return []
-    header = []
-    for name in cells[0]:
-        name = "" if name is None else str(name)
-        # Like pandas: a repeated column name becomes "name.1", "name.2", ...
-        unique, n = name, 0
-        while unique in header:
-            n += 1
-            unique = f"{name}.{n}"
-        header.append(unique)
-    rows = []
-    for row in cells[1:]:
-        values = list(row)[: len(header)]
-        values += [""] * (len(header) - len(values))
-        if any(value not in (None, "") for value in values):
-            rows.append(
-                {
-                    name: "" if value is None else value
-                    for name, value in zip(header, values)
-                }
-            )
-    return rows
-
-
-def _read_excel(file_path):
-    if file_path.lower().endswith(".xls"):
-        xlrd = require("xlrd", "excel")
-        sheet = xlrd.open_workbook(file_path).sheet_by_index(0)
-        return _rows_from_cells(sheet.row_values(i) for i in range(sheet.nrows))
-    openpyxl = require("openpyxl", "excel")
-    workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
-    try:
-        return _rows_from_cells(workbook.worksheets[0].iter_rows(values_only=True))
-    finally:
-        workbook.close()
-
-
 def read_table(file_path):
-    """Read a reference file as a list of dicts, one per row, keyed by column name."""
-    lower_path = file_path.lower()
-    if lower_path.endswith(".txt"):
-        return _read_txt(file_path)
-    if lower_path.endswith(".csv"):
-        # utf-8-sig: spreadsheet apps prefix "CSV UTF-8" exports with a BOM.
-        with open(file_path, encoding="utf-8-sig", newline="") as f:
-            reader = csv.reader(f)
-            return _rows_from_cells(reader)
-    return _read_excel(file_path)
-
-
-def table_columns(rows):
-    """Column names in first-seen order across all rows."""
-    columns = {}
-    for row in rows:
-        columns.update(dict.fromkeys(row))
-    return list(columns)
+    """Read a `.txt` reference list as a list of dicts, one per row."""
+    if not file_path.lower().endswith(".txt"):
+        raise ValueError(f"Cannot read {file_path}: only .txt reference lists")
+    return _read_txt(file_path)
 
 
 def read_doi_from_table(file_path):
@@ -170,43 +97,20 @@ def validate_doi(doi):
 
 
 def write_table(rows, file_path):
-    lower_path = file_path.lower()
-    if lower_path.endswith(".txt"):
-        # Write as tab-separated DOI<TAB>Title, dropping successfully downloaded rows
-        with open(file_path, "w", encoding="utf-8") as f:
-            for row in rows:
-                if row.get(COL_DOWNLOAD_STATUS) == "success":
-                    continue
-                identifier = str(row.get(COL_DOI, "")).strip()
-                title = str(row.get(COL_TITLE, "")).strip()
-                if not identifier and not title:
-                    continue
-                if identifier.startswith(("url:", "isbn:")):
-                    f.write(f"{identifier}\t{title}\n")
-                elif identifier:
-                    f.write(f"doi:{identifier}\t{title}\n")
-                else:
-                    f.write(f"{title}\n")
-        return
-
-    columns = table_columns(rows)
-    if lower_path.endswith(".csv"):
-        with open(file_path, "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=columns, restval="")
-            writer.writeheader()
-            writer.writerows(rows)
-        return
-
-    if lower_path.endswith(".xlsx"):
-        openpyxl = require("openpyxl", "excel")
-        workbook = openpyxl.Workbook()
-        sheet = workbook.active
-        sheet.append(columns)
+    """Rewrite a `.txt` list to the rows not yet fetched (identifier TAB title)."""
+    if not file_path.lower().endswith(".txt"):
+        raise ValueError(f"Cannot write {file_path}: only .txt reference lists")
+    with open(file_path, "w", encoding="utf-8") as f:
         for row in rows:
-            sheet.append([row.get(name, "") for name in columns])
-        workbook.save(file_path)
-        return
-
-    raise ValueError(
-        f"Cannot write {file_path}: only .txt, .csv and .xlsx are writable"
-    )
+            if row.get(COL_DOWNLOAD_STATUS) == "success":
+                continue
+            identifier = str(row.get(COL_DOI, "")).strip()
+            title = str(row.get(COL_TITLE, "")).strip()
+            if not identifier and not title:
+                continue
+            if identifier.startswith(("url:", "isbn:")):
+                f.write(f"{identifier}\t{title}\n")
+            elif identifier:
+                f.write(f"doi:{identifier}\t{title}\n")
+            else:
+                f.write(f"{title}\n")

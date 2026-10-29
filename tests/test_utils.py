@@ -7,107 +7,44 @@ import pytest
 from utils import list_table_files, read_table, require, write_table
 
 
-def test_list_table_files_filters_by_format(tmp_path):
+def test_list_table_files_lists_txt_only(tmp_path):
     (tmp_path / "papers.csv").write_text("DOI,Article Title\n", encoding="utf-8")
     (tmp_path / "papers.xlsx").write_text("placeholder", encoding="utf-8")
     (tmp_path / "refs.txt").write_text("doi:10.1000/test\tTest\n", encoding="utf-8")
 
-    auto_files = list_table_files(str(tmp_path), "auto")
-    csv_files = list_table_files(str(tmp_path), "csv")
-    excel_files = list_table_files(str(tmp_path), "excel")
-    txt_files = list_table_files(str(tmp_path), "txt")
-
-    assert auto_files == [
-        str(tmp_path / "papers.csv"),
-        str(tmp_path / "papers.xlsx"),
-        str(tmp_path / "refs.txt"),
-    ]
-    assert csv_files == [str(tmp_path / "papers.csv")]
-    assert excel_files == [str(tmp_path / "papers.xlsx")]
-    assert txt_files == [str(tmp_path / "refs.txt")]
+    assert list_table_files(str(tmp_path)) == [str(tmp_path / "refs.txt")]
 
 
-def test_csv_round_trip(tmp_path):
-    file_path = tmp_path / "input.csv"
-    expected = [
-        {
-            "DOI": "10.1000/test",
-            "Article Title": "Example Title",
-            "Download Status": "pending",
-        },
-        {"DOI": "", "Article Title": "No DOI, with a comma", "Download Status": ""},
-    ]
-
-    write_table(expected, str(file_path))
-    actual = read_table(str(file_path))
-
-    assert actual == expected
+@pytest.mark.parametrize("name", ["refs.csv", "refs.xlsx", "refs.xls"])
+def test_non_txt_tables_are_refused(tmp_path, name):
+    with pytest.raises(ValueError, match="only .txt"):
+        read_table(str(tmp_path / name))
+    with pytest.raises(ValueError, match="only .txt"):
+        write_table([{"DOI": "10.1000/test"}], str(tmp_path / name))
 
 
-def test_csv_bom_short_and_long_rows(tmp_path):
-    file_path = tmp_path / "excel-export.csv"
-    file_path.write_bytes(
-        b"\xef\xbb\xbfDOI,Article Title\n10.1000/a,A,surplus\n10.1000/b\n,\n"
-    )
-
-    assert read_table(str(file_path)) == [
-        {"DOI": "10.1000/a", "Article Title": "A"},
-        {"DOI": "10.1000/b", "Article Title": ""},
-    ]
-
-
-def test_csv_leading_blank_line_and_duplicate_columns(tmp_path):
-    file_path = tmp_path / "refs.csv"
+def test_txt_round_trip_from_missing_references_producer(tmp_path):
+    """Shape written by qa_missing_references.py: '#<TAB>label' lines for
+    references without an identifier. They are comments, so reading skips them
+    and the rewrite does not carry them over."""
+    file_path = tmp_path / "missing_references.txt"
     file_path.write_text(
-        "\nDOI,Article Title,Notes,Notes\n10.1000/a,A,first,second\n",
+        "doi:10.1000/a\tA\n#\tAyres & Kneese 1969\nisbn:9780674009691\tBook\n",
         encoding="utf-8",
     )
 
     rows = read_table(str(file_path))
+    write_table(rows, str(file_path))
 
-    assert rows == [
-        {
-            "DOI": "10.1000/a",
-            "Article Title": "A",
-            "Notes": "first",
-            "Notes.1": "second",
-        }
-    ]
-
-
-def test_xlsx_reads_first_sheet_not_active(tmp_path):
-    openpyxl = pytest.importorskip("openpyxl")
-    file_path = tmp_path / "refs.xlsx"
-    workbook = openpyxl.Workbook()
-    workbook.active.append(["DOI", "Article Title"])
-    workbook.active.append(["10.1000/a", "A"])
-    workbook.create_sheet("empty")
-    workbook.active = 1
-    workbook.save(file_path)
-
-    assert read_table(str(file_path)) == [{"DOI": "10.1000/a", "Article Title": "A"}]
-
-
-def test_xlsx_round_trip(tmp_path):
-    file_path = tmp_path / "input.xlsx"
-    expected = [
-        {"DOI": "10.1000/test", "Article Title": "Example Title"},
-        {"DOI": "", "Article Title": "Title only"},
-    ]
-
-    write_table(expected, str(file_path))
-
-    assert read_table(str(file_path)) == expected
-
-
-def test_write_xls_is_refused(tmp_path):
-    with pytest.raises(ValueError, match="only .txt, .csv and .xlsx"):
-        write_table([{"DOI": "10.1000/test"}], str(tmp_path / "old.xls"))
+    assert [r["DOI"] for r in rows] == ["10.1000/a", "isbn:9780674009691"]
+    assert file_path.read_text(encoding="utf-8") == (
+        "doi:10.1000/a\tA\nisbn:9780674009691\tBook\n"
+    )
 
 
 def test_missing_extra_names_it():
-    with pytest.raises(ImportError, match=r"'excel' extra.*doifetch\[excel\]"):
-        require("no_such_module_doifetch", "excel")
+    with pytest.raises(ImportError, match=r"'shadow' extra.*doifetch\[shadow\]"):
+        require("no_such_module_doifetch", "shadow")
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -118,7 +55,7 @@ _BLOCK_EXTRAS = """
 import sys
 class Block:
     def find_spec(self, name, path=None, target=None):
-        if name.split(".")[0] in {"pandas", "numpy", "openpyxl", "xlrd", "bs4", "tqdm"}:
+        if name.split(".")[0] in {"pandas", "numpy", "bs4", "tqdm"}:
             raise ImportError("blocked: " + name)
 sys.meta_path.insert(0, Block())
 sys.argv = ["doifetch"] + sys.argv[1:]
@@ -161,14 +98,13 @@ def test_doi_mode_needs_no_extras(tmp_path):
     assert "Download failed" in done.stdout
 
 
-def test_txt_and_csv_batch_need_no_extras(tmp_path):
-    (tmp_path / "refs.txt").write_text("doi:10.1000/a\tA\n", encoding="utf-8")
-    (tmp_path / "refs.csv").write_text(
-        "DOI,Article Title\n10.1000/b,B\n", encoding="utf-8"
+def test_txt_batch_needs_no_extras(tmp_path):
+    (tmp_path / "refs.txt").write_text(
+        "doi:10.1000/a\tA\ndoi:10.1000/b\tB\n", encoding="utf-8"
     )
     code = (
         "import fetch, utils\n"
-        "files = utils.list_table_files('.', 'auto')\n"
+        "files = utils.list_table_files('.')\n"
         "tasks, skipped = fetch.load_download_tasks(files)\n"
         "print(sorted(tasks), skipped)\n"
         "fetch.update_source_files(files, [('B', 'https://doi.org/10.1000/b')])\n"
@@ -176,7 +112,7 @@ def test_txt_and_csv_batch_need_no_extras(tmp_path):
     done = _run_core(code, cwd=tmp_path)
     assert done.returncode == 0, done.stderr
     assert "[('10.1000/a', 'A'), ('10.1000/b', 'B')] 0" in done.stdout
-    assert "success" in (tmp_path / "refs.csv").read_text(encoding="utf-8")
+    assert (tmp_path / "refs.txt").read_text(encoding="utf-8") == "doi:10.1000/a\tA\n"
 
 
 @pytest.mark.parametrize(

@@ -9,8 +9,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Batch input from spreadsheets (.xlsx, .xls); .txt and .csv need nothing extra.
-excel = ["openpyxl", "xlrd"]
 # HTML parsing for the opt-in shadow-library sources (scihub, libgen).
 shadow = ["beautifulsoup4"]
 
@@ -40,7 +38,7 @@ py-modules = [
 
 [dependency-groups]
 dev = [
-    "doifetch[excel,shadow]",
+    "doifetch[shadow]",
     "pytest",
 ]
 

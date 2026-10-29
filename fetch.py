@@ -22,7 +22,6 @@ import naming
 import zotero
 from config import (
     COL_DOI,
-    COL_DOI_LINK,
     COL_DOWNLOAD_STATUS,
     COL_TITLE,
     DOI_URL_BASE,
@@ -35,10 +34,8 @@ from config import (
 )
 from pdf_utils import clean_filename
 from utils import (
-    SUPPORTED_INPUT_FORMATS,
     list_table_files,
     read_table,
-    table_columns,
     validate_doi,
     write_table,
 )
@@ -93,12 +90,6 @@ def parse_args():
         default="all",
         help="Source to fetch from (default: all — Crossref, Unpaywall, HAL, "
         "ISTEX, EZproxy in order; scihub and libgen only when named here)",
-    )
-    parser.add_argument(
-        "--input-format",
-        choices=SUPPORTED_INPUT_FORMATS,
-        default="auto",
-        help="Choose input files from references/: excel, csv, txt, or auto",
     )
     parser.add_argument(
         "--data-dir",
@@ -178,10 +169,9 @@ def _row_doi(row):
 
 
 def update_source_files(file_paths, successful_records):
-    """Write back DOI links and download status to source files.
+    """Rewrite each `.txt` source file to the rows still missing.
 
-    `successful_records` holds (row title as read from the table, DOI link): the
-    title is the row's own, not the resolved file name, so the row is found.
+    `successful_records` holds (title, DOI link); rows are matched by link.
     """
     for file_path in file_paths:
         try:
@@ -189,31 +179,16 @@ def update_source_files(file_paths, successful_records):
             if not rows:
                 continue
 
-            columns = table_columns(rows)
-            if COL_DOI_LINK not in columns:
-                columns.insert(2, COL_DOI_LINK)
-            if COL_DOWNLOAD_STATUS not in columns:
-                columns.append(COL_DOWNLOAD_STATUS)
-            rows = [{name: row.get(name, "") for name in columns} for row in rows]
-
-            records = [
-                (title, doi_link)
-                for title, doi_link in successful_records
+            by_link = {
+                doi_link
+                for _, doi_link in successful_records
                 if doi_link and doi_link != "No DOI"
-            ]
-            by_link = {doi_link for _, doi_link in records}
-            by_title = {title: doi_link for title, doi_link in records if title}
+            }
             for row in rows:
-                # A row with a DOI is matched by that DOI; the title is only the
-                # fallback, so a row never takes another row's link.
+                # A row is matched by its own identifier only, never by title:
+                # two rows may share a title and only one be fetched.
                 row_doi = _row_doi(row)
-                link = None
                 if row_doi and f"{DOI_URL_BASE}{row_doi}" in by_link:
-                    link = f"{DOI_URL_BASE}{row_doi}"
-                elif row.get(COL_TITLE):
-                    link = by_title.get(row[COL_TITLE])
-                if link is not None:
-                    row[COL_DOI_LINK] = link
                     row[COL_DOWNLOAD_STATUS] = STATUS_SUCCESS
 
             write_table(rows, file_path)
@@ -373,7 +348,7 @@ def main():
     failed_dois = []
 
     zotero_db = resolve_zotero_db(args.no_check_zotero)
-    input_files = list_table_files(args.data_dir, args.input_format)
+    input_files = list_table_files(args.data_dir)
     doi_queue = Queue()
 
     download_tasks, skipped_count = load_download_tasks(input_files)

@@ -5,7 +5,7 @@
 - `fetch.py` is the batch orchestrator: it manages table I/O, parallelism, retries, and source selection.
 - `fetch_scihub.py`, `fetch_crossref.py`, and `fetch_unpaywall.py` are source-specific fetchers, each exposing a `fetch_pdf(doi, title, output_dir)` function with the same return convention.
 - `config.py` holds shared constants (directories, column names, Sci-Hub domains, download parameters).
-- `utils.py` provides shared I/O dispatch for reading/writing Excel, CSV, and TXT files, plus DOI validation.
+- `utils.py` provides shared I/O dispatch for reading/writing `.txt` reference lists, plus DOI validation.
 
 ## Build And Run
 - Use `uv run` from the repo root instead of `pip` or manual virtualenv setup.
@@ -17,7 +17,7 @@
 - Preserve the current script-oriented style: top-level functions, minimal abstractions, and shared constants in `config.py`.
 - All fetchers follow the same interface convention: `fetch_pdf(doi, title, output_dir) -> dict` returning `status`, `doi`, `title`, `file_name`, and optionally `error`.
 - Keep dependency changes in `pyproject.toml`, and add test-only tooling to the `dev` dependency group.
-- Use `pandas` for Excel reads and writes, and preserve existing column names such as `DOI`, `Article Title`, `DOI Link`, and `Download Status`.
+- Preserve the internal column names `DOI`, `Article Title`, and `Download Status`.
 - All code, comments, and documentation must be in English.
 
 ## Operational Constraints

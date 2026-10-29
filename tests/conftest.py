@@ -3,9 +3,6 @@ import sys
 
 import pytest
 
-
-from utils import write_table
-
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -18,17 +15,9 @@ SAMPLE_DOIS = [
 
 @pytest.fixture()
 def sample_data_dir(tmp_path):
-    """Create data dir with 2 DOIs in 3 formats: csv, xlsx, txt."""
+    """Create data dir with 2 DOIs in a .txt list."""
     data_dir = tmp_path / "references"
     data_dir.mkdir()
-
-    df = [{"DOI": doi, "Article Title": title} for doi, title in SAMPLE_DOIS]
-
-    # CSV
-    write_table(df, str(data_dir / "refs.csv"))
-
-    # XLSX
-    write_table(df, str(data_dir / "refs.xlsx"))
 
     # TXT
     lines = [f"doi:{doi}\t{title}" for doi, title in SAMPLE_DOIS]
