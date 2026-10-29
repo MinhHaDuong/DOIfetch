@@ -1,0 +1,33 @@
+%erg 0.1
+Title: CORE as an open-access full-text source
+Created: 2026-10-29
+Author: MinhHaDuong
+Blocked-by: 0013
+
+--- log ---
+2026-10-29T21:03Z MinhHaDuong created
+
+--- body ---
+## Context
+
+Author request 2026-10-29 (in place of a shadow-library source): CORE (core.ac.uk) aggregates full
+texts harvested from institutional repositories, including theses and accepted manuscripts that
+Unpaywall sometimes misses. Biggest remaining open-access gain after OpenAlex (0013) and the ISBN
+reshape (0012).
+
+## Actions
+1. Check CORE API v3's current terms first (key registration, rate limits, the DOI lookup form, the
+   field that carries a downloadable full-text URL).
+2. A `core` source under the contract, accepting DOIs; downloads the full text when it passes the
+   PDF check. Placed in the default cascade after the open sources (crossref, unpaywall, openalex,
+   hal), before the institutional ones.
+3. Key handling as for OpenAlex (0013): `CORE_API_KEY` from the environment, else a key file whose
+   path defaults to `~/.config/keys/core.env` and is configurable; never printed. Without a key,
+   follow CORE's terms; if refused, `failed` with a reason.
+4. Mock all network in tests; one `network`-marked test against the live API; covered by 0009's
+   conformance suite.
+
+## Exit criteria
+- [ ] A DOI with a CORE full text and no Unpaywall copy is fetched on a default install
+- [ ] Key read from env, else the configurable key file; never printed
+- [ ] Conformance suite covers the source; suite passes
