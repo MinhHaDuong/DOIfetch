@@ -208,3 +208,9 @@ def test_decompression_bomb_fails(base, monkeypatch):
 def test_body_within_cap_ok(base, monkeypatch):
     monkeypatch.setattr(_http, "MAX_BODY_BYTES", 6000)
     assert len(_http.Session().get(base + "/big").content) == 5000
+
+
+def test_truncated_gzip_body_fails():
+    body = gzip.compress(b"hello world" * 100)[:-20]
+    with pytest.raises(_http.HttpError):
+        _http._decode_body(body, "gzip")
