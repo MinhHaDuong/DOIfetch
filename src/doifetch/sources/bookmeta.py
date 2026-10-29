@@ -5,12 +5,12 @@ Each provider returns a dict with `title`, `subtitle`, `author` and `issued` key
 usable record. Providers never raise.
 """
 
+import json
 import logging
 import re
 
-import requests
-
 from doifetch.config import TIMEOUT
+from doifetch.sources import _http
 
 logger = logging.getLogger(__name__)
 
@@ -47,15 +47,15 @@ def _message(title, subtitle, names, date):
 def open_library(isbn):
     """Open Library `api/books?jscmd=data` record for `isbn`, or None."""
     try:
-        response = requests.get(
+        response = _http.get(
             OPEN_LIBRARY_URL,
             params={"bibkeys": f"ISBN:{isbn}", "format": "json", "jscmd": "data"},
             timeout=TIMEOUT,
         )
-        if response.status_code != 200:
-            logger.info("Open Library status %s for %s", response.status_code, isbn)
+        if response.status != 200:
+            logger.info("Open Library status %s for %s", response.status, isbn)
             return None
-        record = (response.json() or {}).get(f"ISBN:{isbn}")
+        record = (json.loads(response.text) or {}).get(f"ISBN:{isbn}")
         if not record:
             return None
         names = [a.get("name", "") for a in record.get("authors") or []]
@@ -73,13 +73,13 @@ def open_library(isbn):
 def google_books(isbn):
     """Google Books volume for `isbn`, or None. Best effort: the keyless quota is shared."""
     try:
-        response = requests.get(
+        response = _http.get(
             GOOGLE_BOOKS_URL, params={"q": f"isbn:{isbn}"}, timeout=TIMEOUT
         )
-        if response.status_code != 200:
-            logger.info("Google Books status %s for %s", response.status_code, isbn)
+        if response.status != 200:
+            logger.info("Google Books status %s for %s", response.status, isbn)
             return None
-        items = (response.json() or {}).get("items") or []
+        items = (json.loads(response.text) or {}).get("items") or []
         if not items:
             return None
         info = items[0].get("volumeInfo") or {}

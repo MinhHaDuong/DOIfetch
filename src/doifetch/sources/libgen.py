@@ -3,10 +3,8 @@
 import os
 import re
 
-import requests
-
-from doifetch.config import HEADERS, PAPERS_DIR, TIMEOUT
-from doifetch.sources._legacy import run_legacy
+from doifetch.config import HEADERS, TIMEOUT
+from doifetch.sources import _http
 from doifetch.sources.contract import Kind, Request, Result
 
 SEARCH_MIRRORS = [
@@ -39,32 +37,32 @@ def _search_isbn(isbn):
     """Search Libgen mirrors by ISBN. Returns MD5 of first result or None."""
     # libgen.li uses index.php with columns[] param
     try:
-        resp = requests.get(
+        resp = _http.get(
             f"{DOWNLOAD_MIRROR}/index.php",
             params={"req": isbn, "columns[]": "identifier"},
             headers=HEADERS,
             timeout=TIMEOUT,
         )
-        if resp.status_code == 200:
+        if resp.status == 200:
             md5 = _extract_md5(_soup(resp.text))
             if md5:
                 return md5
-    except requests.RequestException:
+    except _http.HttpError:
         pass
 
     # Fallback: mirrors using search.php
     params = {"req": isbn, "column": "identifier", "res": 10, "view": "simple"}
     for mirror in SEARCH_MIRRORS:
         try:
-            resp = requests.get(
+            resp = _http.get(
                 f"{mirror}/search.php", params=params, headers=HEADERS, timeout=TIMEOUT
             )
-            if resp.status_code != 200:
+            if resp.status != 200:
                 continue
             md5 = _extract_md5(_soup(resp.text))
             if md5:
                 return md5
-        except requests.RequestException:
+        except _http.HttpError:
             continue
     return None
 
@@ -72,8 +70,8 @@ def _search_isbn(isbn):
 def _resolve_download_url(md5):
     """Fetch libgen.li ads page and return the direct GET download URL."""
     page_url = f"{DOWNLOAD_MIRROR}/ads.php?md5={md5}"
-    resp = requests.get(page_url, headers=HEADERS, timeout=TIMEOUT)
-    if resp.status_code != 200:
+    resp = _http.get(page_url, headers=HEADERS, timeout=TIMEOUT)
+    if resp.status != 200:
         return None
     soup = _soup(resp.text)
 
@@ -111,123 +109,65 @@ def _detect_ext(content, content_type=""):
     return ".pdf"  # optimistic default
 
 
-def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
-    """Download a book from Libgen by ISBN (PDF or EPUB).
+def fetch(req: Request) -> Result:
+    """Download the book with ISBN ``req.identifier`` from Libgen.
 
-    doi should be in 'isbn:XXXXXXXXXX' format.
-    Returns dict with keys: status, doi, title, file_name, error (if failed).
+    Only a PDF is kept: an EPUB or an error page is a failure, since the contract
+    writes ``req.path`` and returns success for a checked PDF only.
     """
-    from doifetch.pdf_utils import clean_filename, is_valid_pdf
+    from doifetch.pdf_utils import is_valid_pdf
     from doifetch.utils import require
 
     try:
         require("bs4", "shadow")
     except ImportError as exc:
-        return {"status": "failed", "doi": doi, "title": title, "error": str(exc)}
+        return Result("failed", NAME, error=str(exc))
 
-    safe_title = title if title else f"Unknown_{doi}"
-    base_name = clean_filename(safe_title)
+    if is_valid_pdf(req.path):
+        return Result("skipped", NAME, path=req.path)
 
-    # Check for existing file in any supported format
-    for ext in (".pdf", ".epub"):
-        existing = os.path.join(output_dir, base_name + ext)
-        if os.path.exists(existing) and os.path.getsize(existing) > 1000:
-            return {
-                "status": "skipped",
-                "doi": doi,
-                "title": title,
-                "file_name": base_name + ext,
-            }
-
-    file_name = base_name + ".pdf"  # placeholder; overridden after download
-    file_path = os.path.join(output_dir, file_name)
-
-    isbn = doi.removeprefix("isbn:").strip()
+    isbn = req.identifier.strip()
     if not isbn:
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": "No ISBN provided",
-        }
+        return Result("failed", NAME, error="No ISBN provided")
 
     try:
         md5 = _search_isbn(isbn)
         if not md5:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"ISBN {isbn} not found on Libgen",
-            }
+            return Result("failed", NAME, error=f"ISBN {isbn} not found on Libgen")
 
         download_url = _resolve_download_url(md5)
         if not download_url:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"Could not resolve download URL for md5={md5}",
-            }
+            return Result(
+                "failed", NAME, error=f"Could not resolve download URL for md5={md5}"
+            )
 
-        pdf_resp = requests.get(
-            download_url, headers=HEADERS, timeout=max(TIMEOUT, 120)
-        )
-        if pdf_resp.status_code != 200:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"Download failed: HTTP {pdf_resp.status_code}",
-            }
+        resp = _http.get(download_url, headers=HEADERS, timeout=max(TIMEOUT, 120))
+        if not resp.ok:
+            return Result("failed", NAME, error=f"Download failed: HTTP {resp.status}")
 
-        content = pdf_resp.content
-        ext = _detect_ext(content, pdf_resp.headers.get("content-type", ""))
-        file_name = base_name + ext
-        file_path = os.path.join(output_dir, file_name)
-
+        content = resp.content
+        ext = _detect_ext(content, resp.headers.get("content-type", ""))
         if len(content) < 1000 or ext == ".html":
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "Downloaded file appears to be an error page",
-            }
+            return Result(
+                "failed", NAME, error="Downloaded file appears to be an error page"
+            )
+        if ext != ".pdf":
+            return Result(
+                "failed", NAME, error=f"Libgen served {ext[1:].upper()}, not a PDF"
+            )
 
-        with open(file_path, "wb") as f:
+        with open(req.path, "wb") as f:
             f.write(content)
-
-        if ext == ".pdf" and not is_valid_pdf(file_path):
-            os.remove(file_path)
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "Downloaded file is not a valid PDF",
-            }
-
-        return {"status": "success", "doi": doi, "title": title, "file_name": file_name}
+        if not is_valid_pdf(req.path):
+            os.remove(req.path)
+            return Result("failed", NAME, error="Downloaded file is not a valid PDF")
+        return Result("success", NAME, path=req.path)
 
     except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": str(e),
-        }
+        if os.path.exists(req.path) and not is_valid_pdf(req.path):
+            os.remove(req.path)
+        return Result("failed", NAME, error=str(e))
 
 
 NAME = "libgen"
 ACCEPTS: frozenset[Kind] = frozenset({"isbn"})
-
-
-def fetch(req: Request) -> Result:
-    """Contract adapter over `fetch_pdf`."""
-    return run_legacy(NAME, fetch_pdf, req)
