@@ -1,0 +1,31 @@
+%erg 0.1
+Title: An open-access book source (DOAB/OAPEN) selected by the fetcher contract
+Created: 2026-10-29
+Author: haduong
+Blocked-by: 0008
+
+--- log ---
+2026-10-29T18:42Z haduong created
+
+--- body ---
+## Context
+
+`fetch.py:279` routes every ISBN to LibGen whatever `--source` says. LibGen is a shadow library behind
+the opt-in `shadow` extra, so a default install cannot fetch any book. DOAB (Directory of Open Access
+Books) and OAPEN list open-access books with PDFs and are searchable by ISBN. Many books also carry a
+Crossref DOI, which already takes the DOI path.
+
+New capability: the author confirmed it on 2026-10-29.
+
+## Actions
+1. A `doab` source under 0008's contract: `ACCEPTS` holds ISBN; it looks the ISBN up in DOAB/OAPEN and
+   downloads the open-access PDF when one is listed.
+2. ISBN dispatch goes through `ACCEPTS` like every other kind: drop the LibGen special case. The
+   default cascade for ISBNs is the open source(s) only; LibGen runs only when selected explicitly,
+   consistent with the open-plus-institutional default (0008 log).
+3. README: books are fetched from DOAB by default, LibGen opt-in.
+
+## Exit criteria
+- [ ] An open-access book is fetched by ISBN on a default install (no extras)
+- [ ] No ISBN special case left in the CLI dispatch
+- [ ] Conformance suite (0009) covers the new source
