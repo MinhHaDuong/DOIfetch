@@ -24,7 +24,7 @@ PURITY_SCRIPT = textwrap.dedent(
     from doifetch import Request, Result, fetch
 
     assert "doifetch.cli" not in sys.modules
-    for shadow in ("scihub", "libgen", "bookmeta"):
+    for shadow in ("scihub", "libgen", "bookmeta", "openalex"):
         assert f"doifetch.sources.{shadow}" not in sys.modules, shadow
     print("pure")
     """
@@ -48,6 +48,7 @@ def test_public_names():
     assert doifetch.DEFAULT_ORDER == [
         "crossref",
         "unpaywall",
+        "openalex",
         "hal",
         "istex",
         "ezproxy",
@@ -75,6 +76,7 @@ def test_fetch_runs_the_cascade_until_success(monkeypatch, tmp_path):
         {
             "crossref": ({"doi"}, "failed"),
             "unpaywall": ({"doi"}, "failed"),
+            "openalex": ({"doi"}, "failed"),
             "hal": ({"doi"}, "success"),
             "istex": ({"doi"}, "success"),
             "ezproxy": ({"doi"}, "success"),
@@ -83,7 +85,7 @@ def test_fetch_runs_the_cascade_until_success(monkeypatch, tmp_path):
     )
     result = fetch(Request("doi", "10.1000/x", str(tmp_path / "x.pdf")))
     assert result.status == "success" and result.source == "hal"
-    assert calls == ["crossref", "unpaywall", "hal"]
+    assert calls == ["crossref", "unpaywall", "openalex", "hal"]
 
 
 def test_fetch_returns_last_failure_and_skips_unaccepting_sources(
@@ -95,6 +97,7 @@ def test_fetch_returns_last_failure_and_skips_unaccepting_sources(
         {
             "crossref": ({"url"}, "success"),
             "unpaywall": ({"doi"}, "failed"),
+            "openalex": ({"url"}, "success"),
             "hal": ({"doi"}, "failed"),
             "istex": ({"url"}, "success"),
             "ezproxy": ({"doi"}, "failed"),

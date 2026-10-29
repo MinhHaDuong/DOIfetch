@@ -48,6 +48,12 @@ ZOTERO_DB_PATH = os.environ.get("ZOTERO_DB_PATH")
 DOI_URL_BASE = "https://doi.org/"
 UNPAYWALL_EMAIL = "doifetch@users.noreply.github.com"
 
+# OpenAlex API key: OPENALEX_API_KEY in the environment, else an OPENALEX_API_KEY=...
+# line in this file (override the path with OPENALEX_KEY_FILE).
+OPENALEX_KEY_FILE = os.path.expanduser(
+    os.environ.get("OPENALEX_KEY_FILE", "~/.config/keys/openalex.env")
+)
+
 # Column names
 COL_DOI = "DOI"
 COL_TITLE = "Article Title"

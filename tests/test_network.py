@@ -107,3 +107,18 @@ class TestSciHub:
             assert path.stat().st_size > 1000
             with open(path, "rb") as f:
                 assert f.read(5) == b"%PDF-"
+
+
+@pytest.mark.network
+class TestOpenAlex:
+    def test_work_has_locations(self):
+        """The live API answers for a known DOI (skipped when it wants a key)."""
+        from doifetch.sources import _openalex
+
+        try:
+            work = _openalex.get_work(OA_DOI)
+        except _openalex.OpenAlexError as exc:
+            if "refused" in str(exc):
+                pytest.skip(str(exc))
+            raise
+        assert work["title"] and isinstance(work.get("locations"), list)
