@@ -30,6 +30,8 @@ from urllib.parse import urlsplit, urlunsplit
 import requests
 
 from doifetch.config import HEADERS, PAPERS_DIR, TIMEOUT
+from doifetch.sources._legacy import run_legacy
+from doifetch.sources.contract import Kind, Request, Result
 
 BASE_ENV = "EZPROXY_BASE"
 COOKIES_ENV = "EZPROXY_COOKIES"
@@ -174,3 +176,12 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
         return {"status": "success", "doi": doi, "title": title, "file_name": file_name}
     except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
         return fail(str(e))
+
+
+NAME = "ezproxy"
+ACCEPTS: frozenset[Kind] = frozenset({"doi"})
+
+
+def fetch(req: Request) -> Result:
+    """Contract adapter over `fetch_pdf`."""
+    return run_legacy(NAME, fetch_pdf, req)

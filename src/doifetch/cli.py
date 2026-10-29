@@ -34,6 +34,7 @@ from doifetch.sources import (
     unpaywall,
     url,
 )
+from doifetch.sources.contract import Fetch, Kind, Request, Result
 from doifetch.utils import (
     list_table_files,
     normalize_isbn,
@@ -44,15 +45,13 @@ from doifetch.utils import (
 
 logger = logging.getLogger(__name__)
 
-SOURCES = {
-    "scihub": scihub,
-    "crossref": crossref,
-    "unpaywall": unpaywall,
-    "hal": hal,
-    "istex": istex,
-    "ezproxy": ezproxy,
-    "libgen": libgen,
-    "url": url,
+SOURCES: dict[str, Fetch] = {
+    m.NAME: m.fetch
+    for m in (scihub, crossref, unpaywall, hal, istex, ezproxy, libgen, url)
+}
+ACCEPTS: dict[str, frozenset[Kind]] = {
+    m.NAME: m.ACCEPTS
+    for m in (scihub, crossref, unpaywall, hal, istex, ezproxy, libgen, url)
 }
 
 # When --source all (the default), try sources in this order until one succeeds.
@@ -60,7 +59,7 @@ SOURCES = {
 # ISTEX (licensed national archive) and EZproxy (institutional subscription;
 # fails fast unless EZPROXY_BASE + EZPROXY_COOKIES are configured). Shadow
 # libraries (scihub, libgen) are opt-in: pass --source scihub / --source libgen.
-SOURCE_ORDER = ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
+DEFAULT_ORDER = ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
 
 
 def parse_args():
@@ -248,6 +247,41 @@ def _zotero_skip(doi, title, zotero_db, name):
     }
 
 
+def _kind(identifier):
+    if _is_url(identifier):
+        return "url"
+    return "isbn" if identifier.startswith("isbn:") else "doi"
+
+
+def _request(identifier, name, output_dir):
+    """Build the contract request: the caller decides the target file name."""
+    kind = _kind(identifier)
+    bare = identifier[len("isbn:") :] if kind == "isbn" else identifier
+    stem = name or f"Unknown_{hash(bare) if kind == 'url' else bare}"
+    path = os.path.join(output_dir, f"{clean_filename(stem)}.pdf")
+    return Request(kind, bare, path)
+
+
+def _candidates(kind, source):
+    """Source names to try for `kind`, in order.
+
+    The named source (or the default cascade for "all") when it accepts the
+    kind; otherwise every source that does.
+    """
+    names = DEFAULT_ORDER if source == "all" else [source]
+    names = [n for n in names if kind in ACCEPTS[n]]
+    return names or [n for n in SOURCES if kind in ACCEPTS[n]]
+
+
+def _legacy_dict(doi, name, result: Result):
+    out = {"status": result.status, "doi": doi, "title": name}
+    if result.path:
+        out["file_name"] = os.path.basename(result.path)
+    if result.error:
+        out["error"] = result.error
+    return out
+
+
 def _fetch_one(doi, title, output_dir, source, zotero_db=None, keep_title=False):
     """Fetch a single paper using the specified source strategy.
 
@@ -259,18 +293,12 @@ def _fetch_one(doi, title, output_dir, source, zotero_db=None, keep_title=False)
     skip = _zotero_skip(doi, title, zotero_db, name)
     if skip is not None:
         return skip
-    title = name
-    if _is_url(doi):
-        return url.fetch_pdf(doi, title, output_dir)
-    if doi.startswith("isbn:"):
-        return libgen.fetch_pdf(doi, title, output_dir)
-    if source == "all":
-        for src_name in SOURCE_ORDER:
-            result = SOURCES[src_name].fetch_pdf(doi, title, output_dir)
-            if result["status"] == "success":
-                return result
-        return result  # return last failure
-    return SOURCES[source].fetch_pdf(doi, title, output_dir)
+    req = _request(doi, name, output_dir)
+    for src_name in _candidates(req.kind, source):
+        result = SOURCES[src_name](req)
+        if result.status == "success":
+            break
+    return _legacy_dict(doi, name, result)  # the last result: success or last failure
 
 
 def fetch_worker(

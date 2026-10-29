@@ -161,7 +161,7 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
         return {"status": "success", "doi": doi, "title": title, "file_name": "x.pdf"}
 
     monkeypatch.setattr(cli.istex, "fetch_pdf", fake_istex)
-    monkeypatch.setattr(cli, "SOURCE_ORDER", ["istex"])
+    monkeypatch.setattr(cli, "DEFAULT_ORDER", ["istex"])
 
     tasks, _ = cli.load_download_tasks([str(table)])
     assert tasks == [

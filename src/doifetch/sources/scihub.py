@@ -17,6 +17,8 @@ from doifetch.config import (
     SCIDB_DOMAINS,
     TIMEOUT,
 )
+from doifetch.sources._legacy import run_legacy
+from doifetch.sources.contract import Kind, Request, Result
 
 
 def _soup(html):
@@ -131,3 +133,12 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
         "file_name": file_name,
         "error": last_error or f"{doi or safe_title} | Error: Unknown error",
     }
+
+
+NAME = "scihub"
+ACCEPTS: frozenset[Kind] = frozenset({"doi"})
+
+
+def fetch(req: Request) -> Result:
+    """Contract adapter over `fetch_pdf`."""
+    return run_legacy(NAME, fetch_pdf, req)

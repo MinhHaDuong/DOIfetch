@@ -2,11 +2,11 @@
 Title: Public library API and side-effect-free import (0008 child D1)
 Created: 2026-10-29
 Author: MinhHaDuong
-Blocked-by: 0017
 
 --- log ---
 2026-10-29T20:08Z MinhHaDuong created
 
+2026-10-29T20:20Z MinhHaDuong note blocker 0017 closed — Blocked-by removed.
 --- body ---
 
 ## Context

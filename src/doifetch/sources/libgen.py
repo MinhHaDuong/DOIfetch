@@ -6,6 +6,8 @@ import re
 import requests
 
 from doifetch.config import HEADERS, PAPERS_DIR, TIMEOUT
+from doifetch.sources._legacy import run_legacy
+from doifetch.sources.contract import Kind, Request, Result
 
 SEARCH_MIRRORS = [
     "https://libgen.rs",
@@ -220,3 +222,12 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "file_name": file_name,
             "error": str(e),
         }
+
+
+NAME = "libgen"
+ACCEPTS: frozenset[Kind] = frozenset({"isbn"})
+
+
+def fetch(req: Request) -> Result:
+    """Contract adapter over `fetch_pdf`."""
+    return run_legacy(NAME, fetch_pdf, req)
