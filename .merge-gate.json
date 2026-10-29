@@ -1,14 +1,15 @@
 {
   "gate": "on",
   "scope": "0007-local-gate",
-  "about": "Ticket 0007: DOIfetch has no forge CI (GitHub Actions stays off, local-gate policy). Run by the harness's merge-gate.py, read from the base revision. The suite takes a few seconds, so \"before\" carries all four checks.",
+  "about": "Ticket 0007: DOIfetch has no forge CI (GitHub Actions stays off, local-gate policy). Run by the harness's merge-gate.py, read from the base revision. The suite takes a few seconds, so \"before\" carries all five checks.",
   "checks": [
     {"name": "validate-tickets", "argv": ["tickets/erg", "check", "tickets/"]},
     {"name": "format", "argv": ["uv", "run", "ruff", "format", "--check", "."]},
     {"name": "lint", "argv": ["uv", "run", "ruff", "check", "."]},
+    {"name": "types", "argv": ["uv", "run", "--group", "dev", "mypy"]},
     {"name": "tests", "argv": ["uv", "run", "--group", "dev", "pytest", "-q", "-m", "not network"]}
   ],
-  "before": ["validate-tickets", "format", "lint", "tests"],
+  "before": ["validate-tickets", "format", "lint", "types", "tests"],
   "versions": [
     {"name": "git", "argv": ["git", "--version"]},
     {"name": "uv", "argv": ["uv", "--version"]},
