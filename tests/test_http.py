@@ -3,6 +3,8 @@
 import gzip
 import threading
 import time
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -49,6 +51,24 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/gzip":
             self._send(
                 body=gzip.compress(b"zipped"), headers=[("Content-Encoding", "gzip")]
+            )
+        elif p == "/echo-auth":
+            self._send(body=(self.headers.get("Authorization") or "").encode())
+        elif p == "/xhost":
+            port = self.server.server_address[1]
+            self._send(
+                302, headers=[("Location", f"http://localhost:{port}/echo-auth")]
+            )
+        elif p == "/samehost":
+            self._send(302, headers=[("Location", "/echo-auth")])
+        elif p == "/to-file":
+            self._send(302, headers=[("Location", "file:///etc/hostname")])
+        elif p == "/big":
+            self._send(body=b"x" * 5000)
+        elif p == "/bomb":
+            self._send(
+                body=gzip.compress(b"\0" * 100000),
+                headers=[("Content-Encoding", "gzip")],
             )
         elif p == "/404":
             self._send(404, body=b"nope")
@@ -143,3 +163,156 @@ def test_connection_refused_raises():
 
 def test_one_shot_get(base):
     assert _http.get(base + "/ok", timeout=5).text == "hello"
+
+
+def test_authorization_dropped_on_cross_host_redirect(base):
+    s = _http.Session(headers={"Authorization": "Bearer SECRET"})
+    assert s.get(base + "/xhost").text == ""
+
+
+def test_authorization_kept_on_same_host_redirect(base):
+    s = _http.Session(headers={"Authorization": "Bearer SECRET"})
+    assert s.get(base + "/samehost").text == "Bearer SECRET"
+
+
+@pytest.mark.parametrize("url", ["file:///etc/hostname", "ftp://example.org/x"])
+def test_non_http_scheme_refused(url):
+    with pytest.raises(_http.HttpError):
+        _http.Session().get(url)
+
+
+def test_redirect_to_file_refused(base):
+    with pytest.raises(_http.HttpError):
+        _http.Session().get(base + "/to-file")
+
+
+def test_https_to_http_redirect_refused():
+    handler = _http._LimitedRedirects()
+    req = urllib.request.Request("https://a.example/x")
+    with pytest.raises(urllib.error.URLError):
+        handler.redirect_request(req, None, 302, "", {}, "http://a.example/y")
+
+
+def test_oversized_body_fails(base, monkeypatch):
+    monkeypatch.setattr(_http, "MAX_BODY_BYTES", 1000)
+    with pytest.raises(_http.HttpError):
+        _http.Session().get(base + "/big")
+
+
+def test_decompression_bomb_fails(base, monkeypatch):
+    monkeypatch.setattr(_http, "MAX_BODY_BYTES", 1000)
+    with pytest.raises(_http.HttpError):
+        _http.Session().get(base + "/bomb")
+
+
+def test_body_within_cap_ok(base, monkeypatch):
+    monkeypatch.setattr(_http, "MAX_BODY_BYTES", 6000)
+    assert len(_http.Session().get(base + "/big").content) == 5000
+
+
+def test_truncated_gzip_body_fails():
+    body = gzip.compress(b"hello world" * 100)[:-20]
+    with pytest.raises(_http.HttpError):
+        _http._decode_body(body, "gzip")
+
+
+def _redirected(url, newurl, headers):
+    handler = _http._LimitedRedirects()
+    req = urllib.request.Request(url, headers=headers)
+    return handler.redirect_request(req, None, 302, "", {}, newurl)
+
+
+@pytest.mark.parametrize("newurl", ["https://a.example/y", "https://b.example/y"])
+def test_proxy_authorization_dropped_on_every_redirect(newurl):
+    new_req = _redirected(
+        "https://a.example/x", newurl, {"Proxy-Authorization": "Basic c2VjcmV0"}
+    )
+    assert "proxy-authorization" not in {k.lower() for k in new_req.headers}
+
+
+def test_redirect_response_body_not_drained():
+    class Fp:
+        def read(self, *args):
+            raise AssertionError("redirect body read without a bound")
+
+        def close(self):
+            pass
+
+    fp = Fp()
+    handler = _http._LimitedRedirects()
+    req = urllib.request.Request("https://a.example/x")
+    handler.redirect_request(req, fp, 302, "", {}, "https://a.example/y")
+    assert fp.read() == b""
+
+
+def test_multi_member_gzip_fully_decoded():
+    body = gzip.compress(b"first,") + gzip.compress(b"second")
+    assert _http._decode_body(body, "gzip") == b"first,second"
+
+
+def test_multi_member_gzip_shares_one_budget(monkeypatch):
+    monkeypatch.setattr(_http, "MAX_BODY_BYTES", 1000)
+    body = gzip.compress(b"\0" * 600) + gzip.compress(b"\0" * 600)
+    with pytest.raises(_http.HttpError):
+        _http._decode_body(body, "gzip")
+
+
+def test_truncated_last_gzip_member_fails():
+    body = gzip.compress(b"first") + gzip.compress(b"second" * 100)[:-20]
+    with pytest.raises(_http.HttpError):
+        _http._decode_body(body, "gzip")
+
+
+@pytest.mark.parametrize(
+    "url, newurl",
+    [
+        ("https://a.example/x", "https://a.example:443/y"),
+        ("https://a.example:443/x", "https://a.example/y"),
+        ("http://a.example/x", "http://a.example:80/y"),
+    ],
+)
+def test_default_port_is_same_origin(url, newurl):
+    new_req = _redirected(url, newurl, {"Authorization": "Bearer SECRET"})
+    assert new_req.get_header("Authorization") == "Bearer SECRET"
+
+
+def _raw_server(payload: bytes):
+    """Serve one fixed raw HTTP response per connection, then close."""
+    import socket
+
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+
+    def run():
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                return
+            conn.recv(4096)
+            conn.sendall(payload)
+            conn.close()
+
+    threading.Thread(target=run, daemon=True).start()
+    return srv, f"http://127.0.0.1:{srv.getsockname()[1]}/"
+
+
+def test_short_body_vs_content_length_raises():
+    head = b"HTTP/1.1 200 OK\r\nContent-Length: 100000\r\nConnection: close\r\n\r\n"
+    srv, url = _raw_server(head + b"x" * 50000)
+    try:
+        with pytest.raises(_http.HttpError):
+            _http.Session().get(url)
+    finally:
+        srv.close()
+
+
+def test_correct_content_length_ok():
+    head = b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\n"
+    srv, url = _raw_server(head + b"hello")
+    try:
+        r = _http.Session().get(url)
+        assert r.status == 200 and r.content == b"hello"
+    finally:
+        srv.close()
