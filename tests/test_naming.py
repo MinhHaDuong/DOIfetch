@@ -143,7 +143,8 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
 ):
     table = tmp_path / "refs.csv"
     table.write_text(
-        f"DOI,Article Title\n{DOI},Wrong Title Entirely\n10.1000/blank,\n",
+        f"DOI,Article Title\n{DOI},Wrong Title Entirely\n"
+        "10.1000/blank,\n10.1000/blank2,\n",
         encoding="utf-8",
     )
     renamed = {}
@@ -156,7 +157,11 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
     monkeypatch.setattr(fetch, "SOURCE_ORDER", ["istex"])
 
     tasks, _ = fetch.load_download_tasks([str(table)])
-    assert tasks == [(DOI, "Wrong Title Entirely"), ("10.1000/blank", "")]
+    assert tasks == [
+        (DOI, "Wrong Title Entirely"),
+        ("10.1000/blank", ""),
+        ("10.1000/blank2", ""),
+    ]
 
     records = []
     from queue import Queue
@@ -170,5 +175,19 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
 
     fetch.update_source_files([str(table)], records)
     rows = fetch.read_table(str(table))
-    assert [r["Download Status"] for r in rows] == ["success", "success"]
+    assert [r["Download Status"] for r in rows] == ["success"] * 3
     assert rows[0]["Article Title"] == "Wrong Title Entirely"
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        {"title": ["T"], "author": "Stern"},
+        {"title": ["T"], "author": ["Stern"]},
+        {"title": ["T"], "issued": {"date-parts": "2004"}},
+        {"title": 5},
+    ],
+)
+def test_malformed_record_falls_back_instead_of_raising(crossref, message):
+    crossref["message"] = message
+    assert naming.resolve_name(DOI, "Mine") == "Mine"

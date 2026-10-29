@@ -196,19 +196,22 @@ def update_source_files(file_paths, successful_records):
                 columns.append(COL_DOWNLOAD_STATUS)
             rows = [{name: row.get(name, "") for name in columns} for row in rows]
 
-            links = {
-                title: doi_link
+            records = [
+                (title, doi_link)
                 for title, doi_link in successful_records
                 if doi_link and doi_link != "No DOI"
-            }
-            linked = set(links.values())
+            ]
+            by_link = {doi_link for _, doi_link in records}
+            by_title = {title: doi_link for title, doi_link in records if title}
             for row in rows:
-                link = links.get(row.get(COL_TITLE)) if row.get(COL_TITLE) else None
-                if link is None:
-                    # Blank or edited titles: fall back to the row's own DOI.
-                    row_doi = _row_doi(row)
-                    if row_doi and f"{DOI_URL_BASE}{row_doi}" in linked:
-                        link = f"{DOI_URL_BASE}{row_doi}"
+                # A row with a DOI is matched by that DOI; the title is only the
+                # fallback, so a row never takes another row's link.
+                row_doi = _row_doi(row)
+                link = None
+                if row_doi and f"{DOI_URL_BASE}{row_doi}" in by_link:
+                    link = f"{DOI_URL_BASE}{row_doi}"
+                elif row.get(COL_TITLE):
+                    link = by_title.get(row[COL_TITLE])
                 if link is not None:
                     row[COL_DOI_LINK] = link
                     row[COL_DOWNLOAD_STATUS] = STATUS_SUCCESS
