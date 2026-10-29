@@ -1,0 +1,26 @@
+%erg 0.1
+Title: Title-only requests lost the Sci-Hub title search
+Created: 2026-10-29
+Author: MinhHaDuong
+
+--- log ---
+2026-10-29T20:59Z MinhHaDuong created
+
+--- body ---
+## Context
+
+Found by the integration review of tracker 0008 (raid f9e483). Before 0019, Sci-Hub searched by title
+when a record had no DOI (249fee1 `scihub.py:90`: `build_query_urls(doi, safe_title)`). The contract has
+no title kind: title-only rows become `Request("doi", "", path)` (`cli.py:244-256`) and Sci-Hub now
+builds `build_query_urls(doi, "")` (`scihub.py:78`), an empty search
+(`build_query_urls("", "")[:1] == ['https://sci-hub.fr/?s=']`). No test covered the old behaviour.
+
+## Decision for the author
+- (a) Add a `title` kind to the contract; Sci-Hub (and any other source that can search by title)
+  lists it in `ACCEPTS`. Restores the feature; small contract change (~1-2 USD agent).
+- (b) Drop title-only fetching: reject title-only rows with a clear error, fix `--title` help text and
+  README. Simplest (~0.5 USD agent).
+
+## Exit criteria
+- [ ] The chosen option is implemented and a test pins it (title-only input either searches by title
+      on a source that accepts it, or fails with a clear message)

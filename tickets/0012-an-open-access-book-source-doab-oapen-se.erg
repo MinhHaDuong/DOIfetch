@@ -2,7 +2,6 @@
 Title: Fetch open-access books by ISBN through a Crossref DOI lookup
 Created: 2026-10-29
 Author: haduong
-Blocked-by: 0008
 
 --- log ---
 2026-10-29T18:42Z haduong created
@@ -10,6 +9,8 @@ Blocked-by: 0008
 2026-10-29T18:53Z note Premise objection (raid f9e483, reproduced on padme 2026-10-29): DOAB REST /rest/search and OAPEN /rest/search both answer 403 'You address is not allowed to access this API'; DOAB OAI-PMH answers 200 but has no ISBN filter; no documented public ISBN search found. Alternative seen: Crossref works?filter=isbn: returns DOIs (book or chapter level, untested which), feeding the existing Unpaywall/HAL path. Returned to the author: reshape (ISBN->Crossref DOI->open sources), ask DOAB for API access, or defer. Pulled from the raid.
 2026-10-29T18:54Z note Blind-spot (raid f9e483): the 403 was measured from padme only and reads like an IP block; a second-network probe (hotspot or cloud shell) settles whether the premise objection is host-specific.
 2026-10-29T19:38Z note Author ruling 2026-10-29: reshape — ISBN -> Crossref DOI -> open DOI sources replaces the DOAB/OAPEN source; title, actions and exit criterion 3 rewritten accordingly. Back in the queue after 0008.
+2026-10-29T20:59Z note Integration review of 0008: CLI _candidates falls back to any accepting source, so isbn with --source all or crossref goes to libgen today (cli.py:259-267), contradicting the --source help; this ticket's action 3 removes it. URL-only rows are named Unknown_{hash()} with the per-process string hash (cli.py:254), unstable across runs.
+2026-10-29T20:59Z MinhHaDuong note blocker 0008 closed — Blocked-by removed.
 --- body ---
 ## Context
 
