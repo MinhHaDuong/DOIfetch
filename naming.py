@@ -37,8 +37,10 @@ def _crossref_titles(message):
 
 def _year(message):
     for key in ("issued", "published-print", "published-online"):
-        parts = (message.get(key) or {}).get("date-parts") or [[]]
-        if parts and parts[0] and parts[0][0]:
+        parts = (message.get(key) or {}).get("date-parts")
+        if not (isinstance(parts, list) and parts and isinstance(parts[0], list)):
+            continue
+        if parts[0] and parts[0][0]:
             return str(parts[0][0])
     return ""
 

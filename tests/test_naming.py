@@ -184,10 +184,14 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
     [
         {"title": ["T"], "author": "Stern"},
         {"title": ["T"], "author": ["Stern"]},
-        {"title": ["T"], "issued": {"date-parts": "2004"}},
         {"title": 5},
     ],
 )
 def test_malformed_record_falls_back_instead_of_raising(crossref, message):
     crossref["message"] = message
     assert naming.resolve_name(DOI, "Mine") == "Mine"
+
+
+def test_malformed_date_is_ignored_not_misread():
+    message = {"title": ["T"], "issued": {"date-parts": "2004"}}
+    assert naming.compose_name(message) == "T"
