@@ -3,7 +3,7 @@
 ## Architecture
 - This repository is a Python package (`src/doifetch`) with a `doifetch` console command.
 - `doifetch/cli.py` is the batch orchestrator: it manages table I/O, parallelism, retries, and source selection.
-- `doifetch/sources/*.py` (scihub, crossref, unpaywall, ...) are source-specific fetchers, each exposing a `fetch_pdf(doi, title, output_dir)` function with the same return convention.
+- `doifetch/sources/*.py` (scihub, crossref, unpaywall, ...) are source-specific fetchers, each exposing a `fetch(Request) -> Result` function (`doifetch.sources.contract`).
 - `doifetch/config.py` holds shared constants (directories, column names, Sci-Hub domains, download parameters).
 - `doifetch/utils.py` provides shared I/O dispatch for reading/writing `.txt` reference lists, plus DOI validation.
 
@@ -15,7 +15,7 @@
 
 ## Conventions
 - Preserve the current style: top-level functions, minimal abstractions, and shared constants in `config.py`.
-- All fetchers follow the same interface convention: `fetch_pdf(doi, title, output_dir) -> dict` returning `status`, `doi`, `title`, `file_name`, and optionally `error`.
+- All fetchers follow the same interface convention: `fetch(Request) -> Result`; a `Result` carries `status` ("success", "failed" or "skipped"), `source`, and optionally `path` and `error`. Fetchers report failure in the `Result` and never raise.
 - Keep dependency changes in `pyproject.toml`, and add test-only tooling to the `dev` dependency group.
 - Preserve the internal column names `DOI`, `Article Title`, and `Download Status`.
 - All code, comments, and documentation must be in English.
