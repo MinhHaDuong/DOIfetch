@@ -2,12 +2,13 @@
 Title: OpenAlex as naming fallback and as a multi-location open-access source
 Created: 2026-10-29
 Author: haduong
-Blocked-by: 0008
 
 --- log ---
 2026-10-29T18:46Z haduong created
 
 2026-10-29T18:53Z note Imagine (raid f9e483): keyless OpenAlex answers today but pricing is usage-based since 2026-02 with a tiny keyless budget: 429/key-required -> failed with reason, warn once per run. Cascade after unpaywall. Naming fallback must not import the source module (side-effect-free import, 0008). For the author: the default key-file path ~/.config/keys/openalex.env is a personal path in a public repo; keep or env-var only?
+2026-10-29T20:59Z note Integration review of 0008: the source list lives in three places (--source choices cli.py:74-84 and the module tuple cli.py:51,55); a new source must be added to each, or derive the choices from SOURCES.
+2026-10-29T20:59Z MinhHaDuong note blocker 0008 closed — Blocked-by removed.
 --- body ---
 ## Context
 

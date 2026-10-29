@@ -2,6 +2,7 @@
 Title: A clear contract for fetchers
 Created: 2026-10-29
 Author: haduong
+Closed: Integration review of children 0015-0022 (raid f9e483, PRs #21-#28): all six exit criteria hold on main e792e12, gate green (177 passed); follow-ups noted on 0009/0012/0013 and ticket 0023
 
 --- log ---
 2026-10-29T18:24Z haduong created
@@ -22,6 +23,7 @@ Author: haduong
 2026-10-29T20:37Z MinhHaDuong note blocker 0019 closed — Blocked-by removed.
 2026-10-29T20:46Z MinhHaDuong note blocker 0020 closed — Blocked-by removed.
 2026-10-29T20:52Z MinhHaDuong note blocker 0021 closed — Blocked-by removed.
+2026-10-29T20:59Z MinhHaDuong closed — Integration review of children 0015-0022 (raid f9e483, PRs #21-#28): all six exit criteria hold on main e792e12, gate green (177 passed); follow-ups noted on 0009/0012/0013 and ticket 0023
 --- body ---
 ## Tracker (split by raid f9e483, 2026-10-29)
 

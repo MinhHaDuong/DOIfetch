@@ -2,12 +2,13 @@
 Title: Per-source contract tests on recorded responses
 Created: 2026-10-29
 Author: haduong
-Blocked-by: 0008
 
 --- log ---
 2026-10-29T18:24Z haduong created
 
 2026-10-29T18:53Z note Imagine (raid f9e483): keep the conformance suite to never-raises / no partial file / non-PDF rejected through one shared fake transport (anything more asserts the mock); weight effort on recorded-response parsing tests; ezproxy (Firefox cookies) and scihub (domain rotation) need a scoped transport seam decided up front.
+2026-10-29T20:59Z note Integration review of 0008 (raid f9e483, PRs #21-#28): conformance targets confirmed — (a) never-raises gaps: istex.py:127-136, ezproxy.py:113-127, scihub.py:70-73 run os.remove/token lookup before the try (libgen is clean); cli single mode does not wrap SOURCES[...]() (cli.py:292). (b) no-partial-file has three implementations (_pdf.save_pdf in the 4 open sources; .part+os.replace in istex/ezproxy, which also writes outside req.path; direct write in scihub/libgen): converge on one. (c) two cascades: the CLI re-implements the loop instead of calling api.fetch; api stops on skipped, CLI only on success; CLI falls back to any accepting source (isbn,crossref -> libgen; isbn,all -> libgen) while api.fetch fails. Pin one cascade semantics in the tests. Cheap doc fix in reach: README.md:21,25, .github/copilot-instructions.md:6,18, sources/__init__.py:1 and test names still describe fetch_pdf(doi,title,output_dir).
+2026-10-29T20:59Z MinhHaDuong note blocker 0008 closed — Blocked-by removed.
 --- body ---
 ## Context
 
