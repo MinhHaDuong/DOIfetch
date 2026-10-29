@@ -10,17 +10,8 @@ import threading
 import time
 from queue import Queue
 
-import fetch_crossref
-import fetch_ezproxy
-import fetch_hal
-import fetch_istex
-import fetch_libgen
-import fetch_scihub
-import fetch_unpaywall
-import fetch_url
-import naming
-import zotero
-from config import (
+from doifetch import naming, zotero
+from doifetch.config import (
     COL_DOI,
     COL_DOWNLOAD_STATUS,
     COL_TITLE,
@@ -32,8 +23,18 @@ from config import (
     STATUS_SUCCESS,
     ZOTERO_DB_PATH,
 )
-from pdf_utils import clean_filename
-from utils import (
+from doifetch.pdf_utils import clean_filename
+from doifetch.sources import (
+    crossref,
+    ezproxy,
+    hal,
+    istex,
+    libgen,
+    scihub,
+    unpaywall,
+    url,
+)
+from doifetch.utils import (
     list_table_files,
     normalize_isbn,
     read_table,
@@ -44,14 +45,14 @@ from utils import (
 logger = logging.getLogger(__name__)
 
 SOURCES = {
-    "scihub": fetch_scihub,
-    "crossref": fetch_crossref,
-    "unpaywall": fetch_unpaywall,
-    "hal": fetch_hal,
-    "istex": fetch_istex,
-    "ezproxy": fetch_ezproxy,
-    "libgen": fetch_libgen,
-    "url": fetch_url,
+    "scihub": scihub,
+    "crossref": crossref,
+    "unpaywall": unpaywall,
+    "hal": hal,
+    "istex": istex,
+    "ezproxy": ezproxy,
+    "libgen": libgen,
+    "url": url,
 }
 
 # When --source all (the default), try sources in this order until one succeeds.
@@ -260,9 +261,9 @@ def _fetch_one(doi, title, output_dir, source, zotero_db=None, keep_title=False)
         return skip
     title = name
     if _is_url(doi):
-        return fetch_url.fetch_pdf(doi, title, output_dir)
+        return url.fetch_pdf(doi, title, output_dir)
     if doi.startswith("isbn:"):
-        return fetch_libgen.fetch_pdf(doi, title, output_dir)
+        return libgen.fetch_pdf(doi, title, output_dir)
     if source == "all":
         for src_name in SOURCE_ORDER:
             result = SOURCES[src_name].fetch_pdf(doi, title, output_dir)

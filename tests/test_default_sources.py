@@ -1,16 +1,16 @@
 """The default source cascade is open and institutional sources only."""
 
-import fetch
+from doifetch import cli
 
 
 def test_default_order_is_open_and_institutional():
-    assert fetch.SOURCE_ORDER == ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
+    assert cli.SOURCE_ORDER == ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
 
 
 def test_shadow_libraries_stay_opt_in():
-    assert "scihub" not in fetch.SOURCE_ORDER
-    assert "libgen" not in fetch.SOURCE_ORDER
-    assert "scihub" in fetch.SOURCES  # still reachable via --source scihub
+    assert "scihub" not in cli.SOURCE_ORDER
+    assert "libgen" not in cli.SOURCE_ORDER
+    assert "scihub" in cli.SOURCES  # still reachable via --source scihub
 
 
 def test_default_run_never_calls_scihub(monkeypatch, tmp_path):
@@ -23,7 +23,7 @@ def test_default_run_never_calls_scihub(monkeypatch, tmp_path):
 
         return fetch_pdf
 
-    for name, module in fetch.SOURCES.items():
+    for name, module in cli.SOURCES.items():
         monkeypatch.setattr(module, "fetch_pdf", stub(name))
-    fetch._fetch_one("10.1000/x", "T", str(tmp_path), "all")
+    cli._fetch_one("10.1000/x", "T", str(tmp_path), "all")
     assert calls == ["crossref", "unpaywall", "hal", "istex", "ezproxy"]

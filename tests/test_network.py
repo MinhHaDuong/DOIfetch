@@ -8,7 +8,7 @@ import pytest
 import requests
 from conftest import SAMPLE_DOIS
 
-from config import UNPAYWALL_EMAIL
+from doifetch.config import UNPAYWALL_EMAIL
 
 # First DOI is PLOS ONE (open access), most likely to have PDFs available.
 OA_DOI = SAMPLE_DOIS[0][0]  # 10.1371/journal.pone.0001636
@@ -26,7 +26,7 @@ class TestCrossref:
 
     def test_crossref_get_pdf_url(self):
         """get_pdf_url runs without error and returns URL or None."""
-        from fetch_crossref import get_pdf_url
+        from doifetch.sources.crossref import get_pdf_url
 
         pdf_url = get_pdf_url(OA_DOI)
         # Not all OA papers have direct PDF links in Crossref
@@ -35,7 +35,7 @@ class TestCrossref:
 
     def test_crossref_404_for_unknown_doi(self, tmp_path):
         """fetch_pdf reports a clear error for a DOI that does not exist in Crossref."""
-        from fetch_crossref import fetch_pdf
+        from doifetch.sources.crossref import fetch_pdf
 
         result = fetch_pdf("10.9999/nonexistent.doi.000", "Test", str(tmp_path))
         assert result["status"] == "failed"
@@ -44,7 +44,7 @@ class TestCrossref:
 
     def test_crossref_downloads_pdf(self, tmp_path):
         """If Crossref provides a PDF URL, it delivers a real PDF."""
-        from fetch_crossref import get_pdf_url
+        from doifetch.sources.crossref import get_pdf_url
 
         pdf_url = get_pdf_url(OA_DOI)
         if not pdf_url:
@@ -90,7 +90,7 @@ class TestUnpaywall:
 class TestSciHub:
     def test_fetch_pdf_to_disk(self, tmp_path):
         """fetch_pdf fetches a PDF to disk via Sci-Hub."""
-        from fetch_scihub import fetch_pdf
+        from doifetch.sources.scihub import fetch_pdf
 
         result = fetch_pdf(OA_DOI, "Test Paper", output_dir=str(tmp_path))
         # Sci-Hub may be unavailable, so we accept success or failure

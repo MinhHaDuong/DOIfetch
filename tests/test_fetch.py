@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
-import fetch
+from doifetch import cli
 
 
 def test_parse_args_supports_single_download_and_source(monkeypatch):
@@ -19,7 +19,7 @@ def test_parse_args_supports_single_download_and_source(monkeypatch):
         ],
     )
 
-    args = fetch.parse_args()
+    args = cli.parse_args()
 
     assert args.doi == "10.1000/example"
     assert args.title == "Example Paper"
@@ -33,7 +33,7 @@ def test_load_download_tasks_reads_txt_and_skips_invalid_doi(tmp_path):
         encoding="utf-8",
     )
 
-    tasks, skipped_count = fetch.load_download_tasks([str(file_path)])
+    tasks, skipped_count = cli.load_download_tasks([str(file_path)])
 
     assert tasks == [("10.1000/valid", "Valid Paper")]
     assert skipped_count == 1
@@ -45,13 +45,13 @@ def test_handle_single_download_rejects_invalid_doi():
     )
 
     with pytest.raises(ValueError):
-        fetch.handle_single_download(args)
+        cli.handle_single_download(args)
 
 
 def test_parse_args_supports_isbn(monkeypatch):
     monkeypatch.setattr("sys.argv", ["fetch.py", "--isbn", "9780262033848"])
 
-    args = fetch.parse_args()
+    args = cli.parse_args()
 
     assert args.isbn == "9780262033848"
 
@@ -63,7 +63,7 @@ def test_handle_single_download_routes_isbn_to_libgen(monkeypatch, tmp_path):
         captured["doi"] = doi
         return {"status": "success", "doi": doi, "title": title, "file_name": "b.pdf"}
 
-    monkeypatch.setattr(fetch.fetch_libgen, "fetch_pdf", fake_libgen)
+    monkeypatch.setattr(cli.libgen, "fetch_pdf", fake_libgen)
 
     args = SimpleNamespace(
         doi=None,
@@ -74,7 +74,7 @@ def test_handle_single_download_routes_isbn_to_libgen(monkeypatch, tmp_path):
         no_check_zotero=True,
     )
 
-    rc = fetch.handle_single_download(args)
+    rc = cli.handle_single_download(args)
 
     assert rc == 0
     assert captured["doi"] == "isbn:9780262033848"
@@ -87,9 +87,7 @@ def test_shared_title_failed_row_stays_on_retry_list(tmp_path):
         encoding="utf-8",
     )
 
-    fetch.update_source_files(
-        [str(refs)], [("Same Title", "https://doi.org/10.1000/ok")]
-    )
+    cli.update_source_files([str(refs)], [("Same Title", "https://doi.org/10.1000/ok")])
 
     assert refs.read_text(encoding="utf-8") == "doi:10.1000/failed\tSame Title\n"
 
@@ -106,7 +104,7 @@ def test_txt_round_trip_keeps_prefixes_and_titles(tmp_path):
         encoding="utf-8",
     )
 
-    fetch.update_source_files(
+    cli.update_source_files(
         [str(refs)],
         [
             ("Done", "https://doi.org/10.1000/done"),
@@ -131,7 +129,7 @@ def test_hyphenated_isbn_row_is_dropped_after_success(tmp_path):
     )
 
     # The queued task carries the normalized ISBN, so the success link does too.
-    fetch.update_source_files(
+    cli.update_source_files(
         [str(refs)],
         [
             ("Hyphenated", "https://doi.org/isbn:9780306406157"),

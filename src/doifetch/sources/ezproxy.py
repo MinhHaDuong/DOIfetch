@@ -22,7 +22,6 @@ If EZPROXY_BASE or EZPROXY_COOKIES is unset, this fetcher fails fast with a
 message rather than pretending to try — so `--source all` simply skips it.
 """
 
-import argparse
 import http.cookiejar
 import os
 import re
@@ -30,7 +29,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import requests
 
-from config import HEADERS, PAPERS_DIR, TIMEOUT
+from doifetch.config import HEADERS, PAPERS_DIR, TIMEOUT
 
 BASE_ENV = "EZPROXY_BASE"
 COOKIES_ENV = "EZPROXY_COOKIES"
@@ -105,7 +104,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
 
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
-    from pdf_utils import clean_filename, is_valid_pdf
+    from doifetch.pdf_utils import clean_filename, is_valid_pdf
 
     safe_title = title if title else f"Unknown_{doi}"
     file_name = f"{clean_filename(safe_title)}.pdf"
@@ -175,28 +174,3 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
         return {"status": "success", "doi": doi, "title": title, "file_name": file_name}
     except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
         return fail(str(e))
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Download a paper PDF through an institutional EZproxy by DOI"
-    )
-    parser.add_argument("--doi", required=True, help="DOI of the paper")
-    parser.add_argument("--title", default="", help="Title of the paper")
-    parser.add_argument("--output-dir", default=PAPERS_DIR, help="Output directory")
-    args = parser.parse_args()
-
-    os.makedirs(args.output_dir, exist_ok=True)
-    result = fetch_pdf(args.doi, args.title, args.output_dir)
-    if result["status"] == "failed":
-        print(f"Download failed: {result['error']}")
-        return 1
-    if result["status"] == "skipped":
-        print(f"Skipped existing file: {result['file_name']}")
-    else:
-        print(f"Download succeeded: {result['file_name']}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

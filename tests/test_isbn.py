@@ -4,10 +4,9 @@ import logging
 
 import pytest
 
-import fetch
-import fetch_bookmeta
-import naming
-from utils import normalize_isbn
+from doifetch import cli, naming
+from doifetch.sources import bookmeta
+from doifetch.utils import normalize_isbn
 
 ISBN13 = "9780262033848"
 ISBN10 = "0262033844"
@@ -43,13 +42,13 @@ def test_invalid_isbn_is_rejected(raw):
 def test_single_mode_rejects_bad_check_digit():
     args = type("A", (), {"isbn": "9780262033849"})()
     with pytest.raises(ValueError, match="Invalid ISBN"):
-        fetch.handle_single_download(args)
+        cli.handle_single_download(args)
 
 
 def test_batch_skips_invalid_isbn_like_invalid_doi(tmp_path, capsys):
     path = tmp_path / "refs.txt"
     path.write_text(f"isbn:9780262033849\tBad\nisbn:{ISBN13}\tGood\n")
-    tasks, skipped = fetch.load_download_tasks([str(path)])
+    tasks, skipped = cli.load_download_tasks([str(path)])
     assert tasks == [(f"isbn:{ISBN13}", "Good")]
     assert skipped == 1
     assert "invalid isbn" in capsys.readouterr().out.lower()
@@ -66,7 +65,7 @@ def books(monkeypatch):
             raise state["message"]
         return state["message"]
 
-    monkeypatch.setattr(fetch_bookmeta, "get_metadata", fake)
+    monkeypatch.setattr(bookmeta, "get_metadata", fake)
     return state
 
 
@@ -139,13 +138,13 @@ def _route(monkeypatch, ol, gb):
             raise resp
         return resp
 
-    monkeypatch.setattr(fetch_bookmeta.requests, "get", fake_get)
+    monkeypatch.setattr(bookmeta.requests, "get", fake_get)
     return calls
 
 
 def test_open_library_first_and_google_not_called(monkeypatch):
     calls = _route(monkeypatch, _Resp(200, OL), _Resp(200, GB))
-    msg = fetch_bookmeta.get_metadata(ISBN13)
+    msg = bookmeta.get_metadata(ISBN13)
     assert naming.compose_name(msg) == SIMON_NAME
     assert len(calls) == 1
 
@@ -155,9 +154,9 @@ def test_open_library_first_and_google_not_called(monkeypatch):
 )
 def test_google_books_is_second_provider(monkeypatch, ol):
     _route(monkeypatch, ol, _Resp(200, GB))
-    assert naming.compose_name(fetch_bookmeta.get_metadata(ISBN13)) == SIMON_NAME
+    assert naming.compose_name(bookmeta.get_metadata(ISBN13)) == SIMON_NAME
 
 
 def test_all_providers_failing_gives_none(monkeypatch):
     _route(monkeypatch, _Resp(404, {}), _Resp(429, {}))
-    assert fetch_bookmeta.get_metadata(ISBN13) is None
+    assert bookmeta.get_metadata(ISBN13) is None

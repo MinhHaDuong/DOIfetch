@@ -2,14 +2,14 @@
 
 from conftest import SAMPLE_DOIS
 
-import fetch
-from utils import read_doi_from_table
+from doifetch import cli
+from doifetch.utils import read_doi_from_table
 
 EXPECTED_DOIS = {doi for doi, _ in SAMPLE_DOIS}
 
 
 def test_load_tasks_from_txt(sample_data_dir):
-    tasks, skipped = fetch.load_download_tasks([str(sample_data_dir / "refs.txt")])
+    tasks, skipped = cli.load_download_tasks([str(sample_data_dir / "refs.txt")])
     assert {doi for doi, _ in tasks} == EXPECTED_DOIS
     assert skipped == 0
 

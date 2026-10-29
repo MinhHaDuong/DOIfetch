@@ -11,7 +11,6 @@ Resolution is by DOI: the search API maps the DOI to an ISTEX document id, then
 the fulltext endpoint returns the PDF under a Bearer-token Authorization header.
 """
 
-import argparse
 import os
 import subprocess
 import sys
@@ -19,7 +18,7 @@ import threading
 
 import requests
 
-from config import PAPERS_DIR, TIMEOUT
+from doifetch.config import PAPERS_DIR, TIMEOUT
 
 TOKEN_ENV = "ISTEX_ACCESSTOKEN"
 TOKEN_FILE = os.path.expanduser("~/.config/keys/istex.env")
@@ -118,7 +117,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
 
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
-    from pdf_utils import clean_filename, is_valid_pdf
+    from doifetch.pdf_utils import clean_filename, is_valid_pdf
 
     safe_title = title if title else f"Unknown_{doi}"
     file_name = f"{clean_filename(safe_title)}.pdf"
@@ -204,29 +203,3 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "file_name": file_name,
             "error": str(e),
         }
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Download a paper fulltext PDF from ISTEX by DOI"
-    )
-    parser.add_argument("--doi", required=True, help="DOI of the paper")
-    parser.add_argument("--title", default="", help="Title of the paper")
-    parser.add_argument("--output-dir", default=PAPERS_DIR, help="Output directory")
-    args = parser.parse_args()
-
-    os.makedirs(args.output_dir, exist_ok=True)
-    result = fetch_pdf(args.doi, args.title, args.output_dir)
-
-    if result["status"] == "failed":
-        print(f"Download failed: {result['error']}")
-        return 1
-    if result["status"] == "skipped":
-        print(f"Skipped existing file: {result['file_name']}")
-    else:
-        print(f"Download succeeded: {result['file_name']}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

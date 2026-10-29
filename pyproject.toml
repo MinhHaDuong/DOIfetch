@@ -13,28 +13,14 @@ dependencies = [
 shadow = ["beautifulsoup4"]
 
 [project.scripts]
-doifetch = "fetch:main"
+doifetch = "doifetch.cli:main"
 
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-py-modules = [
-    "config",
-    "fetch",
-    "fetch_crossref",
-    "fetch_ezproxy",
-    "fetch_hal",
-    "fetch_istex",
-    "fetch_libgen",
-    "fetch_scihub",
-    "fetch_unpaywall",
-    "fetch_url",
-    "pdf_utils",
-    "utils",
-    "zotero",
-]
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [dependency-groups]
 dev = [
@@ -45,7 +31,6 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
 markers = [
     "network: tests that make real HTTP requests (deselect with -m 'not network')",
 ]
