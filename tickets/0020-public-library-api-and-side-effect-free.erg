@@ -1,0 +1,26 @@
+%erg 0.1
+Title: Public library API and side-effect-free import (0008 child D1)
+Created: 2026-10-29
+Author: MinhHaDuong
+Blocked-by: 0017
+
+--- log ---
+2026-10-29T20:08Z MinhHaDuong created
+
+--- body ---
+
+## Context
+
+Child of tracker 0008 (split by raid f9e483: the ticket bundled five sign-off units over ~25 files). Read 0008's body and log for the up-front decisions: `Kind` is a `Literal`, `ACCEPTS` a `frozenset[str]`; one `DEFAULT_ORDER` constant for the cascade; no `detail_url` (no consumer found); contract as data plus a signature, no ABC/Protocol/base class.
+
+Line endings: cli.py, config.py and sources crossref, hal, libgen, scihub, unpaywall, url are CRLF; keep each file's endings, no whole-file diffs.
+
+## Actions
+`from doifetch import Request, Result, fetch` as the stable import path; `doifetch.fetch(req)` runs the
+default cascade (`DEFAULT_ORDER`). `import doifetch` has no side effects.
+
+## Exit criteria
+- [ ] Public library API: `from doifetch import Request, Result, fetch`; `doifetch.fetch(req)` runs the
+      default source cascade, not one source
+- [ ] `import doifetch` has no side effects and needs no extra: no network, no prompt (Firefox cookie,
+      ISTEX), no optional dependency imported; a test imports it with the extras absent

@@ -1,0 +1,30 @@
+%erg 0.1
+Title: Fetcher contract and typed registry (0008 child B1)
+Created: 2026-10-29
+Author: MinhHaDuong
+Blocked-by: 0016
+
+--- log ---
+2026-10-29T20:08Z MinhHaDuong created
+
+--- body ---
+
+## Context
+
+Child of tracker 0008 (split by raid f9e483: the ticket bundled five sign-off units over ~25 files). Read 0008's body and log for the up-front decisions: `Kind` is a `Literal`, `ACCEPTS` a `frozenset[str]`; one `DEFAULT_ORDER` constant for the cascade; no `detail_url` (no consumer found); contract as data plus a signature, no ABC/Protocol/base class.
+
+Line endings: cli.py, config.py and sources crossref, hal, libgen, scihub, unpaywall, url are CRLF; keep each file's endings, no whole-file diffs.
+
+## Actions
+1. `src/doifetch/sources/contract.py`: frozen dataclasses `Request` (kind, identifier, target path) and
+   `Result` (`status` Literal, `source`, `path`, `error`), `Fetch = Callable[[Request], Result]`, the
+   contract rules in the module docstring (0008 Actions 1 and 3).
+2. Each source module gains `NAME`, `ACCEPTS` and `fetch(req) -> Result` as a thin adapter over its
+   legacy function, in the module itself, so later children edit only their own modules.
+3. `cli.py` registry becomes `dict[str, Fetch]`; dispatch reads `ACCEPTS`, not string prefixes; the cascade
+   order is one `DEFAULT_ORDER` constant.
+
+## Exit criteria
+- [ ] Every source exposes `NAME`, `ACCEPTS`, `fetch`; no class in `sources/`; the type checker passes
+- [ ] `cli.py` has no per-source special case
+- [ ] Behaviour unchanged on the existing suite

@@ -1,0 +1,24 @@
+%erg 0.1
+Title: Type checker as a gate check (0008 child A2)
+Created: 2026-10-29
+Author: MinhHaDuong
+
+--- log ---
+2026-10-29T20:08Z MinhHaDuong created
+
+--- body ---
+
+## Context
+
+Child of tracker 0008 (split by raid f9e483: the ticket bundled five sign-off units over ~25 files). Read 0008's body and log for the up-front decisions: `Kind` is a `Literal`, `ACCEPTS` a `frozenset[str]`; one `DEFAULT_ORDER` constant for the cascade; no `detail_url` (no consumer found); contract as data plus a signature, no ABC/Protocol/base class.
+
+Line endings: cli.py, config.py and sources crossref, hal, libgen, scihub, unpaywall, url are CRLF; keep each file's endings, no whole-file diffs.
+
+## Actions
+1. Add mypy or pyright (lenient) to the dev group and as a fifth check in `.merge-gate.json` (also in
+   `before`), scoped to `src/doifetch/` (0008 Action 6).
+2. It passes on the current tree; tighten only as later children land.
+
+## Exit criteria
+- [ ] `.merge-gate.json` runs the type checker and it passes on the branch
+- [ ] Dev-group only: no runtime dependency added
