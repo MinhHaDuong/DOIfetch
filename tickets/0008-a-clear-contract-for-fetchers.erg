@@ -2,7 +2,6 @@
 Title: A clear contract for fetchers
 Created: 2026-10-29
 Author: haduong
-Blocked-by: 0020
 Blocked-by: 0021
 
 --- log ---
@@ -22,6 +21,7 @@ Blocked-by: 0021
 2026-10-29T20:28Z MinhHaDuong note blocker 0018 closed — Blocked-by removed.
 2026-10-29T20:32Z MinhHaDuong note blocker 0022 closed — Blocked-by removed.
 2026-10-29T20:37Z MinhHaDuong note blocker 0019 closed — Blocked-by removed.
+2026-10-29T20:46Z MinhHaDuong note blocker 0020 closed — Blocked-by removed.
 --- body ---
 ## Tracker (split by raid f9e483, 2026-10-29)
 
