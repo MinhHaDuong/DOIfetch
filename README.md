@@ -6,13 +6,13 @@ A tool for batch downloading academic paper PDFs and books from multiple open-ac
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 ## Project Introduction
 
-DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper and book PDF files. It supports obtaining papers from Crossref, Unpaywall, OpenAlex, HAL, ISTEX and EZproxy by DOI (Sci-Hub on request); books from Library Genesis by ISBN; and arbitrary documents by URL. It features multi-threaded downloading and falls back across Sci-Hub mirror domains.
+DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper and book PDF files. It supports obtaining papers from Crossref, Unpaywall, OpenAlex, HAL, ISTEX and EZproxy by DOI (Sci-Hub on request); books by ISBN through their Crossref DOI (Library Genesis on request); and arbitrary documents by URL. It features multi-threaded downloading and falls back across Sci-Hub mirror domains.
 
 ## Features
 
 - Supports reading literature DOI, ISBN, and URL information from `.txt` reference lists
 - Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, OpenAlex, HAL, ISTEX, EZproxy; Sci-Hub on request) by DOI
-- Downloads books from Library Genesis by ISBN
+- Downloads open-access books by ISBN (Crossref book DOI, then the open DOI sources); Library Genesis on request
 - Downloads documents directly from URLs
 - Supports multi-threaded downloading to improve efficiency
 - Waits a random delay before each Sci-Hub request
@@ -31,7 +31,8 @@ Everything lives in the `doifetch` package under `src/doifetch/`; the paths belo
 - `sources/hal.py`: HAL open-archive fetcher — searches by author surname and title
 - `sources/istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
 - `sources/ezproxy.py`: EZproxy fetcher — institutional-subscription access (e.g. BibCNRS). Rewrites the publisher host into your institution's EZproxy form and downloads with your session cookies. The scriptable equivalent of a "Click & Read" button. Requires `EZPROXY_BASE` + `EZPROXY_COOKIES` (a cookies.txt exported after logging into the proxy); federated SSO cannot be scripted blind, so a live session is needed.
-- `sources/libgen.py`: Library Genesis fetcher — downloads books by ISBN
+- `sources/isbn.py`: book fetcher — Crossref `filter=isbn:` gives the book's DOI, the DOI sources give the PDF
+- `sources/libgen.py`: Library Genesis fetcher — downloads books by ISBN (opt-in)
 - `sources/bookmeta.py`: book metadata by ISBN (Open Library, then Google Books), used to name ISBN downloads `<Author> <Year> - <Title>`; invalid ISBN check digits are rejected
 - `sources/scihub.py`: Sci-Hub / SciDB fetcher — tries the frozen Sci-Hub corpus, then SciDB via Anna's Archive (may require proxy or VPN)
 - `sources/url.py`: Direct URL fetcher
@@ -142,7 +143,9 @@ Without the extra, the missing feature fails with a message naming it.
 
 With no `--source`, `doifetch` tries the open and institutional sources in
 order until one succeeds: Crossref, Unpaywall, OpenAlex, HAL, ISTEX, EZproxy (EZproxy
-needs `EZPROXY_BASE` and `EZPROXY_COOKIES`; otherwise it is skipped).
+needs `EZPROXY_BASE` and `EZPROXY_COOKIES`; otherwise it is skipped). An ISBN is
+first looked up in Crossref for its book-level DOI (chapters are ignored), then
+that DOI goes through the same sources.
 
 ### Other sources
 
@@ -165,7 +168,7 @@ result: Result = fetch(Request("doi", "10.1000/example", "paper.pdf"))
 print(result.status, result.source, result.path, result.error)
 ```
 
-`fetch` runs the default cascade (DOI requests; `isbn` and `url` requests have
+`fetch` runs the default cascade (DOI and ISBN requests; `url` requests have
 no default source), returns the first success or skip (otherwise the last failure), and
 never raises.
 
@@ -213,7 +216,8 @@ uv run doifetch --help
    matches Crossref's is kept unchanged; a clear mismatch logs a warning and the
    file is named from Crossref. Pass `--keep-title` to force your own name. If
    Crossref is unreachable, your title is used.
-   To download a single book by ISBN (routed to Libgen):
+   To download a single open-access book by ISBN (via its Crossref DOI; add
+   `--source libgen` for Library Genesis):
    ```
    uv run doifetch --isbn 9780674009691 --title "Author 1998 - Book Title"
    ```
@@ -226,7 +230,7 @@ uv run doifetch --help
    # Comment lines are ignored
    ```
    All three entry types are processed: `doi:` goes through the source cascade,
-   `url:` is fetched directly, and `isbn:` is fetched from Library Genesis.
+   `url:` is fetched directly, and `isbn:` is resolved to its book DOI and fetched from the open sources.
 5. After a run the input file is rewritten to the works still missing, so it is the retry list. Comment lines are not kept.
 
 ## Sci-Hub and SciDB access
