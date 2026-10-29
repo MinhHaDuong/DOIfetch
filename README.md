@@ -24,7 +24,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 
 Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each `sources/` module is one `--source` value and exposes `fetch(Request) -> Result`.
 
-- `cli.py`: Orchestrator (the `doifetch` console command) — batch-fetches papers with table I/O, parallelism, retries, and source selection
+- `cli.py`: Orchestrator (the `doifetch` console command) — batch-fetches papers with table I/O, parallelism, and source selection
 - `sources/crossref.py`: Crossref open-access fetcher (no proxy required)
 - `sources/unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
 - `sources/hal.py`: HAL open-archive fetcher — searches by author surname and title
@@ -48,7 +48,6 @@ The following parameters can be adjusted in `config.py`:
 - `SCI_HUB_DOMAINS`: Sci-Hub domain pool for rotation to avoid blocking
 - `SCIDB_DOMAINS`: Anna's Archive SciDB mirrors (tried after Sci-Hub)
 - `MAX_THREADS`: Number of concurrent download threads
-- `RETRY_COUNT`: Number of retries for download failures
 - `TIMEOUT`: Request timeout duration
 - `MIN_DELAY` and `MAX_DELAY`: Random delay range
 
