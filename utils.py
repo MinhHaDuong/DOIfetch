@@ -71,10 +71,21 @@ def _rows_from_cells(cells):
     Empty and missing cells become "", cells beyond the header are dropped,
     and blank rows are skipped.
     """
-    cells = list(cells)
+    cells = [list(row) for row in cells]
+    # Like pandas: leading blank rows are skipped, the first non-blank row is the header.
+    while cells and all(value in (None, "") for value in cells[0]):
+        cells.pop(0)
     if not cells:
         return []
-    header = [str(name) if name is not None else "" for name in cells[0]]
+    header = []
+    for name in cells[0]:
+        name = "" if name is None else str(name)
+        # Like pandas: a repeated column name becomes "name.1", "name.2", ...
+        unique, n = name, 0
+        while unique in header:
+            n += 1
+            unique = f"{name}.{n}"
+        header.append(unique)
     rows = []
     for row in cells[1:]:
         values = list(row)[: len(header)]
@@ -97,7 +108,7 @@ def _read_excel(file_path):
     openpyxl = require("openpyxl", "excel")
     workbook = openpyxl.load_workbook(file_path, read_only=True, data_only=True)
     try:
-        return _rows_from_cells(workbook.active.iter_rows(values_only=True))
+        return _rows_from_cells(workbook.worksheets[0].iter_rows(values_only=True))
     finally:
         workbook.close()
 

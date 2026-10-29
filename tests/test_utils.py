@@ -56,6 +56,38 @@ def test_csv_bom_short_and_long_rows(tmp_path):
     ]
 
 
+def test_csv_leading_blank_line_and_duplicate_columns(tmp_path):
+    file_path = tmp_path / "refs.csv"
+    file_path.write_text(
+        "\nDOI,Article Title,Notes,Notes\n10.1000/a,A,first,second\n",
+        encoding="utf-8",
+    )
+
+    rows = read_table(str(file_path))
+
+    assert rows == [
+        {
+            "DOI": "10.1000/a",
+            "Article Title": "A",
+            "Notes": "first",
+            "Notes.1": "second",
+        }
+    ]
+
+
+def test_xlsx_reads_first_sheet_not_active(tmp_path):
+    openpyxl = pytest.importorskip("openpyxl")
+    file_path = tmp_path / "refs.xlsx"
+    workbook = openpyxl.Workbook()
+    workbook.active.append(["DOI", "Article Title"])
+    workbook.active.append(["10.1000/a", "A"])
+    workbook.create_sheet("empty")
+    workbook.active = 1
+    workbook.save(file_path)
+
+    assert read_table(str(file_path)) == [{"DOI": "10.1000/a", "Article Title": "A"}]
+
+
 def test_xlsx_round_trip(tmp_path):
     file_path = tmp_path / "input.xlsx"
     expected = [
@@ -108,6 +140,25 @@ def test_core_runs_without_extras(tmp_path):
     done = _run_core("import fetch; fetch.main()", "--help", cwd=tmp_path)
     assert done.returncode == 0, done.stderr
     assert "--doi" in done.stdout
+
+
+def test_doi_mode_needs_no_extras(tmp_path):
+    """--doi runs the default cascade to the end with the optional libraries blocked."""
+    code = (
+        "import requests\n"
+        "def offline(*a, **k):\n"
+        "    raise requests.ConnectionError('offline')\n"
+        "requests.get = requests.head = requests.post = offline\n"
+        "requests.Session.get = requests.Session.request = offline\n"
+        "import fetch\n"
+        "raise SystemExit(fetch.main())\n"
+    )
+    done = _run_core(
+        code, "--doi", "10.1000/a", "--title", "T", "--no-check-zotero", cwd=tmp_path
+    )
+    assert done.returncode == 1, done.stderr
+    assert "Traceback" not in done.stderr
+    assert "Download failed" in done.stdout
 
 
 def test_txt_and_csv_batch_need_no_extras(tmp_path):
