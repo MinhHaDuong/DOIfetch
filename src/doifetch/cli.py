@@ -1,9 +1,10 @@
-"""Orchestrator: batch-fetch paper PDFs from multiple sources.
+"""Orchestrator: batch-fetch papers and books (PDFs) from multiple sources.
 
 Manages table I/O, parallelism, fallback across sources, logging, and status updates.
 """
 
 import argparse
+import importlib.metadata
 import logging
 import os
 import threading
@@ -64,16 +65,72 @@ SOURCES: dict[str, Fetch] = {m.NAME: m.fetch for m in _MODULES}
 ACCEPTS: dict[str, frozenset[Kind]] = {m.NAME: m.ACCEPTS for m in _MODULES}
 
 
+EPILOG = """\
+Examples:
+  doifetch --doi 10.1000/example --title "Author 2020 - Title"   one paper
+  doifetch --isbn 9780674009691                                  one book
+  doifetch --url https://example.com/doc.pdf --title "Doc"       one direct URL
+  doifetch                                                       batch: every .txt in the data directory
+  doifetch --source hal                                          batch through one named source
+
+Batch input: each .txt file in --data-dir holds one entry per line, an
+identifier, a TAB, then the title. Blank lines and lines starting with # are
+ignored; a bare DOI is accepted without the doi: prefix.
+  doi:10.1080/03085140903020580<TAB>Author 2009 - Title
+  isbn:9780674009691<TAB>Author 1998 - Book Title
+  url:https://example.com/doc.pdf<TAB>Document Name
+After a run each file is rewritten to the works still missing (the retry list).
+
+Configuration (environment variables and key files; unset means that source
+is skipped or runs unauthenticated):
+  EZPROXY_BASE         EZproxy host suffix of your institution (ezproxy source)
+  EZPROXY_COOKIES      cookies.txt exported after logging into the proxy
+  EZPROXY_HYPHENS      "reversible" (default) or "simple" host rewriting
+  ISTEX_ACCESSTOKEN    ISTEX access token, else ~/.config/keys/istex.env
+  OPENALEX_API_KEY     OpenAlex API key, else the OPENALEX_API_KEY= line of
+                       OPENALEX_KEY_FILE (default ~/.config/keys/openalex.env)
+  ZOTERO_DB_PATH       Zotero database to skip already-held papers against
+  ZOTERO_DATA_DIR      Zotero data directory, used to find that database
+
+Exit codes:
+  0  success; a batch run that completed (failed items are listed in logs/ and
+     kept in the input files; check there), or a batch with nothing to do
+  1  a single download (--doi, --isbn, --url, --title) failed, or its
+     identifier is invalid
+  2  command-line usage error
+"""
+
+
+def _package_version():
+    try:
+        return importlib.metadata.version("doifetch")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Batch-fetch paper PDFs from open and institutional sources"
+        prog="doifetch",
+        description="Batch-fetch papers and books (PDFs) from open and "
+        "institutional sources. Run with no identifier to process the .txt "
+        "reference lists of the data directory.",
+        epilog=EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {_package_version()}"
     )
     parser.add_argument("--doi", help="Download a single paper by DOI")
     parser.add_argument(
         "--isbn",
-        help="Download a single book by ISBN (open copy found through its Crossref DOI)",
+        help="Download a single book by ISBN: its Crossref book DOI is looked "
+        "up and fetched from the open sources; LibGen is used only with "
+        "--source libgen",
     )
-    parser.add_argument("--title", help="Title for a single-paper download")
+    parser.add_argument("--url", help="Download a single document from an http(s) URL")
+    parser.add_argument(
+        "--title", help="Title naming a single download (with --doi, --isbn, --url)"
+    )
     parser.add_argument(
         "--keep-title",
         action="store_true",
@@ -91,12 +148,12 @@ def parse_args():
     parser.add_argument(
         "--data-dir",
         default=REFERENCES_DIR,
-        help="Directory containing batch input files",
+        help=f"Directory containing batch input .txt files (default: {REFERENCES_DIR})",
     )
     parser.add_argument(
         "--output-dir",
         default=PAPERS_DIR,
-        help="Directory to save downloaded PDFs",
+        help=f"Directory to save downloaded PDFs (default: {PAPERS_DIR})",
     )
     parser.add_argument(
         "--no-check-zotero",
@@ -145,12 +202,12 @@ def load_download_tasks(file_paths):
                 if doi.startswith("url:"):
                     doi = doi[len("url:") :]
                 if doi.startswith("isbn:"):
-                    isbn = normalize_isbn(doi)
-                    if not isbn:
+                    bare = normalize_isbn(doi)
+                    if not bare:
                         print(f"Skipping invalid ISBN: {doi} | {title}")
                         skipped_count += 1
                         continue
-                    doi = f"isbn:{isbn}"
+                    doi = f"isbn:{bare}"
                 elif not _is_url(doi) and not validate_doi(doi):
                     print(f"Skipping invalid DOI format: {doi} | {title}")
                     skipped_count += 1
@@ -169,8 +226,8 @@ def _row_doi(row):
         doi = doi[len("url:") :]
     if doi.startswith("isbn:"):
         # Match the normalized form that load_download_tasks queued.
-        isbn = normalize_isbn(doi)
-        return f"isbn:{isbn}" if isbn else doi
+        bare = normalize_isbn(doi)
+        return f"isbn:{bare}" if bare else doi
     return doi
 
 
@@ -354,12 +411,16 @@ def fetch_worker(
 
 
 def handle_single_download(args):
-    """Handle --doi/--isbn/--title single-item mode."""
+    """Handle --doi/--isbn/--url/--title single-item mode."""
     if getattr(args, "isbn", None):
-        isbn = normalize_isbn(args.isbn)
-        if not isbn:
+        bare = normalize_isbn(args.isbn)
+        if not bare:
             raise ValueError(f"Invalid ISBN (bad format or check digit): {args.isbn}")
-        doi = f"isbn:{isbn}"
+        doi = f"isbn:{bare}"
+    elif getattr(args, "url", None):
+        doi = str(args.url).strip()
+        if not _is_url(doi):
+            raise ValueError(f"Invalid URL (expected http:// or https://): {args.url}")
     elif args.doi:
         doi = str(args.doi).strip()
         if not validate_doi(doi):
@@ -396,7 +457,7 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
 
-    if args.doi or args.isbn or args.title:
+    if args.doi or args.isbn or args.url or args.title:
         try:
             return handle_single_download(args)
         except ValueError as exc:
@@ -448,7 +509,12 @@ def main():
             )
             time.sleep(10)
     else:
-        print("No records to process. Exiting.")
+        print(
+            f"No records to process. Looked for .txt files in {args.data_dir} "
+            f"({len(input_files)} found). Expected one entry per line: an "
+            "identifier (doi:, isbn: or url:), a TAB, then the title. "
+            "See doifetch --help."
+        )
         return 0
 
     write_logs(success_log, error_log, failed_dois)

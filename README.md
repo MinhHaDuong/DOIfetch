@@ -193,6 +193,13 @@ uv run doifetch --help
 
 ## Usage
 
+`doifetch --help` lists the options, examples, the batch line format, the
+environment variables and key files each source reads, and the exit codes;
+`doifetch --version` prints the installed version. Exit codes: 0 success (a
+completed batch run, even with failed items, which stay in the input files and
+are listed in `logs/`), 1 a single download failed or its identifier is invalid,
+2 usage error.
+
 1. Place the reference file in the `references` directory.
 2. Run `doifetch` to start downloading (tries Crossref → Unpaywall → OpenAlex → HAL → ISTEX → EZproxy in order):
    ```
@@ -221,6 +228,10 @@ uv run doifetch --help
    ```
    uv run doifetch --isbn 9780674009691 --title "Author 1998 - Book Title"
    ```
+   To download one document from a URL:
+   ```
+   uv run doifetch --url https://example.com/doc.pdf --title "Document Name"
+   ```
 3. Downloaded files will be saved in the `papers` directory as `.pdf`; Libgen results served as EPUB are reported as failures.
 4. Batch input is a `.txt` list in the data directory, one entry per line: an identifier, a TAB, then the title. Blank lines and lines starting with `#` are ignored:
    ```
@@ -231,6 +242,7 @@ uv run doifetch --help
    ```
    All three entry types are processed: `doi:` goes through the source cascade,
    `url:` is fetched directly, and `isbn:` is resolved to its book DOI and fetched from the open sources.
+   With no `.txt` file found, `doifetch` says which directory it searched and the expected line format.
 5. After a run the input file is rewritten to the works still missing, so it is the retry list. Comment lines are not kept.
 
 ## Sci-Hub and SciDB access
