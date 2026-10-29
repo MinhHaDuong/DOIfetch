@@ -119,3 +119,24 @@ def test_txt_round_trip_keeps_prefixes_and_titles(tmp_path):
     assert refs.read_text(encoding="utf-8") == (
         "doi:10.1000/left\tLeft\nurl:https://example.com/doc.pdf\tDoc\n"
     )
+
+
+def test_hyphenated_isbn_row_is_dropped_after_success(tmp_path):
+    refs = tmp_path / "refs.txt"
+    refs.write_text(
+        "isbn:978-0-306-40615-7\tHyphenated\n"
+        "isbn:9780674009691\tPlain\n"
+        "doi:10.1000/left\tLeft\n",
+        encoding="utf-8",
+    )
+
+    # The queued task carries the normalized ISBN, so the success link does too.
+    fetch.update_source_files(
+        [str(refs)],
+        [
+            ("Hyphenated", "https://doi.org/isbn:9780306406157"),
+            ("Plain", "https://doi.org/isbn:9780674009691"),
+        ],
+    )
+
+    assert refs.read_text(encoding="utf-8") == "doi:10.1000/left\tLeft\n"

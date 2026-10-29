@@ -169,7 +169,13 @@ def load_download_tasks(file_paths):
 
 def _row_doi(row):
     doi = str(row.get(COL_DOI, "") or "").strip()
-    return doi[len("url:") :] if doi.startswith("url:") else doi
+    if doi.startswith("url:"):
+        doi = doi[len("url:") :]
+    if doi.startswith("isbn:"):
+        # Match the normalized form that load_download_tasks queued.
+        isbn = normalize_isbn(doi)
+        return f"isbn:{isbn}" if isbn else doi
+    return doi
 
 
 def update_source_files(file_paths, successful_records):
