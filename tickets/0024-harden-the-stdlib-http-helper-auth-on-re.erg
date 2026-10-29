@@ -1,0 +1,35 @@
+%erg 0.1
+Title: Harden the stdlib HTTP helper: auth on redirects, schemes, size caps
+Created: 2026-10-29
+Author: MinhHaDuong
+
+--- log ---
+2026-10-29T21:03Z MinhHaDuong created
+
+--- body ---
+## Context
+
+Release audit for v0.2.0 (security seat, 2026-10-29) on main d8f4f6f. Dropping `requests` (0021) lost
+its redirect hygiene. `sources/_http.py:71-73` only caps the redirect count; urllib copies every header
+to the redirect target, so the ISTEX `Authorization: Bearer` token (`sources/istex.py:112`) follows a
+cross-host redirect. Reproduced: `HTTPRedirectHandler().redirect_request(Request("https://a/x",
+headers={"Authorization": "Bearer S"}), None, 302, "", {}, "https://evil.example/y").headers` keeps it.
+Also: the opener keeps urllib's file/ftp handlers (`Session().get("file:///etc/hostname")` reads the
+file; reachable through the library's `Request(kind="url")`), redirects may leave HTTPS, and
+`resp.read()` plus gzip/zlib decompression are unbounded (`_http.py:76-85,160`).
+
+## Actions
+1. Drop `Authorization` (and `Cookie` set by hand, if any) when a redirect changes host; refuse an
+   https -> http downgrade.
+2. Accept only `http` and `https` URLs, initial and redirected.
+3. Cap the response body and the decompressed size (a constant generous for PDFs, e.g. 200 MB); over
+   the cap -> `failed` with a reason, no partial file.
+4. Tests: each of the above, red first.
+
+Pre-release fix: lands before the v0.2.0 tag.
+
+## Exit criteria
+- [ ] A cross-host redirect does not carry the Authorization header (test)
+- [ ] `file://`, `ftp://` and an https->http redirect are refused (tests)
+- [ ] Oversized and decompression-bomb bodies fail cleanly without a partial file (tests)
+- [ ] Suite and gate pass

@@ -1,0 +1,34 @@
+%erg 0.1
+Title: CLI and docs fixes for v0.2.0
+Created: 2026-10-29
+Author: MinhHaDuong
+
+--- log ---
+2026-10-29T21:03Z MinhHaDuong created
+
+--- body ---
+## Context
+
+Release audits for v0.2.0 (UX dry-run and docs coherence seats, 2026-10-29) on main d8f4f6f.
+
+## Actions
+1. All sources failed: report every tried source's reason, not only the last one (an open-access DOI
+   with no OA copy ended on "EZPROXY_BASE not set").
+2. `--isbn` with a bad check digit: clear error and exit 1, no traceback (`cli.py:340`), as the batch
+   path already does.
+3. Batch run: a `.txt` with one valid DOI and one bad ISBN printed `Remaining: 0 | Success: 0 |
+   Failed: 0` and did not process the DOI line. Reproduce, isolate the cause, fix, pin with a test.
+4. `--source X` where X does not accept the identifier's kind: fail with a clear error instead of
+   silently running another source (README: "To use a specific source only").
+5. README and agent docs: remove the "retry mechanisms and random delays" claim (no retry code
+   exists); replace `fetch_pdf(...) -> dict` with `fetch(Request) -> Result` (README twice, AGENTS.md,
+   `.github/copilot-instructions.md`, `sources/__init__.py`); fix the Sci-Hub section's cascade list
+   (Sci-Hub is not in the default cascade; EZproxy is); Python badge 3.10+; add a short library API
+   section (`from doifetch import Request, Result, fetch`).
+
+Pre-release fix: lands before the v0.2.0 tag. Not in scope: the ISBN->LibGen default (0012 fixes it).
+
+## Exit criteria
+- [ ] Items 1-4 each pinned by a test
+- [ ] README and agent docs describe the code as it is; no retry claim, no `fetch_pdf`
+- [ ] Suite and gate pass
