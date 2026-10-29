@@ -9,6 +9,7 @@ Closed: autoclosed — PR #16
 
 2026-10-29T18:53Z note Imagine (raid f9e483): premise valid, numbers moved: default ruff clean; BLE+FA give 15 BLE001 + 7 FA102 (FA102 vanish at py310); one verify=False left (fetch_crossref.py:107); 97 offline tests. Path: [tool.ruff] target py310, explicit select (E,F,W,I,B,UP,BLE); ruff in dev group; .merge-gate.json before = all four checks (suite ~2 s). Merge after 0010 and 0011 in wave 1; do not fix code 0010 deletes. Baseline red under py3.9 (uv picks 3.9): this ticket fixes it.
 2026-10-29T19:31Z MinhHaDuong closed — autoclosed — PR #16
+2026-10-29T19:33Z note verify-reroll — round 1: validate-tickets fails — closed ticket 0007 not archived to tickets/closed/ (merge-gate.py run cannot pass on the candidate)
 --- body ---
 ## Context
 
