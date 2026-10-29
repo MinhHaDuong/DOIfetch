@@ -18,11 +18,11 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 - Supports retry mechanisms and random delays to avoid being blocked
 - Automatically updates download status in the original input files
 - Skips papers already in your local Zotero library (auto-enabled when a Zotero database is found)
-- Unified fetcher interface: each source exposes the same `fetch_pdf()` convention
+- Unified fetcher interface: each source exposes `NAME`, `ACCEPTS` and `fetch(req: Request) -> Result` (see `sources/contract.py`)
 
 ## File Descriptions
 
-Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each `sources/` module is one `--source` value and exposes `fetch_pdf()`.
+Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each `sources/` module is one `--source` value and exposes `fetch(req)`; the shared cascade lives in `api.py`.
 
 - `cli.py`: Orchestrator (the `doifetch` console command) — batch-fetches papers with table I/O, parallelism, retries, and source selection
 - `sources/crossref.py`: Crossref open-access fetcher (no proxy required)
