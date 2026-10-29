@@ -2,7 +2,7 @@
 
 ## Architecture
 - This repository is a Python package (`src/doifetch`) with a `doifetch` console command.
-- `doifetch/cli.py` is the batch orchestrator: it manages table I/O, parallelism, retries, and source selection.
+- `doifetch/cli.py` is the batch orchestrator: it manages table I/O, parallelism, and source selection.
 - `doifetch/sources/*.py` (scihub, crossref, unpaywall, ...) are source-specific fetchers, each exposing `NAME`, `ACCEPTS` and `fetch(req: Request) -> Result` (the contract in `sources/contract.py`).
 - `doifetch/config.py` holds shared constants (directories, column names, Sci-Hub domains, download parameters).
 - `doifetch/utils.py` provides shared I/O dispatch for reading/writing `.txt` reference lists, plus DOI validation.
