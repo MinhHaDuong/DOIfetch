@@ -1,0 +1,37 @@
+%erg 0.1
+Title: A clear contract for fetchers
+Created: 2026-10-29
+Author: haduong
+Blocked-by: 0006
+
+--- log ---
+2026-10-29T18:24Z haduong created
+
+--- body ---
+## Context
+
+Each source module exposes `fetch_pdf(doi, title, output_dir)` and returns a free-form dict with
+`status` in `success|failed|skipped` plus whichever of `doi`, `title`, `file_name`, `error`, `url` it
+chooses. `fetch.py:_fetch_one` dispatches by convention only: `fetch_url.fetch_pdf` takes a URL in the
+`doi` slot, ISBNs arrive as `isbn:` strings, `source == "all"` returns the last failure. Nothing states
+what a fetcher may assume, must return, or may raise, so each new source (and each fix to 0004's
+naming) re-derives it.
+
+After 0004 (the caller decides the file name) and 0006 (sources live in `doifetch/sources/`), the
+contract can be written once.
+
+## Actions
+1. `doifetch/sources/base.py`: a typed request (identifier kind DOI/ISBN/URL, the identifier, target
+   path decided by the caller) and a typed result (`status`, `source`, `path`, `error`, `detail_url`),
+   frozen dataclasses or TypedDicts; a `Source` Protocol with `name`, `accepts(identifier_kind)` and
+   `fetch(request) -> Result`.
+2. Contract rules in the module docstring: never raises into the fetch loop (errors become
+   `status=failed` with a reason); writes only the target path; never leaves a partial file; returns
+   `success` only for a file that passed the PDF check.
+3. Port every source; the registry in `cli.py` dispatches on `accepts()`, not on string prefixes.
+4. Run a type checker (mypy or pyright, lenient) on `src/doifetch/sources/` in the gate of 0007.
+
+## Exit criteria
+- [ ] Every source implements the Protocol; the type checker passes on `sources/`
+- [ ] `cli.py` has no per-source special case
+- [ ] Behaviour unchanged on the existing suite

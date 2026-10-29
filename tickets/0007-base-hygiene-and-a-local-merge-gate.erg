@@ -1,0 +1,42 @@
+%erg 0.1
+Title: Base hygiene and a local merge gate
+Created: 2026-10-29
+Author: haduong
+
+--- log ---
+2026-10-29T18:24Z haduong created
+
+--- body ---
+## Context
+
+DOIfetch has no automated check: `.github/` holds no workflow, and GitHub Actions stays off by the
+harness's local-gate policy (`~/.agents/conception/local-merge-gate-policy.md`). Measured on main at
+7e0cead (2026-10-29):
+
+- `uv run --python 3.9` fails at import: `zotero.py:28` uses `str | None` without
+  `from __future__ import annotations`, `TypeError: unsupported operand type(s) for |`. `pyproject.toml`
+  claims `requires-python = ">=3.9"`; 3.9 is end of life since 2025-10.
+- `ruff check .` reports 43 findings under the runner's global config (14 BLE001 blind except, 7 FA102,
+  rest mostly autofixable). The project has no `[tool.ruff]`, so the result depends on who runs it.
+- `fetch_crossref.py:28,97` call `requests.get(..., verify=False)`: TLS verification is off.
+- 67 offline tests pass in 0.75 s; 7 `network` tests are deselected.
+
+## Actions
+1. `requires-python = ">=3.10"`.
+2. `[tool.ruff]` in `pyproject.toml` pinning the rule set; fix the findings. Blind excepts are narrowed to
+   the exceptions actually expected, or kept with a `# noqa: BLE001` and a reason where a fetcher must
+   never raise into the fetch loop.
+3. Drop `verify=False`.
+4. IDH local gate: `.merge-gate.json` with `"gate": "on"`, modelled on the harness's own file.
+   `checks`: `tickets/erg check tickets/`, `uv run ruff format --check .`, `uv run ruff check .`,
+   `uv run --group dev pytest -q -m "not network"`. `before`: all but pytest, or all four, the suite
+   being under a second. `versions`: git, uv, python, erg blob. Add ruff to the dev group.
+5. README § Development: how the gate runs (`merge-gate.py run/check`), no forge CI.
+
+Sequencing: after 0005 merges (it edits `pyproject.toml` and `uv.lock`). Independent of 0004 and 0006.
+
+## Exit criteria
+- [ ] `ruff format --check .` and `ruff check .` clean with the project's own config
+- [ ] `requires-python >= 3.10`; no `verify=False` left
+- [ ] `merge-gate.py enabled --base origin/main` answers gated once merged; `merge-gate.py run` passes on the PR candidate
+- [ ] Existing suite passes
