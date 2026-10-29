@@ -115,6 +115,8 @@ def _inflate(body: bytes, wbits: int) -> bytes:
     out = d.decompress(body, MAX_BODY_BYTES + 1)
     if len(out) > MAX_BODY_BYTES or d.unconsumed_tail:
         raise HttpError(f"decompressed body exceeds {MAX_BODY_BYTES} bytes")
+    if not d.eof:
+        raise HttpError("truncated compressed body")
     return out
 
 
