@@ -29,6 +29,7 @@ from doifetch.sources import (
     crossref,
     ezproxy,
     hal,
+    isbn,
     istex,
     libgen,
     scihub,
@@ -46,14 +47,19 @@ from doifetch.utils import (
 
 logger = logging.getLogger(__name__)
 
-SOURCES: dict[str, Fetch] = {
-    m.NAME: m.fetch
-    for m in (scihub, crossref, unpaywall, hal, istex, ezproxy, libgen, url)
-}
-ACCEPTS: dict[str, frozenset[Kind]] = {
-    m.NAME: m.ACCEPTS
-    for m in (scihub, crossref, unpaywall, hal, istex, ezproxy, libgen, url)
-}
+MODULES = (
+    scihub,
+    crossref,
+    unpaywall,
+    hal,
+    istex,
+    ezproxy,
+    isbn,
+    libgen,
+    url,
+)
+SOURCES: dict[str, Fetch] = {m.NAME: m.fetch for m in MODULES}
+ACCEPTS: dict[str, frozenset[Kind]] = {m.NAME: m.ACCEPTS for m in MODULES}
 
 
 def parse_args():
@@ -61,7 +67,10 @@ def parse_args():
         description="Batch-fetch paper PDFs from open and institutional sources"
     )
     parser.add_argument("--doi", help="Download a single paper by DOI")
-    parser.add_argument("--isbn", help="Download a single book by ISBN (via Libgen)")
+    parser.add_argument(
+        "--isbn",
+        help="Download a single book by ISBN (open copy found through its Crossref DOI)",
+    )
     parser.add_argument("--title", help="Title for a single-paper download")
     parser.add_argument(
         "--keep-title",
@@ -78,13 +87,15 @@ def parse_args():
             "hal",
             "istex",
             "ezproxy",
+            "isbn",
             "libgen",
             "url",
             "all",
         ],
         default="all",
         help="Source to fetch from (default: all — Crossref, Unpaywall, HAL, "
-        "ISTEX, EZproxy in order; scihub and libgen only when named here)",
+        "ISTEX, EZproxy in order, and ISBNs through their book DOI; "
+        "scihub and libgen only when named here)",
     )
     parser.add_argument(
         "--data-dir",
@@ -269,11 +280,14 @@ def _candidates(kind, source):
     """Source names to try for `kind`, in order.
 
     The named source (or the default cascade for "all") when it accepts the
-    kind; otherwise every source that does.
+    kind. Under "all" a kind no default source accepts falls back to every
+    source that does: only "title" (Sci-Hub, ticket 0023) reaches it.
     """
     names = DEFAULT_ORDER if source == "all" else [source]
     names = [n for n in names if kind in ACCEPTS[n]]
-    return names or [n for n in SOURCES if kind in ACCEPTS[n]]
+    if source == "all" and not names:
+        names = [n for n in SOURCES if kind in ACCEPTS[n]]
+    return names
 
 
 def _load(name):

@@ -19,6 +19,8 @@ def test_all_failed_reports_every_tried_source(monkeypatch, tmp_path):
     out = cli._fetch_one("10.1000/x", "T", str(tmp_path), "all")
     assert out["status"] == "failed"
     for name in cli.DEFAULT_ORDER:
+        if "doi" not in cli.ACCEPTS[name]:
+            continue
         assert f"{name}: {name} reason" in out["error"]
 
 

@@ -51,6 +51,7 @@ def test_public_names():
         "hal",
         "istex",
         "ezproxy",
+        "isbn",
     ]
 
 
@@ -107,5 +108,5 @@ def test_fetch_returns_last_failure_and_skips_unaccepting_sources(
 
 
 def test_fetch_without_an_accepting_source_fails_cleanly(tmp_path):
-    result = fetch(Request("isbn", "9780306406157", str(tmp_path / "x.pdf")))
-    assert result.status == "failed" and "isbn" in (result.error or "")
+    result = fetch(Request("title", "A Title", str(tmp_path / "x.pdf")))
+    assert result.status == "failed" and "title" in (result.error or "")

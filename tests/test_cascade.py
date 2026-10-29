@@ -105,18 +105,55 @@ def test_cli_single_mode_survives_a_raising_source(monkeypatch, tmp_path):
     assert result["status"] == "failed" and "bug" in result["error"]
 
 
-@pytest.mark.parametrize("source", ["all", "libgen"])
-def test_cli_routes_an_isbn_to_libgen(monkeypatch, tmp_path, source):
-    """Kept until ticket 0012: under "all", no default source accepts, fall back.
+def test_cli_isbn_goes_to_the_default_isbn_source_not_libgen(monkeypatch, tmp_path):
+    """Under "all" an ISBN takes the default route; LibGen only when named."""
+    calls = []
+    _patch_cli(
+        monkeypatch,
+        {"isbn": ({"isbn"}, "success"), "libgen": ({"isbn"}, "success")},
+        calls,
+    )
+    monkeypatch.setattr(cli, "DEFAULT_ORDER", ["isbn"])
+    result = cli._fetch_one("isbn:9780262033848", "T", str(tmp_path), "all")
+    assert result["status"] == "success" and calls == ["isbn"]
 
-    A named source that does not accept the kind fails instead (PR #34).
-    """
+
+def test_cli_named_libgen_still_fetches_an_isbn(monkeypatch, tmp_path):
     calls = []
     _patch_cli(monkeypatch, {"libgen": ({"isbn"}, "success")}, calls)
-    result = cli._fetch_one("isbn:9780262033848", "T", str(tmp_path), source)
+    result = cli._fetch_one("isbn:9780262033848", "T", str(tmp_path), "libgen")
     assert result["status"] == "success" and calls == ["libgen"]
 
 
-def test_library_fetch_has_no_isbn_route(tmp_path):
-    result = api.fetch(Request("isbn", "9780262033848", str(tmp_path / "b.pdf")))
-    assert result.status == "failed"
+def test_cli_isbn_with_a_source_that_does_not_accept_it_fails(monkeypatch, tmp_path):
+    calls = []
+    _patch_cli(monkeypatch, {"hal": ({"doi"}, "success")}, calls)
+    result = cli._fetch_one("isbn:9780262033848", "T", str(tmp_path), "hal")
+    assert result["status"] == "failed" and calls == []
+
+
+def test_library_fetch_takes_the_isbn_route(monkeypatch, tmp_path):
+    """api.fetch needs no special case: an ISBN resolves to a DOI, then a PDF."""
+    import json
+
+    from doifetch.sources import _http
+
+    pdf = b"%PDF-1.4\n" + b"x" * 2000
+    link = {"URL": "https://f.example/b.pdf", "content-type": "application/pdf"}
+    link["content-version"] = "vor"
+
+    def get(url, **_kwargs):
+        def reply(body):
+            return _http.Response(status=200, url=url, headers={}, content=body)
+
+        if "filter=isbn" in url:
+            items = [{"DOI": "10.1/book", "type": "monograph"}]
+            return reply(json.dumps({"message": {"items": items}}).encode())
+        if "api.crossref.org" in url:
+            return reply(json.dumps({"message": {"link": [link]}}).encode())
+        return reply(pdf)
+
+    monkeypatch.setattr(_http, "get", get)
+    path = str(tmp_path / "b.pdf")
+    result = api.fetch(Request("isbn", "9780262033848", path))
+    assert (result.status, result.source, result.path) == ("success", "isbn", path)

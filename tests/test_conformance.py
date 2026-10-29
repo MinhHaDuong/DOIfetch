@@ -17,6 +17,7 @@ from doifetch.sources import (
     crossref,
     ezproxy,
     hal,
+    isbn,
     istex,
     libgen,
     scihub,
@@ -61,6 +62,13 @@ def _hal():
     return lambda u: _json(data) if "archives-ouvertes" in u else None
 
 
+def _isbn():
+    """Crossref ISBN lookup answers a book DOI; the DOI then resolves as crossref's."""
+    books = {"message": {"items": [{"DOI": "10.1/x", "type": "monograph"}]}}
+    link = _crossref()
+    return lambda u: _json(books) if "filter=isbn" in u else link(u)
+
+
 def _istex():
     hits = {"hits": [{"id": "ABC"}]}
     return lambda u: None if "/fulltext/" in u else _json(hits)
@@ -95,6 +103,7 @@ SOURCES = {
     "istex": (istex, "doi", "10.1/x", _istex),
     "ezproxy": (ezproxy, "doi", "10.1/x", _ezproxy),
     "scihub": (scihub, "doi", "10.1/x", _scihub),
+    "isbn": (isbn, "isbn", "9780262033848", _isbn),
     "libgen": (libgen, "isbn", "9780262033848", _libgen),
     "url": (url, "url", PDF_URL, lambda: lambda u: None),
 }
