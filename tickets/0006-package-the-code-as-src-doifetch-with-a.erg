@@ -7,6 +7,7 @@ Blocked-by: 0004
 --- log ---
 2026-10-29T18:18Z haduong created
 
+2026-10-29T18:29Z haduong note Consumer: keep the doifetch console entry point working through the move; the IDH harness calls uvx --from git+...@3f6507c doifetch until 0008 lands (harness ticket 1343)
 --- body ---
 ## Context
 
