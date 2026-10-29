@@ -191,7 +191,7 @@ uv run doifetch --help
    ```
    uv run doifetch --isbn 9780674009691 --title "Author 1998 - Book Title"
    ```
-3. Downloaded files will be saved in the `papers` directory as `.pdf` or `.epub` depending on what Libgen provides.
+3. Downloaded files will be saved in the `papers` directory as `.pdf`; Libgen results served as EPUB are reported as failures.
 4. Batch input is a `.txt` list in the data directory, one entry per line: an identifier, a TAB, then the title. Blank lines and lines starting with `#` are ignored:
    ```
    doi:10.1080/03085140903020580	Author 2009 - Title

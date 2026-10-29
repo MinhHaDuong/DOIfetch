@@ -1,11 +1,12 @@
 """ISBN validation and ISBN-based naming; all network mocked."""
 
+import json
 import logging
 
 import pytest
 
 from doifetch import cli, naming
-from doifetch.sources import bookmeta
+from doifetch.sources import _http, bookmeta
 from doifetch.utils import normalize_isbn
 
 ISBN13 = "9780262033848"
@@ -99,13 +100,10 @@ def test_invalid_isbn_skips_lookup(books):
     assert books["calls"] == 0
 
 
-class _Resp:
-    def __init__(self, status, payload):
-        self.status_code = status
-        self._payload = payload
-
-    def json(self):
-        return self._payload
+def _Resp(status, payload):  # noqa: N802
+    return _http.Response(
+        status=status, url="", headers={}, content=json.dumps(payload).encode()
+    )
 
 
 OL = {
@@ -138,7 +136,7 @@ def _route(monkeypatch, ol, gb):
             raise resp
         return resp
 
-    monkeypatch.setattr(bookmeta.requests, "get", fake_get)
+    monkeypatch.setattr(bookmeta._http, "get", fake_get)
     return calls
 
 

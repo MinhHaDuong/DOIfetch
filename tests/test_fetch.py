@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from doifetch import cli
+from doifetch.sources.contract import Result
 
 
 def test_parse_args_supports_single_download_and_source(monkeypatch):
@@ -59,11 +60,11 @@ def test_parse_args_supports_isbn(monkeypatch):
 def test_handle_single_download_routes_isbn_to_libgen(monkeypatch, tmp_path):
     captured = {}
 
-    def fake_libgen(doi, title, output_dir):
-        captured["doi"] = doi
-        return {"status": "success", "doi": doi, "title": title, "file_name": "b.pdf"}
+    def fake_libgen(req):
+        captured["req"] = req
+        return Result("success", "libgen", path=req.path)
 
-    monkeypatch.setattr(cli.libgen, "fetch_pdf", fake_libgen)
+    monkeypatch.setitem(cli.SOURCES, "libgen", fake_libgen)
 
     args = SimpleNamespace(
         doi=None,
@@ -77,7 +78,10 @@ def test_handle_single_download_routes_isbn_to_libgen(monkeypatch, tmp_path):
     rc = cli.handle_single_download(args)
 
     assert rc == 0
-    assert captured["doi"] == "isbn:9780262033848"
+    assert (captured["req"].kind, captured["req"].identifier) == (
+        "isbn",
+        "9780262033848",
+    )
 
 
 def test_shared_title_failed_row_stays_on_retry_list(tmp_path):
