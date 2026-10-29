@@ -27,10 +27,9 @@ import os
 import re
 from urllib.parse import urlsplit, urlunsplit
 
-import requests
-
-from doifetch.config import HEADERS, PAPERS_DIR, TIMEOUT
-from doifetch.sources._legacy import run_legacy
+from doifetch.config import HEADERS, TIMEOUT
+from doifetch.pdf_utils import is_valid_pdf
+from doifetch.sources import _http
 from doifetch.sources.contract import Kind, Request, Result
 
 BASE_ENV = "EZPROXY_BASE"
@@ -74,12 +73,12 @@ def _load_cookies(path: str) -> http.cookiejar.MozillaCookieJar:
     return jar
 
 
-def _resolve_publisher_url(doi: str, session: requests.Session) -> str:
+def _resolve_publisher_url(doi: str, session: _http.Session) -> str:
     """Follow doi.org to the publisher landing URL (unproxied) for a DOI."""
     try:
-        r = session.get(f"https://doi.org/{doi}", allow_redirects=True, timeout=TIMEOUT)
+        r = session.get(f"https://doi.org/{doi}", timeout=TIMEOUT)
         return r.url or f"https://doi.org/{doi}"
-    except requests.RequestException:
+    except _http.HttpError:
         return f"https://doi.org/{doi}"
 
 
@@ -101,35 +100,20 @@ def _extract_pdf_link(html: str, page_url: str) -> str | None:
     return f"{parts.scheme}://{parts.netloc}/{href}"
 
 
-def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
-    """Download one paper PDF through the configured EZproxy by DOI.
+NAME = "ezproxy"
+ACCEPTS: frozenset[Kind] = frozenset({"doi"})
 
-    Returns dict with keys: status, doi, title, file_name, error (if failed).
-    """
-    from doifetch.pdf_utils import clean_filename, is_valid_pdf
 
-    safe_title = title if title else f"Unknown_{doi}"
-    file_name = f"{clean_filename(safe_title)}.pdf"
-    file_path = os.path.join(output_dir, file_name)
+def fetch(req: Request) -> Result:
+    """Download one paper PDF through the configured EZproxy by DOI."""
 
-    def fail(error):
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": error,
-        }
+    def fail(error: str) -> Result:
+        return Result("failed", NAME, error=error)
 
-    if os.path.exists(file_path):
-        if is_valid_pdf(file_path):
-            return {
-                "status": "skipped",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-            }
-        os.remove(file_path)
+    if os.path.exists(req.path):
+        if is_valid_pdf(req.path):
+            return Result("skipped", NAME, path=req.path)
+        os.remove(req.path)
 
     base = os.environ.get(BASE_ENV, "").strip()
     cookies_path = os.environ.get(COOKIES_ENV, "").strip()
@@ -141,47 +125,40 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             f"{COOKIES_ENV} not set or missing (export cookies.txt after "
             "logging into the proxy)"
         )
-    if not doi:
-        return fail("EZproxy resolution requires a DOI")
 
+    partial = req.path + ".part"
     try:
-        session = requests.Session()
-        session.headers.update(HEADERS)
-        session.cookies = _load_cookies(cookies_path)  # type: ignore[assignment]
+        session = _http.Session(headers=HEADERS)
+        for cookie in _load_cookies(cookies_path):
+            session.cookies.set_cookie(cookie)
 
-        publisher_url = _resolve_publisher_url(doi, session)
+        publisher_url = _resolve_publisher_url(req.identifier, session)
         target = ezproxy_url(publisher_url, base, hyphens)
-        resp = session.get(target, timeout=TIMEOUT, allow_redirects=True)
-        if resp.status_code != 200:
-            return fail(f"proxy fetch failed: {resp.status_code}")
+        resp = session.get(target, timeout=TIMEOUT)
+        if resp.status != 200:
+            return fail(f"proxy fetch failed: {resp.status}")
 
-        ctype = resp.headers.get("Content-Type", "")
+        ctype = resp.headers.get("content-type", "")
         content = resp.content
         if "pdf" not in ctype.lower() and not content[:5] == b"%PDF-":
-            # landing page — find the PDF link and fetch it (proxied).
+            # landing page: find the PDF link and fetch it (proxied).
             link = _extract_pdf_link(resp.text, resp.url)
             if not link:
                 return fail("no PDF link found on landing page (auth expired?)")
             link = ezproxy_url(link, base, hyphens) if base not in link else link
-            resp = session.get(link, timeout=TIMEOUT, allow_redirects=True)
+            resp = session.get(link, timeout=TIMEOUT)
             content = resp.content
 
-        with open(file_path, "wb") as fh:
+        with open(partial, "wb") as fh:
             fh.write(content)
-        if not is_valid_pdf(file_path):
-            os.remove(file_path)
+        if not is_valid_pdf(partial):
             return fail(
                 "downloaded file is not a valid PDF (auth expired or paywalled)"
             )
-        return {"status": "success", "doi": doi, "title": title, "file_name": file_name}
-    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
+        os.replace(partial, req.path)
+        return Result("success", NAME, path=req.path)
+    except Exception as e:  # noqa: BLE001 - the contract: never raise into the fetch loop
         return fail(str(e))
-
-
-NAME = "ezproxy"
-ACCEPTS: frozenset[Kind] = frozenset({"doi"})
-
-
-def fetch(req: Request) -> Result:
-    """Contract adapter over `fetch_pdf`."""
-    return run_legacy(NAME, fetch_pdf, req)
+    finally:
+        if os.path.exists(partial):
+            os.remove(partial)

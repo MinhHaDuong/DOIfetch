@@ -1,6 +1,7 @@
 """The default source cascade is open and institutional sources only."""
 
 from doifetch import cli
+from doifetch.sources.contract import Result
 
 
 def test_default_order_is_open_and_institutional():
@@ -17,14 +18,14 @@ def test_default_run_never_calls_scihub(monkeypatch, tmp_path):
     calls = []
 
     def stub(name):
-        def fetch_pdf(doi, title, output_dir):
+        def fetch(req):
             calls.append(name)
-            return {"status": "failed", "doi": doi, "title": title, "error": "x"}
+            return Result("failed", name, error="x")
 
-        return fetch_pdf
+        return fetch
 
     for name in cli.SOURCES:
-        monkeypatch.setattr(getattr(cli, name), "fetch_pdf", stub(name))
+        monkeypatch.setitem(cli.SOURCES, name, stub(name))
     cli._fetch_one("10.1000/x", "T", str(tmp_path), "all")
     assert calls == ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
 
