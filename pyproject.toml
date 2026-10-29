@@ -1,6 +1,6 @@
 [project]
 name = "doifetch"
-version = "0.1.0"
+version = "0.2.0"
 description = "Batch academic paper downloader for open and institutional sources"
 readme = "README.md"
 requires-python = ">=3.10"
