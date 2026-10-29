@@ -2,12 +2,14 @@
 Title: CORE as an open-access full-text source
 Created: 2026-10-29
 Author: MinhHaDuong
+Closed: autoclosed — PR #43
 
 --- log ---
 2026-10-29T21:03Z MinhHaDuong created
 
 2026-10-29T21:34Z MinhHaDuong note blocker 0013 closed — Blocked-by removed.
 2026-10-29T22:11Z CORE API v3 terms checked 2026-10-29 (api.core.ac.uk/docs/v3, core.ac.uk/services/api): free, registration optional; token budget unauthenticated 100/day max 10/min, registered 1000/day max 25/min; auth is 'Authorization: Bearer <key>'; DOI lookup GET /v3/search/works?q=doi:"<doi>"&limit=5; results[].downloadUrl (also sourceFulltextUrls) is the full-text link; over-budget answers 429 (live probe: x-ratelimit-limit 10). Design: key sent to api.core.ac.uk only, never to download hosts; no key -> request anyway, 401/402/403/429 -> failed with reason.
+2026-10-29T22:15Z MinhHaDuong closed — autoclosed — PR #43
 --- body ---
 ## Context
 
