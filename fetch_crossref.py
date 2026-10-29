@@ -37,7 +37,11 @@ def get_metadata(doi):
         if response.status_code != 200:
             logger.warning("Crossref API error %s for %s", response.status_code, doi)
             return None
-        return response.json().get("message", {})
+        body = response.json()
+        if not isinstance(body, dict):
+            logger.warning("Crossref returned a non-object body for %s", doi)
+            return None
+        return body.get("message", {})
     except DoiNotFoundError:
         raise
     except (requests.RequestException, ValueError) as e:

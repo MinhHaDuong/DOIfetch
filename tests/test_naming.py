@@ -114,6 +114,15 @@ def test_metadata_request_is_verified_and_has_timeout(monkeypatch):
     assert "mailto:" in seen["headers"]["User-Agent"]
 
 
+def test_metadata_with_non_dict_json_body_returns_none(monkeypatch):
+    monkeypatch.setattr(
+        fetch_crossref.requests,
+        "get",
+        lambda url, **kw: SimpleNamespace(status_code=200, json=lambda: ["oops"]),
+    )
+    assert fetch_crossref.get_metadata(DOI) is None
+
+
 def test_single_download_names_file_from_crossref(
     crossref, monkeypatch, tmp_path, caplog
 ):
