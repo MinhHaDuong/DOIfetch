@@ -8,6 +8,7 @@ Closed: autoclosed — PR #34
 2026-10-29T21:03Z MinhHaDuong created
 
 2026-10-29T21:12Z MinhHaDuong closed — autoclosed — PR #34
+2026-10-29T21:14Z note verify-reroll — round 1: README and agent docs describe the code as it is; no retry claim, no `fetch_pdf`
 --- body ---
 ## Context
 

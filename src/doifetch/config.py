@@ -31,7 +31,6 @@ HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 MAX_THREADS = 15  # concurrency
-RETRY_COUNT = 5  # retry count
 TIMEOUT = 30  # timeout in seconds
 MIN_DELAY = 2  # minimum delay
 MAX_DELAY = 8  # maximum delay

@@ -1,6 +1,6 @@
 """Orchestrator: batch-fetch paper PDFs from multiple sources.
 
-Manages table I/O, parallelism, retries across sources, logging, and status updates.
+Manages table I/O, parallelism, fallback across sources, logging, and status updates.
 """
 
 import argparse
