@@ -1,6 +1,5 @@
 """Fetch paper PDFs from Sci-Hub and its SciDB (Anna's Archive) successor."""
 
-import os
 import random
 import time
 from urllib.parse import quote
@@ -14,6 +13,7 @@ from doifetch.config import (
     TIMEOUT,
 )
 from doifetch.sources import _http
+from doifetch.sources._pdf import already_there, save_pdf
 from doifetch.sources.contract import Kind, Request, Result
 
 
@@ -56,23 +56,16 @@ NAME = "scihub"
 ACCEPTS: frozenset[Kind] = frozenset({"doi", "title"})
 
 
-def fetch(req: Request) -> Result:
-    """Download the paper for ``req`` from Sci-Hub, then SciDB (Anna's Archive)."""
-    from doifetch.pdf_utils import is_valid_pdf
+def _fetch(req: Request) -> Result:
     from doifetch.utils import require
 
-    try:
-        require("bs4", "shadow")
-    except ImportError as exc:
-        return Result("failed", NAME, error=str(exc))
+    require("bs4", "shadow")
 
     doi = req.identifier if req.kind == "doi" else ""
     title = req.identifier if req.kind == "title" else ""
     label = doi or title
-    if os.path.exists(req.path):
-        if is_valid_pdf(req.path):
-            return Result("skipped", NAME, path=req.path)
-        os.remove(req.path)
+    if (done := already_there(req, NAME)) is not None:
+        return done
 
     time.sleep(random.uniform(MIN_DELAY, MAX_DELAY))
     last_error = ""
@@ -91,16 +84,19 @@ def fetch(req: Request) -> Result:
                     f"{label} | Error: HTTP {pdf_response.status} | URL: {pdf_url}"
                 )
                 continue
-            with open(req.path, "wb") as file_handle:
-                file_handle.write(pdf_response.content)
-            if not is_valid_pdf(req.path):
-                os.remove(req.path)
-                last_error = f"{label} | Error: Broken PDF file | URL: {query_url}"
-                continue
-            return Result("success", NAME, path=req.path)
-        except Exception as exc:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
-            if os.path.exists(req.path) and not is_valid_pdf(req.path):
-                os.remove(req.path)
+            saved = save_pdf(req, NAME, pdf_response.content, "Broken PDF file")
+            if saved.status == "success":
+                return saved
+            last_error = f"{label} | Error: {saved.error} | URL: {query_url}"
+        except Exception as exc:  # noqa: BLE001 - try the next mirror
             last_error = f"{label} | Error: {str(exc)[:50]} | URL: {query_url}"
 
     return Result("failed", NAME, error=last_error or f"{label} | Error: Unknown error")
+
+
+def fetch(req: Request) -> Result:
+    """Download the paper for ``req`` from Sci-Hub, then SciDB (Anna's Archive)."""
+    try:
+        return _fetch(req)
+    except Exception as e:  # noqa: BLE001 - the contract: never raise into the fetch loop
+        return Result("failed", NAME, error=str(e))
