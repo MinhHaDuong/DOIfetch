@@ -4,8 +4,6 @@ from conftest import SAMPLE_DOIS
 
 import fetch
 from utils import read_doi_from_table
-from conftest import SAMPLE_DOIS
-
 
 EXPECTED_DOIS = {doi for doi, _ in SAMPLE_DOIS}
 
