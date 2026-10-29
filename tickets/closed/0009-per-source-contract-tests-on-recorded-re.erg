@@ -12,6 +12,7 @@ Closed: autoclosed — PR #32
 2026-10-29T20:59Z MinhHaDuong note blocker 0008 closed — Blocked-by removed.
 2026-10-29T21:04Z executed (hunt): tests/test_conformance.py (8 sources x scenarios through one fake transport), tests/test_cascade.py. Fixed (a) guard gaps: every fetch now wraps its whole body; (b) one writer, sources/_pdf.save_pdf (.part + os.replace) used by all 8 sources; (c) api.cascade is the single cascade (stops on success or skipped), CLI calls it; the CLI keeps its ISBN-to-any-accepting-source fallback in _candidates (not in the cascade) until 0012; library fetch() still has no ISBN route. Docs updated. Exit criterion 2 (fixture-based parsing test per source) already held via the router/dispatch tests in test_open_sources, test_fetch_{istex,ezproxy,scihub,libgen}.
 2026-10-29T21:14Z MinhHaDuong closed — autoclosed — PR #32
+2026-10-29T21:18Z note verify-reroll — round 1: Each source has at least one fixture-based parsing test (ezproxy landing-page scrape untested)
 --- body ---
 ## Context
 
