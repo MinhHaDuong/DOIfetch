@@ -93,3 +93,54 @@ def test_cookies_txt_is_loaded_into_the_session(tmp_path):
         "# Netscape HTTP Cookie File\n.p.edu\tTRUE\t/\tFALSE\t0\tezproxy\ttok\n"
     )
     assert [c.name for c in ezproxy._load_cookies(str(cookies))] == ["ezproxy"]
+
+
+LANDING_META = (
+    b'<html><head><meta name="citation_pdf_url" '
+    b'content="https://www.nature.com/articles/x.pdf"></head></html>'
+)
+LANDING_HREF = b'<html><body><a href="/content/pdf/x.pdf?dl=1">PDF</a></body></html>'
+
+
+def test_extract_pdf_link_from_meta_and_relative_href():
+    page = "https://www-nature-com.p.edu/articles/x"
+    assert (
+        ezproxy._extract_pdf_link(LANDING_META.decode(), page)
+        == "https://www.nature.com/articles/x.pdf"
+    )
+    assert (
+        ezproxy._extract_pdf_link(LANDING_HREF.decode(), page)
+        == "https://www-nature-com.p.edu/content/pdf/x.pdf?dl=1"
+    )
+    assert ezproxy._extract_pdf_link("<html>login</html>", page) is None
+
+
+def test_landing_page_link_is_followed_through_the_proxy(monkeypatch, tmp_path):
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text("# Netscape HTTP Cookie File\n")
+    monkeypatch.setenv("EZPROXY_BASE", "p.edu")
+    monkeypatch.setenv("EZPROXY_COOKIES", str(cookies))
+    seen = []
+
+    class _Session:
+        def __init__(self, headers=None):
+            self.cookies = http.cookiejar.CookieJar()
+
+        def get(self, url, **kwargs):
+            seen.append(url)
+            if "doi.org" in url:
+                body, ctype = b"", "text/html"
+                url = "https://www.nature.com/articles/x"
+            elif url.endswith(".pdf"):
+                body, ctype = VALID_PDF, "application/pdf"
+            else:
+                body, ctype = LANDING_META, "text/html"
+            return _http.Response(
+                status=200, url=url, headers={"content-type": ctype}, content=body
+            )
+
+    monkeypatch.setattr(ezproxy._http, "Session", _Session)
+    result = _fetch(str(tmp_path))
+    assert result.status == "success"
+    assert seen[-1] == "https://www-nature-com.p.edu/articles/x.pdf"
+    assert open(result.path, "rb").read().startswith(b"%PDF-")
