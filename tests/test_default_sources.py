@@ -12,6 +12,7 @@ def test_default_order_is_open_and_institutional():
         "hal",
         "istex",
         "ezproxy",
+        "isbn",
     ]
 
 
@@ -34,7 +35,7 @@ def test_default_run_never_calls_scihub(monkeypatch, tmp_path):
     for name in cli.SOURCES:
         monkeypatch.setitem(cli.SOURCES, name, stub(name))
     cli._fetch_one("10.1000/x", "T", str(tmp_path), "all")
-    assert calls == cli.DEFAULT_ORDER
+    assert calls == [n for n in cli.DEFAULT_ORDER if "doi" in cli.ACCEPTS[n]]
 
 
 def test_every_source_exposes_the_contract():
@@ -49,9 +50,11 @@ def test_every_source_exposes_the_contract():
 
 def test_dispatch_follows_accepts():
     assert cli._candidates("url", "all") == ["url"]
-    assert cli._candidates("isbn", "scihub") == ["libgen"]
+    assert cli._candidates("isbn", "all") == ["isbn"]
+    assert cli._candidates("isbn", "libgen") == ["libgen"]
+    assert cli._candidates("isbn", "scihub") == []  # no silent reroute
     assert cli._candidates("doi", "scihub") == ["scihub"]
-    assert cli._candidates("doi", "all") == cli.DEFAULT_ORDER
+    assert cli._candidates("doi", "all") == cli.DEFAULT_ORDER[:-1]  # all but isbn
 
 
 def test_title_only_row_is_a_title_request_for_title_sources_only(tmp_path):
@@ -60,7 +63,7 @@ def test_title_only_row_is_a_title_request_for_title_sources_only(tmp_path):
     req = cli._request("", "A Title", str(tmp_path), "A Title")
     assert req == Request("title", "A Title", str(tmp_path / "A Title.pdf"))
     assert cli._candidates("title", "all") == ["scihub"]
-    assert cli._candidates("title", "crossref") == ["scihub"]
+    assert cli._candidates("title", "crossref") == []
     from doifetch import api
 
     assert api.fetch(req).status == "failed"  # no default source accepts titles

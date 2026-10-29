@@ -14,6 +14,7 @@ from doifetch.sources.contract import Fetch, Kind, Request, Result
 # ISTEX (licensed national archive) and EZproxy (institutional subscription;
 # fails fast unless EZPROXY_BASE + EZPROXY_COOKIES are configured). Shadow
 # libraries (scihub, libgen) are opt-in: pass --source scihub / --source libgen.
+# "isbn" turns an ISBN into book DOIs and runs the sources above on them.
 DEFAULT_ORDER = [
     "crossref",
     "unpaywall",
@@ -21,6 +22,7 @@ DEFAULT_ORDER = [
     "hal",
     "istex",
     "ezproxy",
+    "isbn",
 ]
 
 
