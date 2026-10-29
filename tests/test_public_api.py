@@ -50,6 +50,7 @@ def test_public_names():
         "unpaywall",
         "openalex",
         "hal",
+        "core",
         "istex",
         "ezproxy",
         "isbn",
@@ -79,6 +80,7 @@ def test_fetch_runs_the_cascade_until_success(monkeypatch, tmp_path):
             "unpaywall": ({"doi"}, "failed"),
             "openalex": ({"doi"}, "failed"),
             "hal": ({"doi"}, "success"),
+            "core": ({"doi"}, "success"),
             "istex": ({"doi"}, "success"),
             "ezproxy": ({"doi"}, "success"),
         },
@@ -100,6 +102,7 @@ def test_fetch_returns_last_failure_and_skips_unaccepting_sources(
             "unpaywall": ({"doi"}, "failed"),
             "openalex": ({"url"}, "success"),
             "hal": ({"doi"}, "failed"),
+            "core": ({"doi"}, "failed"),
             "istex": ({"url"}, "success"),
             "ezproxy": ({"doi"}, "failed"),
         },
@@ -107,7 +110,7 @@ def test_fetch_returns_last_failure_and_skips_unaccepting_sources(
     )
     result = fetch(Request("doi", "10.1000/x", str(tmp_path / "x.pdf")))
     assert result.status == "failed" and result.source == "ezproxy"
-    assert calls == ["unpaywall", "hal", "ezproxy"]
+    assert calls == ["unpaywall", "hal", "core", "ezproxy"]
 
 
 def test_fetch_without_an_accepting_source_fails_cleanly(tmp_path):

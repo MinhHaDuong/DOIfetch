@@ -36,6 +36,8 @@ def test_help_teaches_batch_env_exit_codes_and_defaults(monkeypatch, capsys):
         "EZPROXY_COOKIES",
         "ISTEX_ACCESSTOKEN",
         "istex.env",
+        "CORE_API_KEY",
+        "CORE_KEY_FILE",
         "OPENALEX_API_KEY",
         "OPENALEX_KEY_FILE",
         "Exit codes",

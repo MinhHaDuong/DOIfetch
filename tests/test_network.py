@@ -110,6 +110,21 @@ class TestSciHub:
 
 
 @pytest.mark.network
+class TestCore:
+    def test_search_answers_for_a_known_doi(self):
+        """The live API answers (skipped when the anonymous budget is spent)."""
+        from doifetch.sources import core
+
+        try:
+            works = core._search(OA_DOI)
+        except core.CoreError as exc:
+            if "refused" in str(exc):
+                pytest.skip(str(exc))
+            raise
+        assert isinstance(works, list)
+
+
+@pytest.mark.network
 class TestOpenAlex:
     def test_work_has_locations(self):
         """The live API answers for a known DOI (skipped when it wants a key)."""
