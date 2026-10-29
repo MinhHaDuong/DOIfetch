@@ -105,6 +105,10 @@ class _LimitedRedirects(urllib.request.HTTPRedirectHandler):
                 cross_origin and lowered in _SENSITIVE_HEADERS
             ):
                 del new_req.headers[name]
+        if fp is not None:
+            # The inherited handler drains the redirect body with an unbounded
+            # read() before following; the body is unused, so skip the drain.
+            fp.read = lambda *args: b""
         return new_req
 
 
