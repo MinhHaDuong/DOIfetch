@@ -19,6 +19,8 @@ import threading
 import requests
 
 from doifetch.config import PAPERS_DIR, TIMEOUT
+from doifetch.sources._legacy import run_legacy
+from doifetch.sources.contract import Kind, Request, Result
 
 TOKEN_ENV = "ISTEX_ACCESSTOKEN"
 TOKEN_FILE = os.path.expanduser("~/.config/keys/istex.env")
@@ -203,3 +205,12 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "file_name": file_name,
             "error": str(e),
         }
+
+
+NAME = "istex"
+ACCEPTS: frozenset[Kind] = frozenset({"doi"})
+
+
+def fetch(req: Request) -> Result:
+    """Contract adapter over `fetch_pdf`."""
+    return run_legacy(NAME, fetch_pdf, req)
