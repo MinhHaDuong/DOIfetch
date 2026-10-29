@@ -116,18 +116,20 @@ def test_txt_batch_needs_no_extras(tmp_path):
 
 
 @pytest.mark.parametrize(
-    "source, identifier", [("scihub", "10.1000/a"), ("libgen", "isbn:9780000000000")]
+    "source, kind, identifier",
+    [("scihub", "doi", "10.1000/a"), ("libgen", "isbn", "9780000000000")],
 )
-def test_shadow_source_without_extra_fails_clearly(tmp_path, source, identifier):
+def test_shadow_source_without_extra_fails_clearly(tmp_path, source, kind, identifier):
     """No network call: the missing extra is reported before any request."""
     code = (
-        "import requests\n"
+        "from doifetch.sources import _http\n"
         "def no_network(*a, **k):\n"
         "    raise AssertionError('network call')\n"
-        "requests.get = requests.Session.get = no_network\n"
+        "_http.get = _http.Session.request = no_network\n"
         f"from doifetch.sources import {source}\n"
-        f"result = {source}.fetch_pdf({identifier!r}, 'T', '.')\n"
-        "print(result['status'], result['error'])\n"
+        "from doifetch.sources.contract import Request\n"
+        f"result = {source}.fetch(Request({kind!r}, {identifier!r}, 'T.pdf'))\n"
+        "print(result.status, result.error)\n"
     )
     done = _run_core(code, cwd=tmp_path)
     assert done.returncode == 0, done.stderr
