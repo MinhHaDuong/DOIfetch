@@ -45,3 +45,16 @@ def test_dispatch_follows_accepts():
     assert cli._candidates("isbn", "scihub") == ["libgen"]
     assert cli._candidates("doi", "scihub") == ["scihub"]
     assert cli._candidates("doi", "all") == cli.DEFAULT_ORDER
+
+
+def test_title_only_row_is_a_title_request_for_title_sources_only(tmp_path):
+    from doifetch.sources.contract import Request
+
+    req = cli._request("", "A Title", str(tmp_path), "A Title")
+    assert req == Request("title", "A Title", str(tmp_path / "A Title.pdf"))
+    assert cli._candidates("title", "all") == ["scihub"]
+    assert cli._candidates("title", "crossref") == ["scihub"]
+    from doifetch import api
+
+    assert api.fetch(req).status == "failed"  # no default source accepts titles
+    assert "title" in api.fetch(req).error

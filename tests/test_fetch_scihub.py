@@ -93,3 +93,22 @@ def test_fetch_pdf_failed_when_no_link(monkeypatch, tmp_path):
     assert result.status == "failed"
     assert "PDF link not found" in result.error
     assert not path.exists()
+
+
+def test_title_request_searches_by_title(monkeypatch, tmp_path):
+    monkeypatch.setattr(scihub.time, "sleep", lambda *_: None)
+    seen = []
+
+    def fake_get(url, **kwargs):
+        seen.append(url)
+        return _resp(b"<html>nothing</html>")
+
+    monkeypatch.setattr(scihub._http, "get", fake_get)
+    assert "title" in scihub.ACCEPTS
+    result = scihub.fetch(
+        Request("title", "Cognitive Constraints", str(tmp_path / "x.pdf"))
+    )
+    assert result.status == "failed"
+    assert seen
+    assert all("?s=Cognitive%20Constraints" in u for u in seen)
+    assert not any(u.endswith("?s=") for u in seen)
