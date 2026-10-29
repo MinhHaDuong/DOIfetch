@@ -2,12 +2,15 @@
 Title: Shadow and book-metadata sources on the contract and the stdlib helper (0008 child C3)
 Created: 2026-10-29
 Author: MinhHaDuong
+Closed: autoclosed — PR #26
 
 --- log ---
 2026-10-29T20:08Z MinhHaDuong created
 
 2026-10-29T20:14Z MinhHaDuong note blocker 0015 closed — Blocked-by removed.
 2026-10-29T20:20Z MinhHaDuong note blocker 0017 closed — Blocked-by removed.
+2026-10-29T20:37Z MinhHaDuong closed — autoclosed — PR #26
+2026-10-29T20:43Z note Author ruling 2026-10-29 (verify-gate NEEDS-AUTHOR, PR #26): merge as is — LibGen is PDF-only under the contract; EPUB-only books fail with a reason (0008: success only for a file that passed the PDF check)
 --- body ---
 
 ## Context

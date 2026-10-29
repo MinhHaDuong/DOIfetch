@@ -94,15 +94,16 @@ class TestUnpaywall:
 class TestSciHub:
     def test_fetch_pdf_to_disk(self, tmp_path):
         """fetch_pdf fetches a PDF to disk via Sci-Hub."""
-        from doifetch.sources.scihub import fetch_pdf
+        from doifetch.sources.contract import Request
+        from doifetch.sources.scihub import fetch
 
-        result = fetch_pdf(OA_DOI, "Test Paper", output_dir=str(tmp_path))
+        path = tmp_path / "Test Paper.pdf"
+        result = fetch(Request("doi", OA_DOI, str(path)))
         # Sci-Hub may be unavailable, so we accept success or failure
         # but the function should not crash
-        assert result["status"] in ("success", "failed", "skipped")
-        if result["status"] == "success":
-            pdf_path = tmp_path / result["file_name"]
-            assert pdf_path.exists()
-            assert pdf_path.stat().st_size > 1000
-            with open(pdf_path, "rb") as f:
+        assert result.status in ("success", "failed", "skipped")
+        if result.status == "success":
+            assert path.exists()
+            assert path.stat().st_size > 1000
+            with open(path, "rb") as f:
                 assert f.read(5) == b"%PDF-"

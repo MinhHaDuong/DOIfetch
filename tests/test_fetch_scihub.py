@@ -1,16 +1,13 @@
 """Tests for the Sci-Hub / SciDB fetcher."""
 
-from doifetch.sources import scihub
+from doifetch.sources import _http, scihub
+from doifetch.sources.contract import Request
 
 VALID_PDF = b"%PDF-1.6\n" + b"0" * 2000
 
 
-class _FakeResp:
-    def __init__(self, content=b""):
-        self.content = content
-
-    def iter_content(self, chunk_size=1024):
-        yield self.content
+def _resp(content=b"", status=200):
+    return _http.Response(status=status, url="", headers={}, content=content)
 
 
 def test_build_query_urls_tries_scihub_then_scidb():
@@ -57,12 +54,12 @@ def test_extract_pdf_url_none_when_src_not_http():
 
 
 def _dispatch(viewer_html, pdf_bytes):
-    """requests.get replacement: viewer pages return HTML, the PDF URL returns bytes."""
+    """_http.get replacement: viewer pages return HTML, the PDF URL returns bytes."""
 
     def fake_get(url, **kwargs):
         if url.endswith(".pdf"):
-            return _FakeResp(content=pdf_bytes)
-        return _FakeResp(content=viewer_html)
+            return _resp(pdf_bytes)
+        return _resp(viewer_html)
 
     return fake_get
 
@@ -70,25 +67,29 @@ def _dispatch(viewer_html, pdf_bytes):
 def test_fetch_pdf_success_via_embedded_viewer(monkeypatch, tmp_path):
     monkeypatch.setattr(scihub.time, "sleep", lambda *_: None)
     monkeypatch.setattr(
-        scihub.requests,
+        scihub._http,
         "get",
         _dispatch(
             b'<iframe src="https://sci-hub.se/downloads/paper.pdf"></iframe>',
             VALID_PDF,
         ),
     )
-    result = scihub.fetch_pdf("10.1000/example", "Some Paper", output_dir=str(tmp_path))
-    assert result["status"] == "success"
-    assert (tmp_path / result["file_name"]).exists()
+    path = tmp_path / "Some Paper.pdf"
+    result = scihub.fetch(Request("doi", "10.1000/example", str(path)))
+    assert result.status == "success"
+    assert result.path == str(path)
+    assert path.read_bytes() == VALID_PDF
 
 
 def test_fetch_pdf_failed_when_no_link(monkeypatch, tmp_path):
     monkeypatch.setattr(scihub.time, "sleep", lambda *_: None)
     monkeypatch.setattr(
-        scihub.requests,
+        scihub._http,
         "get",
         _dispatch(b"<html><body>not available</body></html>", VALID_PDF),
     )
-    result = scihub.fetch_pdf("10.1000/example", "Some Paper", output_dir=str(tmp_path))
-    assert result["status"] == "failed"
-    assert "PDF link not found" in result["error"]
+    path = tmp_path / "Some Paper.pdf"
+    result = scihub.fetch(Request("doi", "10.1000/example", str(path)))
+    assert result.status == "failed"
+    assert "PDF link not found" in result.error
+    assert not path.exists()
