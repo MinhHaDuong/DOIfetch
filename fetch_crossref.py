@@ -1,18 +1,48 @@
 """Fetch open-access paper PDFs via the Crossref API."""
 
 import argparse
+import logging
 import os
 
 import requests
 import urllib3
 
-from config import PAPERS_DIR
+from config import PAPERS_DIR, TIMEOUT, UNPAYWALL_EMAIL
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+logger = logging.getLogger(__name__)
 
 
 class DoiNotFoundError(Exception):
     """Raised when Crossref returns 404 for a DOI."""
+
+
+def get_metadata(doi):
+    """Return the Crossref `message` dict for a DOI.
+
+    Raises DoiNotFoundError if the DOI is not registered in Crossref (404).
+    Returns None on any other failure (network error, non-200 status, bad JSON).
+    TLS is verified and the request carries a timeout and a contact address
+    (Crossref polite pool).
+    """
+    try:
+        response = requests.get(
+            f"https://api.crossref.org/works/{doi}",
+            headers={"User-Agent": f"DOIfetch/1.0 (mailto:{UNPAYWALL_EMAIL})"},
+            timeout=TIMEOUT,
+        )
+        if response.status_code == 404:
+            raise DoiNotFoundError(f"DOI not found in Crossref (404): {doi}")
+        if response.status_code != 200:
+            logger.warning("Crossref API error %s for %s", response.status_code, doi)
+            return None
+        return response.json().get("message", {})
+    except DoiNotFoundError:
+        raise
+    except Exception as e:
+        logger.warning("Crossref metadata request failed for %s: %s", doi, e)
+        return None
 
 
 def get_pdf_url(doi):
@@ -21,34 +51,16 @@ def get_pdf_url(doi):
     Raises DoiNotFoundError if the DOI is not registered in Crossref.
     Returns None if registered but no open-access PDF link is available.
     """
-    try:
-        api_url = f"https://api.crossref.org/works/{doi}"
-        response = requests.get(api_url, verify=False)
-
-        if response.status_code == 404:
-            raise DoiNotFoundError(f"DOI not found in Crossref (404): {doi}")
-        if response.status_code != 200:
-            print(f"Crossref API error {response.status_code} for {doi}")
-            return None
-
-        data = response.json()
-        message = data.get("message", {})
-
-        links = message.get("link", [])
-        pdf_links = [
-            link["URL"]
-            for link in links
-            if link.get("content-type") == "application/pdf"
-            and link.get("content-version") == "vor"
-        ]
-
-        return pdf_links[0] if pdf_links else None
-
-    except DoiNotFoundError:
-        raise
-    except Exception as e:
-        print(f"Error getting PDF link for {doi}: {str(e)}")
+    message = get_metadata(doi)
+    if not message:
         return None
+    pdf_links = [
+        link["URL"]
+        for link in message.get("link", [])
+        if link.get("content-type") == "application/pdf"
+        and link.get("content-version") == "vor"
+    ]
+    return pdf_links[0] if pdf_links else None
 
 
 def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
