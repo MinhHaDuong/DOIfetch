@@ -5,6 +5,7 @@ import logging
 import subprocess
 import sys
 import textwrap
+import urllib.parse
 
 import pytest
 
@@ -120,6 +121,16 @@ def test_key_is_sent_as_parameter_and_never_leaks(monkeypatch, net, caplog, caps
     assert KEY not in str(err.value) and KEY not in caplog.text
     assert KEY not in shown.out + shown.err
     assert err.value.__cause__ is None and err.value.__suppress_context__
+
+
+def test_url_encoded_key_is_scrubbed_too(monkeypatch, net):
+    key = "k+y/with=chars"
+    encoded = urllib.parse.urlencode({"api_key": key})
+    monkeypatch.setenv("OPENALEX_API_KEY", key)
+    net["routes"][_work_url()] = _http.HttpError(f"GET {_work_url()}?{encoded}: x")
+    with pytest.raises(_openalex.OpenAlexError) as err:
+        _openalex.get_work(DOI)
+    assert key not in str(err.value) and encoded not in str(err.value)
 
 
 def test_source_result_never_carries_the_key(monkeypatch, net, tmp_path):

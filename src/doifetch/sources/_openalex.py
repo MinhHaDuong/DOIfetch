@@ -74,7 +74,10 @@ def get_work(doi: str) -> dict:
             url, params={"api_key": key} if key else None, timeout=TIMEOUT
         )
     except _http.HttpError as exc:
-        text = str(exc).replace(key, "***") if key else str(exc)
+        text = str(exc)
+        if key:  # the raw key and its URL-encoded form, as it travels
+            for form in {key, urllib.parse.quote_plus(key), urllib.parse.quote(key)}:
+                text = text.replace(form, "***")
         raise OpenAlexError(f"OpenAlex request failed: {text}") from None
     if response.status == 404:
         raise OpenAlexError(f"DOI not found in OpenAlex (404): {doi}")
