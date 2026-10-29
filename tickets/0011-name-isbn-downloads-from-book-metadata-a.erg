@@ -1,0 +1,30 @@
+%erg 0.1
+Title: Name ISBN downloads from book metadata and validate ISBN check digits
+Created: 2026-10-29
+Author: haduong
+Blocked-by: 0004
+
+--- log ---
+2026-10-29T18:42Z haduong created
+
+--- body ---
+## Context
+
+0004 names DOI downloads from Crossref metadata and warns on a title mismatch. ISBNs are left out
+(`naming.py`: identifiers starting with `isbn:` are skipped), so a book is still named from `--title`,
+or `Unknown_isbn:…` without one, and nothing checks the caller's title. ISBNs are not validated
+either (DOIs are, by `validate_doi`): a mistyped ISBN goes straight to LibGen.
+
+## Actions
+1. Book metadata lookup in `naming.py`: Google Books `volumes?q=isbn:<isbn>` (title, authors,
+   publishedDate in one call, no key), Open Library `/isbn/<isbn>.json` as fallback. Same name shape
+   `<FirstAuthor> <Year> - <Title>`, same mismatch rule and `--keep-title`, same offline fallback.
+2. ISBN-10/13 normalisation (strip hyphens and spaces) and check-digit validation, in `utils.py` next
+   to `validate_doi`; an invalid ISBN is rejected before any fetch, like an invalid DOI.
+3. Mock all network in tests.
+
+## Exit criteria
+- [ ] An ISBN fetched without a title gets an author-year-title name
+- [ ] A title mismatch on an ISBN is logged and the file named from metadata, as for DOIs
+- [ ] Invalid ISBN check digits are rejected with a clear error
+- [ ] Tests cover all three; the suite passes
