@@ -7,7 +7,6 @@ import time
 from urllib.parse import quote
 
 import requests
-from bs4 import BeautifulSoup
 
 from config import (
     DOI_URL_BASE,
@@ -19,6 +18,13 @@ from config import (
     SCIDB_DOMAINS,
     TIMEOUT,
 )
+
+
+def _soup(html):
+    """Parse HTML with bs4, which ships in the 'shadow' extra only."""
+    from utils import require
+
+    return require("bs4", "shadow").BeautifulSoup(html, "html.parser")
 
 
 def build_query_urls(doi, title):
@@ -37,7 +43,7 @@ def build_query_urls(doi, title):
 
 def extract_pdf_url(content):
     """Return the embedded PDF URL from a Sci-Hub/SciDB viewer page, or None."""
-    soup = BeautifulSoup(content, "html.parser")
+    soup = _soup(content)
     node = soup.find("iframe") or soup.find("embed")
     if not node:
         return None

@@ -9,8 +9,6 @@ import threading
 import time
 from queue import Queue
 
-import pandas as pd
-
 import fetch_crossref
 import fetch_ezproxy
 import fetch_hal
@@ -38,6 +36,7 @@ from utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
     read_table,
+    table_columns,
     validate_doi,
     write_table,
 )
@@ -131,13 +130,12 @@ def load_download_tasks(file_paths):
     for file_path in file_paths:
         print(f"Reading file: {file_path}")
         try:
-            dataframe = read_table(file_path)
-            for _, row in dataframe.iterrows():
+            for row in read_table(file_path):
                 doi = row.get(COL_DOI, "")
                 title = row.get(COL_TITLE, f"Unknown_{int(time.time())}")
 
-                if pd.isna(doi) or not str(doi).strip():
-                    if pd.isna(title) or not str(title).strip():
+                if not str(doi).strip():
+                    if not str(title).strip():
                         print("Skipping invalid record: both DOI and title are empty")
                         skipped_count += 1
                         continue
@@ -168,21 +166,28 @@ def update_source_files(file_paths, successful_records):
     """Write back DOI links and download status to source files."""
     for file_path in file_paths:
         try:
-            dataframe = read_table(file_path)
+            rows = read_table(file_path)
+            if not rows:
+                continue
 
-            if COL_DOI_LINK not in dataframe.columns:
-                dataframe.insert(2, COL_DOI_LINK, "")
-            if COL_DOWNLOAD_STATUS not in dataframe.columns:
-                dataframe[COL_DOWNLOAD_STATUS] = ""
+            columns = table_columns(rows)
+            if COL_DOI_LINK not in columns:
+                columns.insert(2, COL_DOI_LINK)
+            if COL_DOWNLOAD_STATUS not in columns:
+                columns.append(COL_DOWNLOAD_STATUS)
+            rows = [{name: row.get(name, "") for name in columns} for row in rows]
 
-            for title, doi_link in successful_records:
-                if not doi_link or doi_link == "No DOI":
-                    continue
-                mask = dataframe[COL_TITLE] == title
-                dataframe.loc[mask, COL_DOI_LINK] = doi_link
-                dataframe.loc[mask, COL_DOWNLOAD_STATUS] = STATUS_SUCCESS
+            links = {
+                title: doi_link
+                for title, doi_link in successful_records
+                if doi_link and doi_link != "No DOI"
+            }
+            for row in rows:
+                if row.get(COL_TITLE) in links:
+                    row[COL_DOI_LINK] = links[row[COL_TITLE]]
+                    row[COL_DOWNLOAD_STATUS] = STATUS_SUCCESS
 
-            write_table(dataframe, file_path)
+            write_table(rows, file_path)
             print(f"Updated file: {file_path}")
         except Exception as exc:
             print(f"Failed to update file {file_path}: {str(exc)}")

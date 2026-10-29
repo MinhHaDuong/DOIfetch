@@ -2,10 +2,12 @@
 Title: Slim the default install to requests: spreadsheet and shadow-library deps become extras
 Created: 2026-10-29
 Author: haduong
+Closed: slimmed: core is requests only; installed tool 112M/3760 files -> 2.6M/170 files
 
 --- log ---
 2026-10-29T18:10Z haduong created
 
+2026-10-29T18:13Z MinhHaDuong closed — slimmed: core is requests only; installed tool 112M/3760 files -> 2.6M/170 files
 --- body ---
 ## Context
 `uv tool install git+https://github.com/MinhHaDuong/DOIfetch` builds a 111 MB virtualenv (measured on
@@ -38,8 +40,8 @@ install drift by date.
 - CSV and `.xlsx` batch files read and write back as before, with the extra installed.
 
 ## Exit criteria
-- [ ] `[project] dependencies` is `requests` only; `excel` and `shadow` extras declared
-- [ ] `doifetch --help` and `--doi` mode run in a venv without pandas, openpyxl or bs4 (a test proves it)
-- [ ] CSV, xlsx and txt round trips are tested without pandas
-- [ ] The installed tool size is measured before and after, and the numbers are recorded in the PR
-- [ ] `uv run pytest -m "not network"` passes; ruff check and format are clean on the touched files
+- [x] `[project] dependencies` is `requests` only; `excel` and `shadow` extras declared
+- [x] `doifetch --help` and `--doi` mode run in a venv without pandas, openpyxl or bs4 (a test proves it)
+- [x] CSV, xlsx and txt round trips are tested without pandas
+- [x] The installed tool size is measured before and after, and the numbers are recorded in the PR
+- [x] `uv run pytest -m "not network"` passes; ruff check and format are clean on the touched files
