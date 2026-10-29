@@ -169,6 +169,24 @@ def validate_doi(doi):
     return re.match(r"^10\.\d+\/.+$", doi) is not None
 
 
+def normalize_isbn(isbn):
+    """Return the ISBN-10/13 without hyphens or spaces, or None if invalid.
+
+    Accepts an optional `isbn:` prefix. Check digits are verified.
+    """
+    text = str(isbn or "").strip()
+    if text.lower().startswith("isbn:"):
+        text = text[len("isbn:") :]
+    text = re.sub(r"[-\s]", "", text).upper()
+    if re.fullmatch(r"\d{9}[\dX]", text):
+        total = sum((10 - i) * (10 if c == "X" else int(c)) for i, c in enumerate(text))
+        return text if total % 11 == 0 else None
+    if re.fullmatch(r"\d{13}", text):
+        total = sum(int(c) * (3 if i % 2 else 1) for i, c in enumerate(text))
+        return text if total % 10 == 0 else None
+    return None
+
+
 def write_table(rows, file_path):
     lower_path = file_path.lower()
     if lower_path.endswith(".txt"):

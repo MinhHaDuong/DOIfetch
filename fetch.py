@@ -37,6 +37,7 @@ from pdf_utils import clean_filename
 from utils import (
     SUPPORTED_INPUT_FORMATS,
     list_table_files,
+    normalize_isbn,
     read_table,
     table_columns,
     validate_doi,
@@ -156,11 +157,14 @@ def load_download_tasks(file_paths):
                 doi = str(doi).strip()
                 if doi.startswith("url:"):
                     doi = doi[len("url:") :]
-                if (
-                    not _is_url(doi)
-                    and not doi.startswith("isbn:")
-                    and not validate_doi(doi)
-                ):
+                if doi.startswith("isbn:"):
+                    isbn = normalize_isbn(doi)
+                    if not isbn:
+                        print(f"Skipping invalid ISBN: {doi} | {title}")
+                        skipped_count += 1
+                        continue
+                    doi = f"isbn:{isbn}"
+                elif not _is_url(doi) and not validate_doi(doi):
                     print(f"Skipping invalid DOI format: {doi} | {title}")
                     skipped_count += 1
                     continue
@@ -327,7 +331,10 @@ def fetch_worker(
 def handle_single_download(args):
     """Handle --doi/--isbn/--title single-item mode."""
     if getattr(args, "isbn", None):
-        doi = f"isbn:{str(args.isbn).strip()}"
+        isbn = normalize_isbn(args.isbn)
+        if not isbn:
+            raise ValueError(f"Invalid ISBN (bad format or check digit): {args.isbn}")
+        doi = f"isbn:{isbn}"
     elif args.doi:
         doi = str(args.doi).strip()
         if not validate_doi(doi):
