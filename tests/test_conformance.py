@@ -14,11 +14,13 @@ import pytest
 
 from doifetch.sources import (
     _http,
+    _openalex,
     crossref,
     ezproxy,
     hal,
     istex,
     libgen,
+    openalex,
     scihub,
     unpaywall,
     url,
@@ -56,6 +58,11 @@ def _unpaywall():
     return lambda u: _json(data) if "unpaywall" in u else None
 
 
+def _openalex_page():
+    data = {"locations": [{"pdf_url": None}, {"pdf_url": PDF_URL}]}
+    return lambda u: _json(data) if "openalex" in u else None
+
+
 def _hal():
     data = {"response": {"docs": [{"fileMain_s": PDF_URL}]}}
     return lambda u: _json(data) if "archives-ouvertes" in u else None
@@ -91,6 +98,7 @@ def _libgen():
 SOURCES = {
     "crossref": (crossref, "doi", "10.1/x", _crossref),
     "unpaywall": (unpaywall, "doi", "10.1/x", _unpaywall),
+    "openalex": (openalex, "doi", "10.1/x", _openalex_page),
     "hal": (hal, "doi", "10.1/x", _hal),
     "istex": (istex, "doi", "10.1/x", _istex),
     "ezproxy": (ezproxy, "doi", "10.1/x", _ezproxy),
@@ -146,6 +154,8 @@ def run(monkeypatch, tmp_path):
     key_file = tmp_path / "no-token.env"
     monkeypatch.setattr(istex, "TOKEN_FILE", str(key_file))
     monkeypatch.setenv("ISTEX_ACCESSTOKEN", "tok")
+    monkeypatch.setattr(_openalex, "KEY_FILE", str(key_file))
+    monkeypatch.delenv("OPENALEX_API_KEY", raising=False)
     cookies = tmp_path / "cookies.txt"
     cookies.write_text("# Netscape HTTP Cookie File\n")
     monkeypatch.setenv("EZPROXY_BASE", "p.edu")
