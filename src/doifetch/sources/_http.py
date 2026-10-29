@@ -96,10 +96,15 @@ class _LimitedRedirects(urllib.request.HTTPRedirectHandler):
         if old == "https" and urllib.parse.urlsplit(newurl).scheme.lower() != "https":
             raise urllib.error.URLError(f"refusing https -> http redirect: {newurl}")
         new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
-        if new_req is not None and _origin(req.full_url) != _origin(newurl):
-            for name in list(new_req.headers):
-                if name.lower() in _SENSITIVE_HEADERS:
-                    del new_req.headers[name]
+        if new_req is None:
+            return None
+        cross_origin = _origin(req.full_url) != _origin(newurl)
+        for name in list(new_req.headers):
+            lowered = name.lower()
+            if lowered == "proxy-authorization" or (
+                cross_origin and lowered in _SENSITIVE_HEADERS
+            ):
+                del new_req.headers[name]
         return new_req
 
 
