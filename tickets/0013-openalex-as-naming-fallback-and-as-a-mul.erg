@@ -1,0 +1,40 @@
+%erg 0.1
+Title: OpenAlex as naming fallback and as a multi-location open-access source
+Created: 2026-10-29
+Author: haduong
+Blocked-by: 0008
+
+--- log ---
+2026-10-29T18:46Z haduong created
+
+--- body ---
+## Context
+
+DOIfetch does not use OpenAlex. Two gaps it fills:
+1. Naming (0004) asks Crossref only; a DataCite DOI (datasets, many preprints, theses) returns 404 and
+   falls back to `Unknown_…`. OpenAlex holds those works with authors, year and title.
+2. The Unpaywall source takes only the single best open-access link. OpenAlex `locations[].pdf_url`
+   lists every known copy (publisher, repository, preprint server), so a dead or blocked first link
+   has fallbacks. Same organisation as Unpaywall: the gain is the extra locations, not new papers.
+
+## API key
+
+The author holds an OpenAlex key. Follow the ISTEX pattern (`fetch_istex.py:25,94-95`):
+`OPENALEX_API_KEY` from the environment, else from a key file whose path defaults to the author's
+`~/.config/keys/openalex.env` (`OPENALEX_API_KEY=` line) and is configurable (`OPENALEX_KEY_FILE`
+env var, surfaced in `config.py`). Never log or print the key. Without a key, behave per OpenAlex's
+current terms (check them first: free keys and daily limits were being introduced); if keyless
+access is refused, the source reports `failed` with a reason and naming skips OpenAlex.
+
+## Actions
+1. `naming.py`: OpenAlex `/works/doi:<doi>` as fallback when Crossref returns 404 or fails.
+2. An `openalex` source under 0008's contract, accepting DOIs, trying each `locations[].pdf_url` in
+   order until one passes the PDF check; in the default cascade after `unpaywall`.
+3. Key loading as above; README documents the variable and the default path.
+4. Mock all network in tests; one `network`-marked test against the live API.
+
+## Exit criteria
+- [ ] A DOI unknown to Crossref but known to OpenAlex gets an author-year-title name
+- [ ] The openalex source falls through to the next location when the first fails
+- [ ] Key read from env, else the configurable key file (default ~/.config/keys/openalex.env); never printed
+- [ ] Conformance suite (0009) covers the source; suite passes
