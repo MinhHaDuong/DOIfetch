@@ -1,0 +1,55 @@
+%erg 0.1
+Title: Package the code as src/doifetch with a sources/ subpackage
+Created: 2026-10-29
+Author: haduong
+Blocked-by: 0004
+
+--- log ---
+2026-10-29T18:18Z haduong created
+
+--- body ---
+## Context
+
+`pyproject.toml` ships 13 flat top-level modules (`[tool.setuptools] py-modules`). Installing DOIfetch
+(`uv tool install`, `pip install`) therefore puts modules named `config`, `utils` and `fetch` at the top
+level of the target environment, where they shadow or are shadowed by any other package using those
+names. Moving only the `fetch_*.py` files into a `fetchers/` folder would tidy the root but leave that
+namespace problem in place, so the whole code base moves into one package.
+
+Sequenced after 0004 on purpose: 0004 removes the per-fetcher file-naming code, so the fetchers are
+thinner when they move and 0004 is not rebased across a rename. 0005 (dependency slimming) also edits
+`pyproject.toml` and must have landed first.
+
+## Target layout
+
+```
+src/doifetch/
+  __init__.py
+  cli.py          # today's fetch.py
+  config.py  utils.py  pdf_utils.py  zotero.py
+  sources/        # crossref, unpaywall, hal, istex, ezproxy, libgen, scihub, url
+tests/
+```
+
+`sources/` matches the existing `--source` CLI flag, so the `fetch_` prefix is dropped
+(`sources/crossref.py`).
+
+## Actions
+1. `git mv` the modules into `src/doifetch/` and `src/doifetch/sources/`; rewrite imports in code and tests.
+2. `pyproject.toml`: package discovery under `src/`, entry point `doifetch = "doifetch.cli:main"`,
+   drop `py-modules` and the pytest `pythonpath = ["."]`.
+3. Drop the per-source script entry points (`uv run fetch_crossref.py …`, README l. 176–181): they
+   duplicate `doifetch --source X`. Each source stays runnable as `python -m doifetch.sources.<name>`
+   only if that costs nothing; otherwise drop its `main()`.
+4. Update README (module list, usage, development).
+
+## Invariants
+- No behaviour change: same CLI flags, same outputs. Pure move plus import rewrite.
+- Validate by the suite and by a fresh-clone `uv run doifetch --help` and one mocked single-DOI fetch,
+  not by the green suite alone.
+
+## Exit criteria
+- [ ] No top-level module other than `doifetch` is installed
+- [ ] `uv run doifetch --help` works from a fresh clone
+- [ ] Existing test suite passes unchanged in substance (imports only)
+- [ ] README reflects the new layout and invocation
