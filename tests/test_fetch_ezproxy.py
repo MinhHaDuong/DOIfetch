@@ -1,8 +1,17 @@
 """Tests for the EZproxy institutional fetcher."""
 
-from doifetch.sources import ezproxy
+import http.cookiejar
+import os
+
+from doifetch.sources import _http, ezproxy
+from doifetch.sources.contract import Request
 
 VALID_PDF = b"%PDF-1.6\n" + b"0" * 2000
+
+
+def _fetch(output_dir):
+    path = os.path.join(output_dir, "Some Paper.pdf")
+    return ezproxy.fetch(Request("doi", "10.1000/x", path))
 
 
 def test_host_rewrite_reversible():
@@ -34,17 +43,17 @@ def test_url_rewrite_preserves_path_and_query():
 def test_missing_base_fails(monkeypatch):
     monkeypatch.delenv("EZPROXY_BASE", raising=False)
     monkeypatch.setenv("EZPROXY_COOKIES", "/tmp/cookies.txt")
-    result = ezproxy.fetch_pdf("10.1000/x", "Some Paper", output_dir="/tmp")
-    assert result["status"] == "failed"
-    assert "EZPROXY_BASE" in result["error"]
+    result = _fetch("/tmp")
+    assert result.status == "failed"
+    assert "EZPROXY_BASE" in result.error
 
 
 def test_missing_cookies_fails(monkeypatch):
     monkeypatch.setenv("EZPROXY_BASE", "p.edu")
     monkeypatch.setenv("EZPROXY_COOKIES", "/nonexistent/cookies.txt")
-    result = ezproxy.fetch_pdf("10.1000/x", "Some Paper", output_dir="/tmp")
-    assert result["status"] == "failed"
-    assert "EZPROXY_COOKIES" in result["error"]
+    result = _fetch("/tmp")
+    assert result.status == "failed"
+    assert "EZPROXY_COOKIES" in result.error
 
 
 def test_success_writes_pdf(monkeypatch, tmp_path):
@@ -53,25 +62,34 @@ def test_success_writes_pdf(monkeypatch, tmp_path):
     monkeypatch.setenv("EZPROXY_BASE", "p.edu")
     monkeypatch.setenv("EZPROXY_COOKIES", str(cookies))
 
-    class _Resp:
-        def __init__(self, url, content, ctype="application/pdf", status=200):
-            self.url = url
-            self.content = content
-            self.headers = {"Content-Type": ctype}
-            self.status_code = status
-            self.text = ""
+    def _resp(url, content, ctype="application/pdf"):
+        return _http.Response(
+            status=200, url=url, headers={"content-type": ctype}, content=content
+        )
+
+    seen = []
 
     class _Session:
-        headers = {}
-        cookies = {}
+        def __init__(self, headers=None):
+            self.cookies = http.cookiejar.CookieJar()
 
         def get(self, url, **kwargs):
+            seen.append(url)
             if "doi.org" in url:
-                return _Resp("https://www.nature.com/articles/x", b"", "text/html")
-            return _Resp(url, VALID_PDF)
+                return _resp("https://www.nature.com/articles/x", b"", "text/html")
+            return _resp(url, VALID_PDF)
 
-    monkeypatch.setattr(ezproxy.requests, "Session", lambda: _Session())
-    monkeypatch.setattr(ezproxy, "_load_cookies", lambda p: {})
-    result = ezproxy.fetch_pdf("10.1000/x", "Some Paper", output_dir=str(tmp_path))
-    assert result["status"] == "success"
-    assert (tmp_path / result["file_name"]).read_bytes().startswith(b"%PDF-")
+    monkeypatch.setattr(ezproxy._http, "Session", _Session)
+    result = _fetch(str(tmp_path))
+    assert result.status == "success"
+    assert seen[-1] == "https://www-nature-com.p.edu/articles/x"
+    assert open(result.path, "rb").read().startswith(b"%PDF-")
+    assert sorted(os.listdir(tmp_path)) == ["Some Paper.pdf", "cookies.txt"]
+
+
+def test_cookies_txt_is_loaded_into_the_session(tmp_path):
+    cookies = tmp_path / "cookies.txt"
+    cookies.write_text(
+        "# Netscape HTTP Cookie File\n.p.edu\tTRUE\t/\tFALSE\t0\tezproxy\ttok\n"
+    )
+    assert [c.name for c in ezproxy._load_cookies(str(cookies))] == ["ezproxy"]

@@ -11,15 +11,15 @@ Resolution is by DOI: the search API maps the DOI to an ISTEX document id, then
 the fulltext endpoint returns the PDF under a Bearer-token Authorization header.
 """
 
+import json
 import os
 import subprocess
 import sys
 import threading
 
-import requests
-
-from doifetch.config import PAPERS_DIR, TIMEOUT
-from doifetch.sources._legacy import run_legacy
+from doifetch.config import TIMEOUT
+from doifetch.pdf_utils import is_valid_pdf
+from doifetch.sources import _http
 from doifetch.sources.contract import Kind, Request, Result
 
 TOKEN_ENV = "ISTEX_ACCESSTOKEN"
@@ -96,115 +96,22 @@ def _get_token():
     return os.environ.get(TOKEN_ENV, "").strip() or _token_from_file(TOKEN_FILE)
 
 
-def _resolve_istex_id(doi):
+def _resolve_istex_id(doi: str) -> str | None:
     """Return the ISTEX document id for a DOI, or None if absent from the archive."""
-    params = {"q": f'doi:"{doi}"', "size": 1, "output": "id"}
-    response = requests.get(ISTEX_SEARCH_URL, params=params, timeout=TIMEOUT)
-    if response.status_code != 200:
+    params = {"q": f'doi:"{doi}"', "size": "1", "output": "id"}
+    response = _http.get(ISTEX_SEARCH_URL, params=params, timeout=TIMEOUT)
+    if not response.ok:
         return None
-    hits = response.json().get("hits", [])
+    hits = json.loads(response.text).get("hits", [])
     return hits[0]["id"] if hits else None
 
 
-def _download(istex_id, token):
-    return requests.get(
+def _download(istex_id: str, token: str) -> _http.Response:
+    return _http.get(
         ISTEX_FULLTEXT_URL.format(id=istex_id),
         headers={"Authorization": f"Bearer {token}"},
         timeout=TIMEOUT,
     )
-
-
-def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
-    """Download a single paper PDF from ISTEX by DOI.
-
-    Returns dict with keys: status, doi, title, file_name, error (if failed).
-    """
-    from doifetch.pdf_utils import clean_filename, is_valid_pdf
-
-    safe_title = title if title else f"Unknown_{doi}"
-    file_name = f"{clean_filename(safe_title)}.pdf"
-    file_path = os.path.join(output_dir, file_name)
-
-    if os.path.exists(file_path):
-        if is_valid_pdf(file_path):
-            return {
-                "status": "skipped",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-            }
-        else:
-            os.remove(file_path)
-
-    token = _get_token()
-    if not token:
-        token = _refresh_login("")
-    if not token:
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": f"{TOKEN_ENV} not set (generate at https://api.istex.fr/token/)",
-        }
-
-    if not doi:
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": "ISTEX resolution requires a DOI",
-        }
-
-    try:
-        istex_id = _resolve_istex_id(doi)
-        if not istex_id:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "DOI not found in ISTEX",
-            }
-        response = _download(istex_id, token)
-        if response.status_code in AUTH_STATUSES:
-            fresh = _refresh_login(token)
-            if fresh:
-                response = _download(istex_id, fresh)
-        if response.status_code != 200:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"ISTEX fulltext download failed: {response.status_code}",
-            }
-        with open(file_path, "wb") as f:
-            f.write(response.content)
-        if not is_valid_pdf(file_path):
-            os.remove(file_path)
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "Downloaded file is not a valid PDF",
-            }
-        return {
-            "status": "success",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-        }
-    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": str(e),
-        }
 
 
 NAME = "istex"
@@ -212,5 +119,42 @@ ACCEPTS: frozenset[Kind] = frozenset({"doi"})
 
 
 def fetch(req: Request) -> Result:
-    """Contract adapter over `fetch_pdf`."""
-    return run_legacy(NAME, fetch_pdf, req)
+    """Download a single paper PDF from ISTEX by DOI."""
+
+    def fail(error: str) -> Result:
+        return Result("failed", NAME, error=error)
+
+    if os.path.exists(req.path):
+        if is_valid_pdf(req.path):
+            return Result("skipped", NAME, path=req.path)
+        os.remove(req.path)
+
+    token = _get_token()
+    if not token:
+        token = _refresh_login("")
+    if not token:
+        return fail(f"{TOKEN_ENV} not set (generate at https://api.istex.fr/token/)")
+
+    partial = req.path + ".part"
+    try:
+        istex_id = _resolve_istex_id(req.identifier)
+        if not istex_id:
+            return fail("DOI not found in ISTEX")
+        response = _download(istex_id, token)
+        if response.status in AUTH_STATUSES:
+            fresh = _refresh_login(token)
+            if fresh:
+                response = _download(istex_id, fresh)
+        if response.status != 200:
+            return fail(f"ISTEX fulltext download failed: {response.status}")
+        with open(partial, "wb") as f:
+            f.write(response.content)
+        if not is_valid_pdf(partial):
+            return fail("Downloaded file is not a valid PDF")
+        os.replace(partial, req.path)
+        return Result("success", NAME, path=req.path)
+    except Exception as e:  # noqa: BLE001 - the contract: never raise into the fetch loop
+        return fail(str(e))
+    finally:
+        if os.path.exists(partial):
+            os.remove(partial)

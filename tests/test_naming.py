@@ -1,4 +1,5 @@
 import logging
+import os
 from types import SimpleNamespace
 
 import pytest
@@ -6,6 +7,7 @@ import pytest
 from doifetch import cli, naming
 from doifetch.pdf_utils import clean_filename
 from doifetch.sources import crossref as crossref_mod
+from doifetch.sources.contract import Result
 
 STERN = {
     "title": ["The Rise and Fall of the Environmental Kuznets Curve"],
@@ -127,11 +129,11 @@ def test_single_download_names_file_from_crossref(
 ):
     seen = {}
 
-    def fake_istex(doi, title, output_dir):
-        seen["title"] = title
-        return {"status": "success", "doi": doi, "title": title, "file_name": "x.pdf"}
+    def fake_istex(req):
+        seen["title"] = os.path.basename(req.path)[: -len(".pdf")]
+        return Result("success", "istex", path=req.path)
 
-    monkeypatch.setattr(cli.istex, "fetch_pdf", fake_istex)
+    monkeypatch.setitem(cli.SOURCES, "istex", fake_istex)
     args = SimpleNamespace(
         doi=DOI,
         isbn=None,
@@ -156,11 +158,11 @@ def test_batch_round_trip_writes_status_for_renamed_rows(
     )
     renamed = {}
 
-    def fake_istex(doi, title, output_dir):
-        renamed[doi] = title
-        return {"status": "success", "doi": doi, "title": title, "file_name": "x.pdf"}
+    def fake_istex(req):
+        renamed[req.identifier] = os.path.basename(req.path)[: -len(".pdf")]
+        return Result("success", "istex", path=req.path)
 
-    monkeypatch.setattr(cli.istex, "fetch_pdf", fake_istex)
+    monkeypatch.setitem(cli.SOURCES, "istex", fake_istex)
     monkeypatch.setattr(cli, "DEFAULT_ORDER", ["istex"])
 
     tasks, _ = cli.load_download_tasks([str(table)])
