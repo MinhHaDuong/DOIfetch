@@ -1,10 +1,10 @@
 """Fetch book PDFs from Library Genesis by ISBN."""
 
-import os
 import re
 
 from doifetch.config import HEADERS, TIMEOUT
 from doifetch.sources import _http
+from doifetch.sources._pdf import already_there, save_pdf
 from doifetch.sources.contract import Kind, Request, Result
 
 SEARCH_MIRRORS = [
@@ -109,63 +109,54 @@ def _detect_ext(content, content_type=""):
     return ".pdf"  # optimistic default
 
 
+def _fetch(req: Request) -> Result:
+    from doifetch.utils import require
+
+    require("bs4", "shadow")
+
+    if (done := already_there(req, NAME)) is not None:
+        return done
+
+    isbn = req.identifier.strip()
+    if not isbn:
+        return Result("failed", NAME, error="No ISBN provided")
+
+    md5 = _search_isbn(isbn)
+    if not md5:
+        return Result("failed", NAME, error=f"ISBN {isbn} not found on Libgen")
+
+    download_url = _resolve_download_url(md5)
+    if not download_url:
+        return Result(
+            "failed", NAME, error=f"Could not resolve download URL for md5={md5}"
+        )
+
+    resp = _http.get(download_url, headers=HEADERS, timeout=max(TIMEOUT, 120))
+    if not resp.ok:
+        return Result("failed", NAME, error=f"Download failed: HTTP {resp.status}")
+
+    content = resp.content
+    ext = _detect_ext(content, resp.headers.get("content-type", ""))
+    if len(content) < 1000 or ext == ".html":
+        return Result(
+            "failed", NAME, error="Downloaded file appears to be an error page"
+        )
+    if ext != ".pdf":
+        return Result(
+            "failed", NAME, error=f"Libgen served {ext[1:].upper()}, not a PDF"
+        )
+    return save_pdf(req, NAME, content, "Downloaded file is not a valid PDF")
+
+
 def fetch(req: Request) -> Result:
     """Download the book with ISBN ``req.identifier`` from Libgen.
 
     Only a PDF is kept: an EPUB or an error page is a failure, since the contract
     writes ``req.path`` and returns success for a checked PDF only.
     """
-    from doifetch.pdf_utils import is_valid_pdf
-    from doifetch.utils import require
-
     try:
-        require("bs4", "shadow")
-    except ImportError as exc:
-        return Result("failed", NAME, error=str(exc))
-
-    if is_valid_pdf(req.path):
-        return Result("skipped", NAME, path=req.path)
-
-    isbn = req.identifier.strip()
-    if not isbn:
-        return Result("failed", NAME, error="No ISBN provided")
-
-    try:
-        md5 = _search_isbn(isbn)
-        if not md5:
-            return Result("failed", NAME, error=f"ISBN {isbn} not found on Libgen")
-
-        download_url = _resolve_download_url(md5)
-        if not download_url:
-            return Result(
-                "failed", NAME, error=f"Could not resolve download URL for md5={md5}"
-            )
-
-        resp = _http.get(download_url, headers=HEADERS, timeout=max(TIMEOUT, 120))
-        if not resp.ok:
-            return Result("failed", NAME, error=f"Download failed: HTTP {resp.status}")
-
-        content = resp.content
-        ext = _detect_ext(content, resp.headers.get("content-type", ""))
-        if len(content) < 1000 or ext == ".html":
-            return Result(
-                "failed", NAME, error="Downloaded file appears to be an error page"
-            )
-        if ext != ".pdf":
-            return Result(
-                "failed", NAME, error=f"Libgen served {ext[1:].upper()}, not a PDF"
-            )
-
-        with open(req.path, "wb") as f:
-            f.write(content)
-        if not is_valid_pdf(req.path):
-            os.remove(req.path)
-            return Result("failed", NAME, error="Downloaded file is not a valid PDF")
-        return Result("success", NAME, path=req.path)
-
-    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
-        if os.path.exists(req.path) and not is_valid_pdf(req.path):
-            os.remove(req.path)
+        return _fetch(req)
+    except Exception as e:  # noqa: BLE001 - the contract: never raise into the fetch loop
         return Result("failed", NAME, error=str(e))
 
 

@@ -18,8 +18,8 @@ import sys
 import threading
 
 from doifetch.config import TIMEOUT
-from doifetch.pdf_utils import is_valid_pdf
 from doifetch.sources import _http
+from doifetch.sources._pdf import already_there, save_pdf
 from doifetch.sources.contract import Kind, Request, Result
 
 TOKEN_ENV = "ISTEX_ACCESSTOKEN"
@@ -118,16 +118,12 @@ NAME = "istex"
 ACCEPTS: frozenset[Kind] = frozenset({"doi"})
 
 
-def fetch(req: Request) -> Result:
-    """Download a single paper PDF from ISTEX by DOI."""
-
+def _fetch(req: Request) -> Result:
     def fail(error: str) -> Result:
         return Result("failed", NAME, error=error)
 
-    if os.path.exists(req.path):
-        if is_valid_pdf(req.path):
-            return Result("skipped", NAME, path=req.path)
-        os.remove(req.path)
+    if (done := already_there(req, NAME)) is not None:
+        return done
 
     token = _get_token()
     if not token:
@@ -135,26 +131,22 @@ def fetch(req: Request) -> Result:
     if not token:
         return fail(f"{TOKEN_ENV} not set (generate at https://api.istex.fr/token/)")
 
-    partial = req.path + ".part"
+    istex_id = _resolve_istex_id(req.identifier)
+    if not istex_id:
+        return fail("DOI not found in ISTEX")
+    response = _download(istex_id, token)
+    if response.status in AUTH_STATUSES:
+        fresh = _refresh_login(token)
+        if fresh:
+            response = _download(istex_id, fresh)
+    if response.status != 200:
+        return fail(f"ISTEX fulltext download failed: {response.status}")
+    return save_pdf(req, NAME, response.content, "Downloaded file is not a valid PDF")
+
+
+def fetch(req: Request) -> Result:
+    """Download a single paper PDF from ISTEX by DOI."""
     try:
-        istex_id = _resolve_istex_id(req.identifier)
-        if not istex_id:
-            return fail("DOI not found in ISTEX")
-        response = _download(istex_id, token)
-        if response.status in AUTH_STATUSES:
-            fresh = _refresh_login(token)
-            if fresh:
-                response = _download(istex_id, fresh)
-        if response.status != 200:
-            return fail(f"ISTEX fulltext download failed: {response.status}")
-        with open(partial, "wb") as f:
-            f.write(response.content)
-        if not is_valid_pdf(partial):
-            return fail("Downloaded file is not a valid PDF")
-        os.replace(partial, req.path)
-        return Result("success", NAME, path=req.path)
+        return _fetch(req)
     except Exception as e:  # noqa: BLE001 - the contract: never raise into the fetch loop
-        return fail(str(e))
-    finally:
-        if os.path.exists(partial):
-            os.remove(partial)
+        return Result("failed", NAME, error=str(e))
