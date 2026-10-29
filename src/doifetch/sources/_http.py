@@ -74,6 +74,7 @@ class Response:
 
 _ALLOWED_SCHEMES = ("http", "https")
 _SENSITIVE_HEADERS = ("authorization", "cookie")
+_DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
 def _check_scheme(url: str) -> None:
@@ -83,7 +84,8 @@ def _check_scheme(url: str) -> None:
 
 def _origin(url: str) -> tuple[str, str | None, int | None]:
     parts = urllib.parse.urlsplit(url)
-    return parts.scheme.lower(), parts.hostname, parts.port
+    scheme = parts.scheme.lower()
+    return scheme, parts.hostname, parts.port or _DEFAULT_PORTS.get(scheme)
 
 
 class _LimitedRedirects(urllib.request.HTTPRedirectHandler):
