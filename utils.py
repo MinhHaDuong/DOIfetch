@@ -79,7 +79,7 @@ def read_doi_from_table(file_path):
             if doi:
                 dois.append((doi, index))
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - unreadable input file is reported
         print(f"Error reading file {file_path}: {str(e)}")
         return [], None
 

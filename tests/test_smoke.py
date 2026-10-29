@@ -1,5 +1,7 @@
 """Smoke tests: verify that the same 2 DOIs load correctly from a .txt list."""
 
+from conftest import SAMPLE_DOIS
+
 import fetch
 from utils import read_doi_from_table
 from conftest import SAMPLE_DOIS

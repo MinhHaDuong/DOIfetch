@@ -40,7 +40,7 @@ def get_metadata(doi):
         return response.json().get("message", {})
     except DoiNotFoundError:
         raise
-    except Exception as e:
+    except (requests.RequestException, ValueError) as e:
         logger.warning("Crossref metadata request failed for %s: %s", doi, e)
         return None
 
@@ -104,7 +104,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "error": str(e),
         }
     try:
-        paper = requests.get(pdf_url, verify=False)
+        paper = requests.get(pdf_url, timeout=60)
         if paper.status_code != 200:
             return {
                 "status": "failed",
@@ -130,7 +130,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "title": title,
             "file_name": file_name,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
         return {
             "status": "failed",
             "doi": doi,

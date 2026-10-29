@@ -173,7 +173,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
                 "downloaded file is not a valid PDF (auth expired or paywalled)"
             )
         return {"status": "success", "doi": doi, "title": title, "file_name": file_name}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
         return fail(str(e))
 
 

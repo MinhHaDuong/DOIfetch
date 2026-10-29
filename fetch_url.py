@@ -57,7 +57,7 @@ def fetch_pdf(url, title, output_dir=PAPERS_DIR):
             "title": title,
             "file_name": file_name,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
         return {
             "status": "failed",
             "doi": url,
