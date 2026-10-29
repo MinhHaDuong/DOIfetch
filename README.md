@@ -41,7 +41,7 @@ Everything lives in the `doifetch` package under `src/doifetch/`; the paths belo
 - `pdf_utils.py`: Filename cleaning and PDF validity check
 - `utils.py`: Shared `.txt` list I/O (read/write/list) and DOI validation
 - `zotero.py`: Local Zotero-library lookup — locates the database and reports whether a paper is already held
-- `pyproject.toml`: Project metadata and dependencies for `uv`
+- `pyproject.toml`: Project metadata, the optional `shadow` extra and the dev tools; no runtime dependency
 
 ## Configuration Instructions
 
@@ -117,7 +117,7 @@ running. When no database is found the check is silently skipped. Pass
 │       ├── crossref.py  unpaywall.py  openalex.py  hal.py  istex.py  ezproxy.py
 │       └── libgen.py  bookmeta.py  scihub.py  url.py
 ├── tests/
-├── pyproject.toml        # Project metadata and dependency file for uv
+├── pyproject.toml        # Metadata, `shadow` extra, dev tools (no runtime dependency)
 └── README.md
 ```
 ## Install
@@ -129,15 +129,16 @@ uv tool install git+https://github.com/MinhHaDuong/DOIfetch
 doifetch --help
 ```
 
-The core has no third-party dependency (standard library only) and reads `.txt` reference lists. The
-`shadow` extra adds the opt-in Sci-Hub and Libgen sources (beautifulsoup4):
+DOIfetch runs on the Python standard library alone: the default install pulls in no third-party
+package. The only optional dependency is the `shadow` extra, which adds beautifulsoup4 for the opt-in
+Sci-Hub and Libgen sources:
 
 ```
 uv tool install 'doifetch[shadow] @ git+https://github.com/MinhHaDuong/DOIfetch'
 ```
 
 Without the extra, the missing feature fails with a message naming it.
-`uv run` in this repository installs the extra.
+In a development checkout, `uv run` also installs the extra and the dev tools (ruff, mypy, pytest).
 
 ### Default sources
 
@@ -185,7 +186,7 @@ If ISTEX answers that authentication is needed (token missing or expired):
 
 ## Run With UV
 
-This repository uses `uv` and `pyproject.toml` as the dependency source of truth. Do not use `pip` or create a virtual environment manually. Run commands from the repository root with `uv run`, and `uv` will resolve the required dependencies automatically.
+The runtime needs only the standard library. For development, `uv` manages the dev tools (ruff, mypy, pytest) and the `shadow` extra declared in `pyproject.toml`. Do not use `pip` or create a virtual environment manually: run commands from the repository root with `uv run`.
 
 ```
 uv run doifetch --help
@@ -295,7 +296,7 @@ and `merge-gate.py check` (verify the record). Ruff rules are pinned in
 
 ## Notes
 
-- Use `uv run` from the repository root so dependencies come from `pyproject.toml`
+- Use `uv run` from the repository root so the dev tools come from `pyproject.toml`
 - Please comply with relevant laws and regulations and academic ethics, for personal learning and research only
 - Network issues or access restrictions may be encountered for Sci-Hub and Library Genesis
 - Adjust the number of concurrent threads and delay time as needed to avoid being blocked
