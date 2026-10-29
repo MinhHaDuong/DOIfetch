@@ -1,0 +1,41 @@
+%erg 0.1
+Title: Batch input keeps .txt reference lists only; drop CSV and Excel
+Created: 2026-10-29
+Author: haduong
+Blocked-by: 0004
+
+--- log ---
+2026-10-29T18:36Z haduong created
+
+--- body ---
+## Context
+
+Author ruling, 2026-10-29 (relayed by the harness session, confirmed by the author in this session):
+batch mode keeps `.txt` reference lists only.
+
+- No recorded use of CSV or Excel input; the Web of Science export heritage is the only argument for
+  them. Colleagues feeding WoS spreadsheets lose that path; the author accepted it.
+- The default install is already slim after 0005; this cuts maintenance surface before 0006 moves the
+  code and 0008 writes the contract.
+- The `.txt` batch and its write-back stay: `write_table` rewrites the file to the works still missing
+  (`utils.py:172-190`). It is the retry list the climate-finance-het workflow relies on (it generates
+  `missing_references.txt` into `references/`).
+- The harness does not depend on any of this: its zotero skill uses `--doi` single mode only.
+
+## Actions
+1. Remove the `excel` extra (openpyxl, xlrd) from `pyproject.toml` and `uv.lock`, and from the dev
+   group's `doifetch[excel,shadow]`.
+2. `utils.py`: remove `_read_excel`, `_rows_from_cells`, the CSV branches of `read_table`/`write_table`
+   and `SUPPORTED_INPUT_FORMATS`' excel/csv; `list_table_files` lists `.txt` only.
+3. `fetch.py`: drop `--input-format` (or keep it accepting `txt` only, if dropping breaks a caller);
+   `update_source_files` keeps only the `.txt` path (no `DOI Link`/`Download Status` columns to add).
+4. Tests: remove the CSV/Excel cases; keep and, if missing, add a `.txt` round-trip test (rows fetched
+   are dropped, the rest rewritten with their `doi:`/`url:`/`isbn:` prefixes and titles).
+5. README: the input is a `.txt` list, one `doi:`/`url:`/`isbn:` identifier, TAB, title per line;
+   `#` comments and blank lines ignored.
+
+## Exit criteria
+- [ ] No CSV or Excel code path, extra or dependency left
+- [ ] `.txt` batch and its missing-works write-back unchanged, covered by a round-trip test
+- [ ] README documents the `.txt` input format
+- [ ] Suite passes
