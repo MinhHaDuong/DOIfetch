@@ -5,7 +5,14 @@ from doifetch.sources.contract import Result
 
 
 def test_default_order_is_open_and_institutional():
-    assert cli.DEFAULT_ORDER == ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
+    assert cli.DEFAULT_ORDER == [
+        "crossref",
+        "unpaywall",
+        "openalex",
+        "hal",
+        "istex",
+        "ezproxy",
+    ]
 
 
 def test_shadow_libraries_stay_opt_in():
@@ -27,7 +34,7 @@ def test_default_run_never_calls_scihub(monkeypatch, tmp_path):
     for name in cli.SOURCES:
         monkeypatch.setitem(cli.SOURCES, name, stub(name))
     cli._fetch_one("10.1000/x", "T", str(tmp_path), "all")
-    assert calls == ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
+    assert calls == cli.DEFAULT_ORDER
 
 
 def test_every_source_exposes_the_contract():

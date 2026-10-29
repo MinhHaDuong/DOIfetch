@@ -6,6 +6,7 @@ import pytest
 
 from doifetch import cli, naming
 from doifetch.pdf_utils import clean_filename
+from doifetch.sources import _openalex
 from doifetch.sources import crossref as crossref_mod
 from doifetch.sources.contract import Result
 
@@ -30,6 +31,7 @@ def crossref(monkeypatch):
         return state["message"]
 
     monkeypatch.setattr(crossref_mod, "get_metadata", fake)
+    monkeypatch.setattr(_openalex, "get_metadata", lambda doi: None)
     return state
 
 

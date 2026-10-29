@@ -31,6 +31,7 @@ from doifetch.sources import (
     hal,
     istex,
     libgen,
+    openalex,
     scihub,
     unpaywall,
     url,
@@ -46,14 +47,19 @@ from doifetch.utils import (
 
 logger = logging.getLogger(__name__)
 
-SOURCES: dict[str, Fetch] = {
-    m.NAME: m.fetch
-    for m in (scihub, crossref, unpaywall, hal, istex, ezproxy, libgen, url)
-}
-ACCEPTS: dict[str, frozenset[Kind]] = {
-    m.NAME: m.ACCEPTS
-    for m in (scihub, crossref, unpaywall, hal, istex, ezproxy, libgen, url)
-}
+_MODULES = (
+    scihub,
+    crossref,
+    unpaywall,
+    openalex,
+    hal,
+    istex,
+    ezproxy,
+    libgen,
+    url,
+)
+SOURCES: dict[str, Fetch] = {m.NAME: m.fetch for m in _MODULES}
+ACCEPTS: dict[str, frozenset[Kind]] = {m.NAME: m.ACCEPTS for m in _MODULES}
 
 
 def parse_args():
@@ -71,20 +77,10 @@ def parse_args():
     )
     parser.add_argument(
         "--source",
-        choices=[
-            "scihub",
-            "crossref",
-            "unpaywall",
-            "hal",
-            "istex",
-            "ezproxy",
-            "libgen",
-            "url",
-            "all",
-        ],
+        choices=[*SOURCES, "all"],
         default="all",
-        help="Source to fetch from (default: all — Crossref, Unpaywall, HAL, "
-        "ISTEX, EZproxy in order; scihub and libgen only when named here)",
+        help="Source to fetch from (default: all — Crossref, Unpaywall, OpenAlex, "
+        "HAL, ISTEX, EZproxy in order; scihub and libgen only when named here)",
     )
     parser.add_argument(
         "--data-dir",

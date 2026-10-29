@@ -1,4 +1,4 @@
-"""Name downloaded files from DOI (Crossref) or ISBN (book providers) metadata and flag title mismatches."""
+"""Name downloaded files from DOI (Crossref, else OpenAlex) or ISBN (book providers) metadata and flag title mismatches."""
 
 import html
 import logging
@@ -7,7 +7,7 @@ import unicodedata
 from difflib import SequenceMatcher
 
 from doifetch.pdf_utils import MAX_NAME_LENGTH, clean_filename
-from doifetch.sources import bookmeta, crossref
+from doifetch.sources import _openalex, bookmeta, crossref
 from doifetch.utils import normalize_isbn
 
 logger = logging.getLogger(__name__)
@@ -126,7 +126,11 @@ def resolve_name(doi, title, keep_title=False):
         composed = compose_name(message) if message else None
     except Exception as exc:  # noqa: BLE001 - naming is best effort; fall back to the caller name
         logger.info("No DOI metadata for %s (%s); keeping caller name", doi, exc)
-        return title
+        message, composed = None, None
+    if composed is None and lookup is crossref.get_metadata:
+        # Crossref has no usable record (DataCite DOIs, 404, outage): ask OpenAlex.
+        message = _openalex.get_metadata(doi)
+        composed = compose_name(message) if message else None
     if composed is None:
         logger.info("No usable DOI metadata for %s; keeping caller name", doi)
         return title

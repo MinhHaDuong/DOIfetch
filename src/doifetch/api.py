@@ -10,11 +10,18 @@ from collections.abc import Callable, Iterable
 from doifetch.sources.contract import Fetch, Kind, Request, Result
 
 # When --source all (the default), try sources in this order until one succeeds.
-# Open and institutional sources only: Crossref/Unpaywall/HAL (open access),
+# Open and institutional sources only: Crossref/Unpaywall/OpenAlex/HAL (open access),
 # ISTEX (licensed national archive) and EZproxy (institutional subscription;
 # fails fast unless EZPROXY_BASE + EZPROXY_COOKIES are configured). Shadow
 # libraries (scihub, libgen) are opt-in: pass --source scihub / --source libgen.
-DEFAULT_ORDER = ["crossref", "unpaywall", "hal", "istex", "ezproxy"]
+DEFAULT_ORDER = [
+    "crossref",
+    "unpaywall",
+    "openalex",
+    "hal",
+    "istex",
+    "ezproxy",
+]
 
 
 def _load(name: str) -> tuple[frozenset[Kind], Fetch]:
