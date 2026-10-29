@@ -49,7 +49,7 @@ class TestCrossref:
         pdf_url = get_pdf_url(OA_DOI)
         if not pdf_url:
             pytest.skip("Crossref has no PDF link for this DOI")
-        resp = requests.get(pdf_url, timeout=60, verify=False)
+        resp = requests.get(pdf_url, timeout=60)
         assert resp.status_code == 200
         pdf_path = tmp_path / "paper.pdf"
         pdf_path.write_bytes(resp.content)
