@@ -214,3 +214,17 @@ def test_truncated_gzip_body_fails():
     body = gzip.compress(b"hello world" * 100)[:-20]
     with pytest.raises(_http.HttpError):
         _http._decode_body(body, "gzip")
+
+
+def _redirected(url, newurl, headers):
+    handler = _http._LimitedRedirects()
+    req = urllib.request.Request(url, headers=headers)
+    return handler.redirect_request(req, None, 302, "", {}, newurl)
+
+
+@pytest.mark.parametrize("newurl", ["https://a.example/y", "https://b.example/y"])
+def test_proxy_authorization_dropped_on_every_redirect(newurl):
+    new_req = _redirected(
+        "https://a.example/x", newurl, {"Proxy-Authorization": "Basic c2VjcmV0"}
+    )
+    assert "proxy-authorization" not in {k.lower() for k in new_req.headers}
