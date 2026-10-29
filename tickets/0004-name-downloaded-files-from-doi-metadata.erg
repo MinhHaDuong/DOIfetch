@@ -53,3 +53,36 @@ DOI and could name the file from the DOI's own metadata, or at least flag a mism
 - [ ] Default file names come from DOI metadata
 - [ ] A title mismatch is detected and logged, and the file is named from metadata
 - [ ] Tests cover both cases; the existing suite passes
+
+## Raid annotation (2026-10-29, raid 0a5059)
+
+Imagine (orchestrator) and review seat (Fable, read-only; 78 offline tests green on 3f6507c).
+
+Path: resolve the name once in `fetch.py` and pass it to the fetchers in the existing `title` slot;
+fetchers stay unchanged (each only does `clean_filename(title)`; HAL parses the `Author Year - Title`
+shape at `fetch_hal.py:20`). Aligns with 0008 (caller decides the path).
+
+- Resolve inside `_fetch_one` (`fetch.py:231`), not in `load_download_tasks`, so the Crossref call
+  rides the worker threads instead of serialising a batch before any download.
+- One Crossref metadata helper returning the `message` dict, reused by `fetch_crossref.get_pdf_url`
+  (today a second, `verify=False`, no-timeout call at `fetch_crossref.py:25-26`): TLS verified,
+  `TIMEOUT`, `mailto` in the User-Agent (polite pool; `config.HEADERS` is a browser UA). The naming
+  step never raises (`DoiNotFoundError` on a DataCite DOI → fallback naming).
+- Name: `<FirstAuthor family> <Year> - <Title>`; `title` is a list with possible JATS/HTML tags,
+  `subtitle` separate; author may lack `family` (use `name`); year from `issued`, then
+  `published-print`/`published-online`. The 120-char cut in `clean_filename` (`pdf_utils.py:7`) must
+  shorten the title, never the author/year prefix.
+- Match: compare the caller's title (part after ` - ` when present) with Crossref's, normalised; on a
+  match keep the caller's string byte-identical (invariant). Clear mismatch → logged warning, Crossref
+  name. `--keep-title` forces the caller's.
+- Missing title no longer becomes `Unknown_<timestamp>` before dispatch (`fetch.py:135`, `fetch.py:301`).
+
+Must-fix (seat A1, confirmed): the batch write-back keys on `result["title"]` (`fetch.py:180-188`,
+`fetch.py:281`); with a resolved name it misses and `Download Status` is never written. Carry the row
+title separately or key by DOI; add a round-trip test.
+Should-fix: Zotero's title fallback gets the bare title, not the composed name (`fetch.py:238`,
+Jaccard 0.85 in `zotero.py`); `_zotero_skip`'s `Unknown_<doi>` (`fetch.py:226`) uses the resolved name.
+Stated, not fixed: existing files saved under old names are not recognised by skip-if-exists and are
+fetched again.
+Scope narrowed: action 3 (DOI on the PDF's first pages) is left out; it was optional.
+Drift guard: exit criteria and invariants unchanged. PASS.
