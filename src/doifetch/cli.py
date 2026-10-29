@@ -1,6 +1,6 @@
 """Orchestrator: batch-fetch paper PDFs from multiple sources.
 
-Manages table I/O, parallelism, retries across sources, logging, and status updates.
+Manages table I/O, parallelism, fallback across sources, logging, and status updates.
 """
 
 import argparse
@@ -297,11 +297,20 @@ def _fetch_one(doi, title, output_dir, source, zotero_db=None, keep_title=False)
     if skip is not None:
         return skip
     req = _request(doi, name, output_dir, title)
+    if source != "all" and req.kind not in ACCEPTS[source]:
+        result = Result(
+            "failed", source, error=f"{source} does not accept {req.kind} identifiers"
+        )
+        return _legacy_dict(doi, name, result)
+    failures = []
     for src_name in _candidates(req.kind, source):
         result = SOURCES[src_name](req)
-        if result.status == "success":
+        if result.status != "failed":
             break
-    return _legacy_dict(doi, name, result)  # the last result: success or last failure
+        failures.append(f"{src_name}: {result.error or 'failed'}")
+    if result.status == "failed" and len(failures) > 1:
+        result = Result("failed", result.source, error="; ".join(failures))
+    return _legacy_dict(doi, name, result)  # success, skipped, or every failure
 
 
 def fetch_worker(
@@ -385,7 +394,11 @@ def main():
     os.makedirs(LOGS_DIR, exist_ok=True)
 
     if args.doi or args.isbn or args.title:
-        return handle_single_download(args)
+        try:
+            return handle_single_download(args)
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            return 1
 
     success_log = []
     successful_records = []
@@ -428,7 +441,7 @@ def main():
         print(f"Starting download of {task_count} papers | Threads: {num_threads}")
         while any(t.is_alive() for t in threads):
             print(
-                f"Remaining: {doi_queue.qsize()} | Success: {len(successful_records)} | Failed: {len(failed_dois)}"
+                f"Remaining: {doi_queue.unfinished_tasks} | Success: {len(successful_records)} | Failed: {len(failed_dois)}"
             )
             time.sleep(10)
     else:

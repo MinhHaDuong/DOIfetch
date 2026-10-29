@@ -3,28 +3,28 @@
 A tool for batch downloading academic paper PDFs and books from multiple open-access sources.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![Python Version](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/)
 ## Project Introduction
 
-DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper and book PDF files. It supports obtaining papers from Crossref, Unpaywall, HAL, and Sci-Hub by DOI; books from Library Genesis by ISBN; and arbitrary documents by URL. It features multi-threaded downloading, retry mechanisms, and intelligent domain rotation.
+DOIfetch is an automated tool designed to help researchers and scholars batch download academic paper and book PDF files. It supports obtaining papers from Crossref, Unpaywall, HAL, ISTEX and EZproxy by DOI (Sci-Hub on request); books from Library Genesis by ISBN; and arbitrary documents by URL. It features multi-threaded downloading and falls back across Sci-Hub mirror domains.
 
 ## Features
 
 - Supports reading literature DOI, ISBN, and URL information from `.txt` reference lists
-- Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, HAL, ISTEX, Sci-Hub) by DOI
+- Automatically downloads paper PDFs from multiple sources (Crossref, Unpaywall, HAL, ISTEX, EZproxy; Sci-Hub on request) by DOI
 - Downloads books from Library Genesis by ISBN
 - Downloads documents directly from URLs
 - Supports multi-threaded downloading to improve efficiency
-- Supports retry mechanisms and random delays to avoid being blocked
+- Waits a random delay before each Sci-Hub request
 - Automatically updates download status in the original input files
 - Skips papers already in your local Zotero library (auto-enabled when a Zotero database is found)
-- Unified fetcher interface: each source exposes the same `fetch_pdf()` convention
+- Unified fetcher interface: each source exposes the same `fetch(Request) -> Result` convention
 
 ## File Descriptions
 
-Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each `sources/` module is one `--source` value and exposes `fetch_pdf()`.
+Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each `sources/` module is one `--source` value and exposes `fetch(Request) -> Result`.
 
-- `cli.py`: Orchestrator (the `doifetch` console command) — batch-fetches papers with table I/O, parallelism, retries, and source selection
+- `cli.py`: Orchestrator (the `doifetch` console command) — batch-fetches papers with table I/O, parallelism, and source selection
 - `sources/crossref.py`: Crossref open-access fetcher (no proxy required)
 - `sources/unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
 - `sources/hal.py`: HAL open-archive fetcher — searches by author surname and title
@@ -48,7 +48,6 @@ The following parameters can be adjusted in `config.py`:
 - `SCI_HUB_DOMAINS`: Sci-Hub domain pool for rotation to avoid blocking
 - `SCIDB_DOMAINS`: Anna's Archive SciDB mirrors (tried after Sci-Hub)
 - `MAX_THREADS`: Number of concurrent download threads
-- `RETRY_COUNT`: Number of retries for download failures
 - `TIMEOUT`: Request timeout duration
 - `MIN_DELAY` and `MAX_DELAY`: Random delay range
 
@@ -143,6 +142,21 @@ doifetch --source scihub --doi 10.1000/example
 doifetch --source libgen --isbn 9780000000000
 ```
 
+### Library API
+
+The fetchers are usable without the command line:
+
+```python
+from doifetch import Request, Result, fetch
+
+result: Result = fetch(Request("doi", "10.1000/example", "paper.pdf"))
+print(result.status, result.source, result.path, result.error)
+```
+
+`fetch` runs the default cascade (DOI requests; `isbn` and `url` requests have
+no default source), returns the first success or skip (otherwise the last failure), and
+never raises.
+
 ### ISTEX login
 
 If ISTEX answers that authentication is needed (token missing or expired):
@@ -215,8 +229,9 @@ falls back to SciDB for papers outside the frozen corpus.
 Anna's Archive is anti-bot and membership-gated, so automated SciDB retrieval is
 best-effort: some papers resolve only through slow downloads or a browser. When
 SciDB does not serve the PDF directly, the fetch fails gracefully and the paper
-stays in the failed-DOI list for manual retrieval. Sci-Hub/SciDB remains the
-last source in the cascade, after Crossref, Unpaywall, HAL, and ISTEX.
+stays in the failed-DOI list for manual retrieval. Sci-Hub/SciDB is not part of
+the default cascade (Crossref, Unpaywall, HAL, ISTEX, EZproxy); name it with
+`--source scihub`.
 
 ## Library Genesis access
 

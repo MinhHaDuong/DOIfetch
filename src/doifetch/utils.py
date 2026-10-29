@@ -49,6 +49,8 @@ def _read_txt(file_path):
                 rows.append({COL_DOI: identifier, COL_TITLE: title})
             elif identifier.startswith("isbn:"):
                 rows.append({COL_DOI: identifier, COL_TITLE: title})
+            elif validate_doi(identifier):  # a bare DOI, as in the Crossref UI
+                rows.append({COL_DOI: identifier, COL_TITLE: title})
             else:
                 print(f"Skipping unrecognized line: {line}")
     return rows
