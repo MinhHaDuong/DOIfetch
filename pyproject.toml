@@ -5,13 +5,14 @@ description = "Batch academic paper downloader for open and institutional source
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
-    "beautifulsoup4",
-    "openpyxl",
-    "pandas",
     "requests",
-    "tqdm",
-    "xlrd",
 ]
+
+[project.optional-dependencies]
+# Batch input from spreadsheets (.xlsx, .xls); .txt and .csv need nothing extra.
+excel = ["openpyxl", "xlrd"]
+# HTML parsing for the opt-in shadow-library sources (scihub, libgen).
+shadow = ["beautifulsoup4"]
 
 [project.scripts]
 doifetch = "fetch:main"
@@ -39,6 +40,7 @@ py-modules = [
 
 [dependency-groups]
 dev = [
+    "doifetch[excel,shadow]",
     "pytest",
 ]
 

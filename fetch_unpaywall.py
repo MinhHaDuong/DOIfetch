@@ -2,13 +2,11 @@
 
 import argparse
 import os
-import warnings
 
 import urllib3
 
 from config import PAPERS_DIR, UNPAYWALL_EMAIL
 
-warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 

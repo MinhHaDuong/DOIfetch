@@ -5,7 +5,6 @@ import os
 import re
 
 import requests
-from bs4 import BeautifulSoup
 
 from config import HEADERS, PAPERS_DIR, TIMEOUT
 
@@ -17,6 +16,13 @@ SEARCH_MIRRORS = [
 DOWNLOAD_MIRROR = "https://libgen.li"
 
 _MD5_RE = re.compile(r"[Mm][Dd]5[=:]([a-fA-F0-9]{32})")
+
+
+def _soup(html):
+    """Parse HTML with bs4, which ships in the 'shadow' extra only."""
+    from utils import require
+
+    return require("bs4", "shadow").BeautifulSoup(html, "html.parser")
 
 
 def _extract_md5(soup):
@@ -39,7 +45,7 @@ def _search_isbn(isbn):
             timeout=TIMEOUT,
         )
         if resp.status_code == 200:
-            md5 = _extract_md5(BeautifulSoup(resp.text, "html.parser"))
+            md5 = _extract_md5(_soup(resp.text))
             if md5:
                 return md5
     except requests.RequestException:
@@ -54,7 +60,7 @@ def _search_isbn(isbn):
             )
             if resp.status_code != 200:
                 continue
-            md5 = _extract_md5(BeautifulSoup(resp.text, "html.parser"))
+            md5 = _extract_md5(_soup(resp.text))
             if md5:
                 return md5
         except requests.RequestException:
@@ -68,7 +74,7 @@ def _resolve_download_url(md5):
     resp = requests.get(page_url, headers=HEADERS, timeout=TIMEOUT)
     if resp.status_code != 200:
         return None
-    soup = BeautifulSoup(resp.text, "html.parser")
+    soup = _soup(resp.text)
 
     def _abs(href):
         return (
@@ -111,6 +117,12 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
     from pdf_utils import clean_filename, is_valid_pdf
+    from utils import require
+
+    try:
+        require("bs4", "shadow")
+    except ImportError as exc:
+        return {"status": "failed", "doi": doi, "title": title, "error": str(exc)}
 
     safe_title = title if title else f"Unknown_{doi}"
     base_name = clean_filename(safe_title)

@@ -2,14 +2,12 @@
 
 import argparse
 import os
-import warnings
 
 import requests
 import urllib3
 
 from config import PAPERS_DIR
 
-warnings.filterwarnings("ignore", category=FutureWarning, module="pandas")
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 

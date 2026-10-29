@@ -113,6 +113,19 @@ uv tool install git+https://github.com/MinhHaDuong/DOIfetch
 doifetch --help
 ```
 
+The core depends on `requests` only and reads `.txt` and `.csv` reference
+files. Two extras add the rest:
+
+- `excel`: `.xlsx` and `.xls` reference files (openpyxl, xlrd)
+- `shadow`: the opt-in Sci-Hub and Libgen sources (beautifulsoup4)
+
+```
+uv tool install 'doifetch[excel] @ git+https://github.com/MinhHaDuong/DOIfetch'
+```
+
+Without the extra, the missing feature fails with a message naming it.
+`uv run` in this repository installs both extras.
+
 ### Default sources
 
 With no `--source`, `doifetch` tries the open and institutional sources in
@@ -121,7 +134,8 @@ needs `EZPROXY_BASE` and `EZPROXY_COOKIES`; otherwise it is skipped).
 
 ### Other sources
 
-Sci-Hub and Libgen are never tried by default. Name them to use them:
+Sci-Hub and Libgen are never tried by default. They need the `shadow` extra;
+name them to use them:
 
 ```
 doifetch --source scihub --doi 10.1000/example
@@ -181,7 +195,7 @@ uv run python fetch.py --help
    uv run fetch_scihub.py --doi 10.1000/example --title "Example Paper"
    ```
 3. Downloaded files will be saved in the `papers` directory as `.pdf` or `.epub` depending on what Libgen provides.
-4. Input files can be Excel, CSV, or plain text. Text files use tab-separated lines:
+4. Input files can be Excel (with the `excel` extra), CSV, or plain text. Text files use tab-separated lines:
    ```
    doi:10.1080/03085140903020580	Author 2009 - Title
    url:https://example.com/doc.pdf	Document Name
