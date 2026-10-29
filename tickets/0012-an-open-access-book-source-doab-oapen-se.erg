@@ -11,6 +11,7 @@ Author: haduong
 2026-10-29T19:38Z note Author ruling 2026-10-29: reshape — ISBN -> Crossref DOI -> open DOI sources replaces the DOAB/OAPEN source; title, actions and exit criterion 3 rewritten accordingly. Back in the queue after 0008.
 2026-10-29T20:59Z note Integration review of 0008: CLI _candidates falls back to any accepting source, so isbn with --source all or crossref goes to libgen today (cli.py:259-267), contradicting the --source help; this ticket's action 3 removes it. URL-only rows are named Unknown_{hash()} with the per-process string hash (cli.py:254), unstable across runs.
 2026-10-29T20:59Z MinhHaDuong note blocker 0008 closed — Blocked-by removed.
+2026-10-29T21:30Z Crossref type probe 2026-10-29: real ISBNs return book-chapter (most rows), edited-book, monograph; filter type:book|monograph|edited-book|reference-book (repeated type = OR) keeps book-level rows server-side. Decisions: chapters never used (a chapter PDF must not be saved under the book name); new default source 'isbn' (DEFAULT_ORDER last) runs api.cascade on each of up to 3 book DOIs, so any DOI source added later (OpenAlex) serves books; api.fetch for an ISBN works through the same cascade; cli._candidates fallback kept for kind 'title' only (ticket 0023), under 'all' only.
 --- body ---
 ## Context
 
