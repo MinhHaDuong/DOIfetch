@@ -1,0 +1,26 @@
+%erg 0.1
+Title: Crossref, Unpaywall, HAL and URL sources on the contract and the stdlib helper (0008 child C1)
+Created: 2026-10-29
+Author: MinhHaDuong
+Blocked-by: 0015
+Blocked-by: 0017
+
+--- log ---
+2026-10-29T20:08Z MinhHaDuong created
+
+--- body ---
+
+## Context
+
+Child of tracker 0008 (split by raid f9e483: the ticket bundled five sign-off units over ~25 files). Read 0008's body and log for the up-front decisions: `Kind` is a `Literal`, `ACCEPTS` a `frozenset[str]`; one `DEFAULT_ORDER` constant for the cascade; no `detail_url` (no consumer found); contract as data plus a signature, no ABC/Protocol/base class.
+
+Line endings: cli.py, config.py and sources crossref, hal, libgen, scihub, unpaywall, url are CRLF; keep each file's endings, no whole-file diffs.
+
+## Actions
+Rewrite crossref, unpaywall, hal and url onto the contract natively (drop the adapter) and onto the
+stdlib helper (drop `requests` there); rewrite their mocked tests to the helper's seam.
+
+## Exit criteria
+- [ ] These modules import no `requests`; each obeys the contract rules (never raises, writes only
+      `req.path`, no partial file, `success` only after the PDF check)
+- [ ] Behaviour unchanged on the existing suite (tests rewritten in mocking seam only)

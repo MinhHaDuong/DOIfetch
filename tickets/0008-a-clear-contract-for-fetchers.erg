@@ -2,6 +2,14 @@
 Title: A clear contract for fetchers
 Created: 2026-10-29
 Author: haduong
+Blocked-by: 0015
+Blocked-by: 0016
+Blocked-by: 0017
+Blocked-by: 0018
+Blocked-by: 0019
+Blocked-by: 0020
+Blocked-by: 0021
+Blocked-by: 0022
 
 --- log ---
 2026-10-29T18:24Z haduong created
@@ -13,7 +21,16 @@ Author: haduong
 2026-10-29T18:53Z note Imagine (raid f9e483): a Literal kind plus ACCEPTS frozenset[str] may suffice over a Kind enum; detail_url has no named consumer, check before building; state the default cascade order as one constant; the type-checker criterion needs mypy/pyright which 0007 does not add, so 0008 adds it to the gate itself.
 2026-10-29T19:39Z note Author ruling 2026-10-29: take the stdlib-HTTP option — drop requests (supersedes 'keep requests' in the raid f9e483 handoff); Action 5 and an exit criterion added
 2026-10-29T19:43Z MinhHaDuong note blocker 0006 closed — Blocked-by removed.
+2026-10-29T20:09Z note Monster split (raid f9e483): executor hunt judged 15+ files, bundled sign-off units and a dependency chain; split into 0015-0022, tracker closes after integration review
 --- body ---
+## Tracker (split by raid f9e483, 2026-10-29)
+
+This ticket is now a tracker; it closes only after the integration review of all children.
+Wave order: 0015 (A1 stdlib HTTP helper) and 0016 (A2 type checker in the gate) in parallel; then 0017
+(B1 contract, per-module adapters, typed registry); then 0022 (C1 open sources), 0018 (C2 institutional),
+0019 (C3 shadow + bookmeta) in parallel; then 0020 (D1 public API, import purity) and 0021 (E1 drop
+requests). The exit criteria below are carried by the children, each named in its body.
+
 ## Context
 
 Each source module exposes `fetch_pdf(doi, title, output_dir)` and returns a free-form dict with
