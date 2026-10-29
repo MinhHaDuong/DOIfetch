@@ -274,3 +274,45 @@ def test_truncated_last_gzip_member_fails():
 def test_default_port_is_same_origin(url, newurl):
     new_req = _redirected(url, newurl, {"Authorization": "Bearer SECRET"})
     assert new_req.get_header("Authorization") == "Bearer SECRET"
+
+
+def _raw_server(payload: bytes):
+    """Serve one fixed raw HTTP response per connection, then close."""
+    import socket
+
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(5)
+
+    def run():
+        while True:
+            try:
+                conn, _ = srv.accept()
+            except OSError:
+                return
+            conn.recv(4096)
+            conn.sendall(payload)
+            conn.close()
+
+    threading.Thread(target=run, daemon=True).start()
+    return srv, f"http://127.0.0.1:{srv.getsockname()[1]}/"
+
+
+def test_short_body_vs_content_length_raises():
+    head = b"HTTP/1.1 200 OK\r\nContent-Length: 100000\r\nConnection: close\r\n\r\n"
+    srv, url = _raw_server(head + b"x" * 50000)
+    try:
+        with pytest.raises(_http.HttpError):
+            _http.Session().get(url)
+    finally:
+        srv.close()
+
+
+def test_correct_content_length_ok():
+    head = b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\n"
+    srv, url = _raw_server(head + b"hello")
+    try:
+        r = _http.Session().get(url)
+        assert r.status == 200 and r.content == b"hello"
+    finally:
+        srv.close()

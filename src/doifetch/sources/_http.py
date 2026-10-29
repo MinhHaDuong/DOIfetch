@@ -118,6 +118,14 @@ def _read_capped(resp) -> bytes:
     raw = resp.read(MAX_BODY_BYTES + 1)
     if len(raw) > MAX_BODY_BYTES:
         raise HttpError(f"response body exceeds {MAX_BODY_BYTES} bytes")
+    # read(n) returns a short body silently at EOF; the unbounded read used
+    # to raise IncompleteRead. Content-Length counts wire bytes (pre-decoding).
+    declared = resp.headers.get("Content-Length")
+    if declared is not None and declared.strip().isdigit():
+        if len(raw) != int(declared):
+            raise HttpError(
+                f"truncated body: got {len(raw)} of {declared.strip()} bytes"
+            )
     return raw
 
 
