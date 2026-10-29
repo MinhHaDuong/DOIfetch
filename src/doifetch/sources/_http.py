@@ -10,13 +10,16 @@ Built on ``urllib.request`` and ``http.cookiejar``. Behaviour:
   test ``response.ok`` or ``response.status``;
 - transport failures (DNS, refused connection, timeout, redirect loop) raise
   ``HttpError``;
+- only ``http`` and ``https`` URLs are accepted, initially and on redirects;
+  an https -> http redirect is refused, and ``Authorization``/``Cookie``
+  headers are dropped when a redirect changes origin;
+- raw and decompressed bodies are capped at ``MAX_BODY_BYTES`` (``HttpError``);
 - ``gzip`` and ``deflate`` bodies are decoded, and ``Response.text`` decodes
   with the declared charset, falling back to UTF-8 with replacement.
 """
 
 from __future__ import annotations
 
-import gzip
 import http.cookiejar
 import re
 import ssl
@@ -29,6 +32,7 @@ from dataclasses import dataclass, field
 
 DEFAULT_TIMEOUT = 30.0
 MAX_REDIRECTS = 10
+MAX_BODY_BYTES = 200 * 1024 * 1024
 DEFAULT_USER_AGENT = "Mozilla/5.0 (compatible; DOIfetch)"
 
 
@@ -68,20 +72,61 @@ class Response:
         return self.content.decode("utf-8", errors="replace")
 
 
+_ALLOWED_SCHEMES = ("http", "https")
+_SENSITIVE_HEADERS = ("authorization", "cookie")
+
+
+def _check_scheme(url: str) -> None:
+    if urllib.parse.urlsplit(url).scheme.lower() not in _ALLOWED_SCHEMES:
+        raise urllib.error.URLError(f"refusing non-HTTP(S) URL: {url}")
+
+
+def _origin(url: str) -> tuple[str, str | None, int | None]:
+    parts = urllib.parse.urlsplit(url)
+    return parts.scheme.lower(), parts.hostname, parts.port
+
+
 class _LimitedRedirects(urllib.request.HTTPRedirectHandler):
     max_redirections = MAX_REDIRECTS
     max_repeats = MAX_REDIRECTS
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        _check_scheme(newurl)
+        old = urllib.parse.urlsplit(req.full_url).scheme.lower()
+        if old == "https" and urllib.parse.urlsplit(newurl).scheme.lower() != "https":
+            raise urllib.error.URLError(f"refusing https -> http redirect: {newurl}")
+        new_req = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new_req is not None and _origin(req.full_url) != _origin(newurl):
+            for name in list(new_req.headers):
+                if name.lower() in _SENSITIVE_HEADERS:
+                    del new_req.headers[name]
+        return new_req
+
+
+def _read_capped(resp) -> bytes:
+    raw = resp.read(MAX_BODY_BYTES + 1)
+    if len(raw) > MAX_BODY_BYTES:
+        raise HttpError(f"response body exceeds {MAX_BODY_BYTES} bytes")
+    return raw
+
+
+def _inflate(body: bytes, wbits: int) -> bytes:
+    d = zlib.decompressobj(wbits)
+    out = d.decompress(body, MAX_BODY_BYTES + 1)
+    if len(out) > MAX_BODY_BYTES or d.unconsumed_tail:
+        raise HttpError(f"decompressed body exceeds {MAX_BODY_BYTES} bytes")
+    return out
 
 
 def _decode_body(body: bytes, encoding: str) -> bytes:
     encoding = encoding.strip().lower()
     if encoding in ("gzip", "x-gzip"):
-        return gzip.decompress(body)
+        return _inflate(body, 16 + zlib.MAX_WBITS)
     if encoding == "deflate":
         try:
-            return zlib.decompress(body)
+            return _inflate(body, zlib.MAX_WBITS)
         except zlib.error:
-            return zlib.decompress(body, -zlib.MAX_WBITS)
+            return _inflate(body, -zlib.MAX_WBITS)
     return body
 
 
@@ -146,6 +191,10 @@ class Session:
             sep = "&" if urllib.parse.urlsplit(url).query else "?"
             url = url + sep + urllib.parse.urlencode(params)
         merged = {"Accept-Encoding": "gzip, deflate", **self.headers, **(headers or {})}
+        try:
+            _check_scheme(url)
+        except urllib.error.URLError as err:
+            raise HttpError(f"{method} {url}: {err}") from err
         req = urllib.request.Request(url, data=body, headers=merged, method=method)
         try:
             try:
@@ -157,7 +206,7 @@ class Session:
                     raise
                 resp = err  # an HTTPError is itself a readable response
             with resp:
-                raw = resp.read()
+                raw = _read_capped(resp)
                 hdrs = {k.lower(): v for k, v in resp.headers.items()}
                 status = resp.status if hasattr(resp, "status") else resp.code
                 final_url = resp.geturl()

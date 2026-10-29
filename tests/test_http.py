@@ -3,6 +3,8 @@
 import gzip
 import threading
 import time
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -49,6 +51,24 @@ class Handler(BaseHTTPRequestHandler):
         elif p == "/gzip":
             self._send(
                 body=gzip.compress(b"zipped"), headers=[("Content-Encoding", "gzip")]
+            )
+        elif p == "/echo-auth":
+            self._send(body=(self.headers.get("Authorization") or "").encode())
+        elif p == "/xhost":
+            port = self.server.server_address[1]
+            self._send(
+                302, headers=[("Location", f"http://localhost:{port}/echo-auth")]
+            )
+        elif p == "/samehost":
+            self._send(302, headers=[("Location", "/echo-auth")])
+        elif p == "/to-file":
+            self._send(302, headers=[("Location", "file:///etc/hostname")])
+        elif p == "/big":
+            self._send(body=b"x" * 5000)
+        elif p == "/bomb":
+            self._send(
+                body=gzip.compress(b"\0" * 100000),
+                headers=[("Content-Encoding", "gzip")],
             )
         elif p == "/404":
             self._send(404, body=b"nope")
@@ -143,3 +163,48 @@ def test_connection_refused_raises():
 
 def test_one_shot_get(base):
     assert _http.get(base + "/ok", timeout=5).text == "hello"
+
+
+def test_authorization_dropped_on_cross_host_redirect(base):
+    s = _http.Session(headers={"Authorization": "Bearer SECRET"})
+    assert s.get(base + "/xhost").text == ""
+
+
+def test_authorization_kept_on_same_host_redirect(base):
+    s = _http.Session(headers={"Authorization": "Bearer SECRET"})
+    assert s.get(base + "/samehost").text == "Bearer SECRET"
+
+
+@pytest.mark.parametrize("url", ["file:///etc/hostname", "ftp://example.org/x"])
+def test_non_http_scheme_refused(url):
+    with pytest.raises(_http.HttpError):
+        _http.Session().get(url)
+
+
+def test_redirect_to_file_refused(base):
+    with pytest.raises(_http.HttpError):
+        _http.Session().get(base + "/to-file")
+
+
+def test_https_to_http_redirect_refused():
+    handler = _http._LimitedRedirects()
+    req = urllib.request.Request("https://a.example/x")
+    with pytest.raises(urllib.error.URLError):
+        handler.redirect_request(req, None, 302, "", {}, "http://a.example/y")
+
+
+def test_oversized_body_fails(base, monkeypatch):
+    monkeypatch.setattr(_http, "MAX_BODY_BYTES", 1000)
+    with pytest.raises(_http.HttpError):
+        _http.Session().get(base + "/big")
+
+
+def test_decompression_bomb_fails(base, monkeypatch):
+    monkeypatch.setattr(_http, "MAX_BODY_BYTES", 1000)
+    with pytest.raises(_http.HttpError):
+        _http.Session().get(base + "/bomb")
+
+
+def test_body_within_cap_ok(base, monkeypatch):
+    monkeypatch.setattr(_http, "MAX_BODY_BYTES", 6000)
+    assert len(_http.Session().get(base + "/big").content) == 5000
