@@ -5,6 +5,7 @@ import sqlite3
 import pytest
 
 from doifetch import cli, zotero
+from doifetch.sources.contract import Result
 
 
 def _build_zotero_db(path, items):
@@ -131,7 +132,7 @@ def test_fetch_one_short_circuits_on_zotero_hit(zotero_db, monkeypatch):
         raise AssertionError("no source should be called when the paper is in Zotero")
 
     for name in cli.SOURCES:
-        monkeypatch.setattr(getattr(cli, name), "fetch_pdf", _boom)
+        monkeypatch.setitem(cli.SOURCES, name, _boom)
 
     result = cli._fetch_one(
         "10.1371/journal.pone.0001636",
@@ -148,11 +149,11 @@ def test_fetch_one_falls_through_when_not_in_zotero(zotero_db, monkeypatch):
     """A Zotero miss must proceed to the source, which here reports success."""
     calls = {}
 
-    def _fake_success(doi, title, output_dir):
+    def _fake_success(req):
         calls["hit"] = True
-        return {"status": "success", "doi": doi, "title": title, "file_name": "x.pdf"}
+        return Result("success", "crossref", path="papers/x.pdf")
 
-    monkeypatch.setattr(cli.crossref, "fetch_pdf", _fake_success)
+    monkeypatch.setitem(cli.SOURCES, "crossref", _fake_success)
     result = cli._fetch_one(
         "10.9999/not.present", "Unrelated words", "papers", "crossref", zotero_db
     )

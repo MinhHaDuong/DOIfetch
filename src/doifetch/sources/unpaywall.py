@@ -1,102 +1,35 @@
 """Fetch open-access paper PDFs via the Unpaywall API."""
 
-import os
+import json
 
-import urllib3
-
-from doifetch.config import PAPERS_DIR, UNPAYWALL_EMAIL
-from doifetch.sources._legacy import run_legacy
+from doifetch.config import UNPAYWALL_EMAIL
+from doifetch.sources import _http
+from doifetch.sources._pdf import already_there, save_pdf
 from doifetch.sources.contract import Kind, Request, Result
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-
-def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
-    """Download a single paper PDF via Unpaywall.
-
-    Returns dict with keys: status, doi, title, file_name, error (if failed).
-    """
-    import requests
-
-    from doifetch.pdf_utils import clean_filename, is_valid_pdf
-
-    safe_title = title if title else f"Unknown_{doi}"
-    file_name = f"{clean_filename(safe_title)}.pdf"
-    file_path = os.path.join(output_dir, file_name)
-
-    if os.path.exists(file_path):
-        if is_valid_pdf(file_path):
-            return {
-                "status": "skipped",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-            }
-        else:
-            os.remove(file_path)
-
-    try:
-        url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
-        response = requests.get(url, timeout=30)
-        if response.status_code != 200:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"Unpaywall API error: {response.status_code}",
-            }
-        data = response.json()
-        oa = data.get("best_oa_location")
-        if not oa or not oa.get("url_for_pdf"):
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "No open access PDF found",
-            }
-        pdf_url = oa["url_for_pdf"]
-        pdf_resp = requests.get(pdf_url, timeout=60)
-        if pdf_resp.status_code != 200:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"PDF download failed: {pdf_resp.status_code}",
-            }
-        with open(file_path, "wb") as f:
-            f.write(pdf_resp.content)
-        if not is_valid_pdf(file_path):
-            os.remove(file_path)
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "Broken PDF file",
-            }
-        return {
-            "status": "success",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-        }
-    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": str(e),
-        }
-
 
 NAME = "unpaywall"
 ACCEPTS: frozenset[Kind] = frozenset({"doi"})
 
 
+def _fetch(req: Request) -> Result:
+    if (done := already_there(req, NAME)) is not None:
+        return done
+    url = f"https://api.unpaywall.org/v2/{req.identifier}?email={UNPAYWALL_EMAIL}"
+    response = _http.get(url, timeout=30)
+    if response.status != 200:
+        return Result("failed", NAME, error=f"Unpaywall API error: {response.status}")
+    oa = json.loads(response.text).get("best_oa_location")
+    if not oa or not oa.get("url_for_pdf"):
+        return Result("failed", NAME, error="No open access PDF found")
+    pdf_resp = _http.get(oa["url_for_pdf"], timeout=60)
+    if pdf_resp.status != 200:
+        return Result("failed", NAME, error=f"PDF download failed: {pdf_resp.status}")
+    return save_pdf(req, NAME, pdf_resp.content, "Broken PDF file")
+
+
 def fetch(req: Request) -> Result:
-    """Contract adapter over `fetch_pdf`."""
-    return run_legacy(NAME, fetch_pdf, req)
+    """Fetch the DOI's best open-access PDF to ``req.path``."""
+    try:
+        return _fetch(req)
+    except Exception as e:  # noqa: BLE001 - the contract: never raise into the fetch loop
+        return Result("failed", NAME, error=str(e))

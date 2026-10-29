@@ -103,11 +103,9 @@ def test_metadata_request_is_verified_and_has_timeout(monkeypatch):
 
     def fake_get(url, **kwargs):
         seen.update(kwargs)
-        return SimpleNamespace(
-            status_code=200, json=lambda: {"message": {"title": ["T"]}}
-        )
+        return SimpleNamespace(status=200, text='{"message": {"title": ["T"]}}')
 
-    monkeypatch.setattr(crossref_mod.requests, "get", fake_get)
+    monkeypatch.setattr(crossref_mod._http, "get", fake_get)
     assert crossref_mod.get_metadata(DOI) == {"title": ["T"]}
     assert "verify" not in seen and seen["timeout"]
     assert "mailto:" in seen["headers"]["User-Agent"]
@@ -115,9 +113,9 @@ def test_metadata_request_is_verified_and_has_timeout(monkeypatch):
 
 def test_metadata_with_non_dict_json_body_returns_none(monkeypatch):
     monkeypatch.setattr(
-        crossref_mod.requests,
+        crossref_mod._http,
         "get",
-        lambda url, **kw: SimpleNamespace(status_code=200, json=lambda: ["oops"]),
+        lambda url, **kw: SimpleNamespace(status=200, text='["oops"]'),
     )
     assert crossref_mod.get_metadata(DOI) is None
 

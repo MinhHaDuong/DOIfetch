@@ -1,13 +1,16 @@
 """Fetch open-access paper PDFs from the HAL archive by author and title search."""
 
+import json
 import os
 import re
 
-import requests
-
-from doifetch.config import HEADERS, PAPERS_DIR, TIMEOUT
-from doifetch.sources._legacy import run_legacy
+from doifetch.config import HEADERS, TIMEOUT
+from doifetch.sources import _http
+from doifetch.sources._pdf import already_there, save_pdf
 from doifetch.sources.contract import Kind, Request, Result
+
+NAME = "hal"
+ACCEPTS: frozenset[Kind] = frozenset({"doi"})
 
 HAL_SEARCH_URL = "https://api.archives-ouvertes.fr/search/"
 
@@ -47,10 +50,10 @@ def _search_hal(author, title_keywords):
         "wt": "json",
         "fl": "halId_s,title_s,fileMain_s",
     }
-    response = requests.get(HAL_SEARCH_URL, params=params, timeout=TIMEOUT)
-    if response.status_code != 200:
+    response = _http.get(HAL_SEARCH_URL, params=params, timeout=TIMEOUT)
+    if response.status != 200:
         return None
-    data = response.json()
+    data = json.loads(response.text)
     docs = data.get("response", {}).get("docs", [])
     for doc in docs:
         pdf_url = doc.get("fileMain_s")
@@ -59,88 +62,28 @@ def _search_hal(author, title_keywords):
     return None
 
 
-def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
-    """Download a paper PDF from HAL by searching author + title.
-
-    Returns dict with keys: status, doi, title, file_name, error (if failed).
-    """
-    from doifetch.pdf_utils import clean_filename, is_valid_pdf
-
-    safe_title = title if title else f"Unknown_{doi}"
-    file_name = f"{clean_filename(safe_title)}.pdf"
-    file_path = os.path.join(output_dir, file_name)
-
-    if os.path.exists(file_path):
-        if is_valid_pdf(file_path):
-            return {
-                "status": "skipped",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-            }
-        else:
-            os.remove(file_path)
-
+def _fetch(req: Request) -> Result:
+    if (done := already_there(req, NAME)) is not None:
+        return done
+    # The caller names the file "Author Year - Title"; HAL is searched on that.
+    title = os.path.basename(req.path).removesuffix(".pdf")
     author, title_keywords = _parse_author_title(title)
     if not author or not title_keywords:
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": "Cannot parse author/title for HAL search",
-        }
-
-    try:
-        pdf_url = _search_hal(author, title_keywords)
-        if not pdf_url:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "No PDF found on HAL",
-            }
-        pdf_resp = requests.get(pdf_url, headers=HEADERS, timeout=TIMEOUT)
-        if pdf_resp.status_code != 200:
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": f"HAL PDF download failed: {pdf_resp.status_code}",
-            }
-        with open(file_path, "wb") as f:
-            f.write(pdf_resp.content)
-        if not is_valid_pdf(file_path):
-            os.remove(file_path)
-            return {
-                "status": "failed",
-                "doi": doi,
-                "title": title,
-                "file_name": file_name,
-                "error": "Downloaded file is not a valid PDF",
-            }
-        return {
-            "status": "success",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-        }
-    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
-        return {
-            "status": "failed",
-            "doi": doi,
-            "title": title,
-            "file_name": file_name,
-            "error": str(e),
-        }
-
-
-NAME = "hal"
-ACCEPTS: frozenset[Kind] = frozenset({"doi"})
+        return Result("failed", NAME, error="Cannot parse author/title for HAL search")
+    pdf_url = _search_hal(author, title_keywords)
+    if not pdf_url:
+        return Result("failed", NAME, error="No PDF found on HAL")
+    pdf_resp = _http.get(pdf_url, headers=HEADERS, timeout=TIMEOUT)
+    if pdf_resp.status != 200:
+        return Result(
+            "failed", NAME, error=f"HAL PDF download failed: {pdf_resp.status}"
+        )
+    return save_pdf(req, NAME, pdf_resp.content, "Downloaded file is not a valid PDF")
 
 
 def fetch(req: Request) -> Result:
-    """Contract adapter over `fetch_pdf`."""
-    return run_legacy(NAME, fetch_pdf, req)
+    """Search HAL on the file name's author and title and fetch the PDF."""
+    try:
+        return _fetch(req)
+    except Exception as e:  # noqa: BLE001 - the contract: never raise into the fetch loop
+        return Result("failed", NAME, error=str(e))
