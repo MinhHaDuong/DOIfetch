@@ -19,16 +19,19 @@ def already_there(req: Request, source: str) -> Result | None:
 def save_pdf(req: Request, source: str, content: bytes, broken: str) -> Result:
     """Write ``content`` to ``req.path``; ``success`` only if it is a valid PDF.
 
-    A file that fails the check is removed, so no partial file is left behind.
+    The one place a source writes its file: the bytes are staged in
+    ``req.path + ".part"``, checked, then moved into place atomically. Whatever
+    happens (a bad body, a full disk, an exception), no ``.part`` and no partial
+    ``req.path`` is left behind.
     """
+    partial = req.path + ".part"
     try:
-        with open(req.path, "wb") as f:
+        with open(partial, "wb") as f:
             f.write(content)
-    except BaseException:
-        if os.path.exists(req.path):
-            os.remove(req.path)  # a write that died midway leaves nothing
-        raise
-    if not is_valid_pdf(req.path):
-        os.remove(req.path)
-        return Result("failed", source, error=broken)
-    return Result("success", source, path=req.path)
+        if not is_valid_pdf(partial):
+            return Result("failed", source, error=broken)
+        os.replace(partial, req.path)
+        return Result("success", source, path=req.path)
+    finally:
+        if os.path.exists(partial):
+            os.remove(partial)

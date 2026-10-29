@@ -1,1 +1,1 @@
-"""One module per paper source; each exposes fetch(Request) -> Result."""
+"""One module per paper source; each exposes NAME, ACCEPTS and fetch(req)."""

@@ -10,8 +10,9 @@ Rules a ``fetch`` follows:
 
 - it never raises into the fetch loop: errors become ``status="failed"`` with a
   reason in ``error``;
-- it writes only ``req.path``, whose name the caller decided, and never leaves a
-  partial file behind;
+- it writes only ``req.path``, whose name the caller decided, through
+  ``sources._pdf.save_pdf`` (staged in ``req.path + ".part"`` and moved into
+  place atomically), and never leaves a partial file behind;
 - it returns ``"success"`` only for a file that passed the PDF check;
 - it returns ``"skipped"`` when ``req.path`` already holds a valid PDF.
 
