@@ -8,8 +8,8 @@ from difflib import SequenceMatcher
 
 import fetch_bookmeta
 import fetch_crossref
-from utils import normalize_isbn
 from pdf_utils import MAX_NAME_LENGTH, clean_filename
+from utils import normalize_isbn
 
 logger = logging.getLogger(__name__)
 
@@ -125,7 +125,7 @@ def resolve_name(doi, title, keep_title=False):
     try:
         message = lookup(doi)
         composed = compose_name(message) if message else None
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - naming is best effort; fall back to the caller name
         logger.info("No DOI metadata for %s (%s); keeping caller name", doi, exc)
         return title
     if composed is None:

@@ -65,7 +65,7 @@ def open_library(isbn):
             names,
             record.get("publish_date"),
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - providers never raise into the caller
         logger.info("Open Library lookup failed for %s: %s", isbn, exc)
         return None
 
@@ -89,7 +89,7 @@ def google_books(isbn):
             info.get("authors") or [],
             info.get("publishedDate"),
         )
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - providers never raise into the caller
         logger.info("Google Books lookup failed for %s: %s", isbn, exc)
         return None
 

@@ -1,0 +1,20 @@
+%erg 0.1
+Title: Crossref get_metadata returns None on a non-dict JSON body
+Created: 2026-10-29
+Author: MinhHaDuong
+Closed: done in PR #16 (37d033e)
+
+--- log ---
+2026-10-29T19:33Z MinhHaDuong created
+
+2026-10-29T19:33Z MinhHaDuong closed — done in PR #16 (37d033e)
+--- body ---
+## Context
+
+Scope overflow recorded by verify-gate on PR #16 (ticket 0007). Narrowing the blind `except` in
+`fetch_crossref.get_metadata` (0007 Action 2) dropped the implicit guard against a Crossref JSON body
+that is not a dict: it raised `AttributeError` instead of returning `None`. PR #16 restores that
+behaviour with an explicit type check and a regression test (`tests/test_naming.py`, commit 37d033e).
+
+## Exit criteria
+- [x] `get_metadata` returns `None` for a non-dict JSON body, covered by a test

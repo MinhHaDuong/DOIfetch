@@ -16,6 +16,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
     Returns dict with keys: status, doi, title, file_name, error (if failed).
     """
     import requests
+
     from pdf_utils import clean_filename, is_valid_pdf
 
     safe_title = title if title else f"Unknown_{doi}"
@@ -81,7 +82,7 @@ def fetch_pdf(doi, title, output_dir=PAPERS_DIR):
             "title": title,
             "file_name": file_name,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - a fetcher reports failure, never raises into the fetch loop
         return {
             "status": "failed",
             "doi": doi,

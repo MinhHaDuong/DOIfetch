@@ -3,7 +3,7 @@ name = "doifetch"
 version = "0.1.0"
 description = "Batch academic paper downloader for open and institutional sources"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "requests",
 ]
@@ -40,6 +40,7 @@ py-modules = [
 dev = [
     "doifetch[shadow]",
     "pytest",
+    "ruff",
 ]
 
 [tool.pytest.ini_options]
@@ -51,3 +52,10 @@ markers = [
 
 [tool.uv]
 package = true
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "BLE"]
+ignore = ["E501"]  # line length is left to ruff format
