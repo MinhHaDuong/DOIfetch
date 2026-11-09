@@ -29,7 +29,7 @@ Everything lives in the `doifetch` package under `src/doifetch/`; the paths belo
 - `sources/unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
 - `sources/openalex.py`: OpenAlex open-access fetcher (tries every known PDF location)
 - `sources/core.py`: CORE open-access fetcher (full texts harvested from institutional repositories)
-- `sources/hal.py`: HAL open-archive fetcher — searches by author surname and title
+- `sources/hal.py`: HAL open-archive fetcher — looks the DOI up first, then falls back to author surname and title
 - `sources/istex.py`: ISTEX fetcher — licensed national archive, resolves a DOI to fulltext (requires an access token)
 - `sources/ezproxy.py`: EZproxy fetcher — institutional-subscription access (e.g. BibCNRS). Rewrites the publisher host into your institution's EZproxy form and downloads with your session cookies. The scriptable equivalent of a "Click & Read" button. Requires `EZPROXY_BASE` + `EZPROXY_COOKIES` (a cookies.txt exported after logging into the proxy); federated SSO cannot be scripted blind, so a live session is needed.
 - `sources/isbn.py`: book fetcher — Crossref `filter=isbn:` gives the book's DOI, the DOI sources give the PDF
