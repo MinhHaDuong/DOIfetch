@@ -4,7 +4,7 @@ import json
 import os
 import re
 
-from doifetch.config import HEADERS, TIMEOUT
+from doifetch.config import TIMEOUT
 from doifetch.sources import _http
 from doifetch.sources._pdf import already_there, save_pdf
 from doifetch.sources.contract import Kind, Request, Result
@@ -13,6 +13,11 @@ NAME = "hal"
 ACCEPTS: frozenset[Kind] = frozenset({"doi"})
 
 HAL_SEARCH_URL = "https://api.archives-ouvertes.fr/search/"
+# HAL's file hosts sit behind an anti-bot filter (Anubis) that serves a
+# challenge page, with status 200, to any User-Agent claiming to be a browser
+# ("Mozilla/..."), and the file to every other one. DOIfetch is a program, so
+# it says so.
+HAL_HEADERS = {"User-Agent": "DOIfetch (+https://github.com/MinhHaDuong/DOIfetch)"}
 
 
 def _parse_author_title(title):
@@ -73,7 +78,7 @@ def _fetch(req: Request) -> Result:
     pdf_url = _search_hal(author, title_keywords)
     if not pdf_url:
         return Result("failed", NAME, error="No PDF found on HAL")
-    pdf_resp = _http.get(pdf_url, headers=HEADERS, timeout=TIMEOUT)
+    pdf_resp = _http.get(pdf_url, headers=HAL_HEADERS, timeout=TIMEOUT)
     if pdf_resp.status != 200:
         return Result(
             "failed", NAME, error=f"HAL PDF download failed: {pdf_resp.status}"
