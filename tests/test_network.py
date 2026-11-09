@@ -137,3 +137,47 @@ class TestOpenAlex:
                 pytest.skip(str(exc))
             raise
         assert work["title"] and isinstance(work.get("locations"), list)
+
+
+# Briera & Lefevre 2024: closed at the publisher, full text deposited as hal-04824002.
+HAL_DOI = "10.1016/j.enpol.2024.114104"
+# Earsom 2024: deposited as hal-04434318 on a university HAL portal.
+HAL_PORTAL_DOI = "10.1111/1758-5899.13324"
+# The file name the command line gives HAL_DOI: the title is cut at 120 characters.
+HAL_NAME = "Briera 2024 - Reducing the cost of capital through international climate finance to accelerate the renewable energy tran"
+
+
+@pytest.mark.network
+class TestHal:
+    def test_doi_lookup_finds_the_deposit(self):
+        from doifetch.sources import hal
+
+        assert hal._search_hal_by_doi(HAL_DOI) == (
+            "https://hal.science/hal-04824002/document"
+        )
+
+    def test_hal_downloads_a_real_pdf(self, tmp_path):
+        """The bot check lets the download through and the file is a PDF."""
+        from doifetch.sources import hal
+
+        path = tmp_path / f"{HAL_NAME}.pdf"
+        result = hal.fetch(Request("doi", HAL_DOI, str(path)))
+        assert result.status == "success", result.error
+        content = path.read_bytes()
+        assert content[:5] == b"%PDF-" and len(content) > 100_000
+
+    def test_default_cascade_finds_the_hal_deposit(self, tmp_path):
+        from doifetch import api
+
+        path = tmp_path / f"{HAL_NAME}.pdf"
+        result = api.fetch(Request("doi", HAL_DOI, str(path)))
+        assert result.status == "success", result.error
+        assert path.read_bytes()[:5] == b"%PDF-"
+
+    def test_university_portal_deposit_downloads(self, tmp_path):
+        from doifetch.sources import hal
+
+        path = tmp_path / "Earsom 2024 - Fit for purpose.pdf"
+        result = hal.fetch(Request("doi", HAL_PORTAL_DOI, str(path)))
+        assert result.status == "success", result.error
+        assert path.read_bytes()[:5] == b"%PDF-"
