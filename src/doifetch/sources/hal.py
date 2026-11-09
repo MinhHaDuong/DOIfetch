@@ -96,7 +96,7 @@ def _fetch(req: Request) -> Result:
 
 
 def fetch(req: Request) -> Result:
-    """Search HAL on the file name's author and title and fetch the PDF."""
+    """Find the deposit on HAL by DOI (else by the file name's author and title) and fetch the PDF."""
     try:
         return _fetch(req)
     except Exception as e:  # noqa: BLE001 - the contract: never raise into the fetch loop
