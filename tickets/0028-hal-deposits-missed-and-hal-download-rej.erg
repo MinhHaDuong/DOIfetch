@@ -5,6 +5,8 @@ Author: HDMX-coding-agent
 
 --- log ---
 2026-11-04T16:17Z HDMX-coding-agent created
+2026-11-09T15:31Z MinhHaDuong Reproduced 2026-11-09. (a) 'doifetch --doi 10.1016/j.enpol.2024.114104' -> 'No PDF found on HAL': hal source ignored the DOI and searched title_t on the file name, cut at 120 chars ('...tran'), 0 hits; doiId_s query finds hal-04824002. (b) hal.science/hal-04824002/document with any 'Mozilla' User-Agent returns 200 text/html 'Making sure you're not a bot!' (Anubis); curl or 'DOIfetch/..' UA returns application/pdf 11718641 bytes.
+2026-11-09T15:31Z MinhHaDuong Fixed on branch t0028-hal-miss: DOI lookup first (title search fallback) and a non-browser User-Agent for the HAL file request. Verified: CLI default cascade now saves Briera 2024 (11718641 bytes, %PDF-); Earsom 2024 = 10.1111/1758-5899.13324 (hal-04434318, univ-catholille portal) 312576 bytes %PDF-. Network tests: pytest -m network -k hal, 4 passed.
 
 --- body ---
 ## Context
@@ -19,6 +21,6 @@ Cause not yet established (lookup by DOI vs HAL id, or the request's user agent 
 
 ## Exit criteria
 
-- [ ] Reproduce on the two DOIs above.
-- [ ] DOIfetch finds HAL deposits for a DOI when HAL holds one.
-- [ ] The HAL download succeeds where plain curl does.
+- [x] Reproduce on the two DOIs above. (Briera: CLI "No PDF found on HAL" and bot-check HTML page; Earsom 2024 resolved to 10.1111/1758-5899.13324, same host-level bot check; see log.)
+- [x] DOIfetch finds HAL deposits for a DOI when HAL holds one. (tests/test_network.py::TestHal::test_doi_lookup_finds_the_deposit, test_default_cascade_finds_the_hal_deposit)
+- [x] The HAL download succeeds where plain curl does. (test_hal_downloads_a_real_pdf: 11718641 bytes, %PDF-)
