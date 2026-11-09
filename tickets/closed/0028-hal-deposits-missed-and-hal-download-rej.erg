@@ -1,0 +1,28 @@
+%erg 0.1
+Title: HAL deposits missed and HAL download rejected by bot check
+Created: 2026-11-04
+Author: HDMX-coding-agent
+Closed: autoclosed — PR #47
+
+--- log ---
+2026-11-04T16:17Z HDMX-coding-agent created
+2026-11-09T15:31Z MinhHaDuong Reproduced 2026-11-09. (a) 'doifetch --doi 10.1016/j.enpol.2024.114104' -> 'No PDF found on HAL': hal source ignored the DOI and searched title_t on the file name, cut at 120 chars ('...tran'), 0 hits; doiId_s query finds hal-04824002. (b) hal.science/hal-04824002/document with any 'Mozilla' User-Agent returns 200 text/html 'Making sure you're not a bot!' (Anubis); curl or 'DOIfetch/..' UA returns application/pdf 11718641 bytes.
+2026-11-09T15:31Z MinhHaDuong Fixed on branch t0028-hal-miss: DOI lookup first (title search fallback) and a non-browser User-Agent for the HAL file request. Verified: CLI default cascade now saves Briera 2024 (11718641 bytes, %PDF-); Earsom 2024 = 10.1111/1758-5899.13324 (hal-04434318, univ-catholille portal) 312576 bytes %PDF-. Network tests: pytest -m network -k hal, 4 passed.
+2026-11-09T15:38Z MinhHaDuong closed — autoclosed — PR #47
+
+--- body ---
+## Context
+
+Observed 2026-11-04 from climate-finance-het (stream page 6.3, agent run on padme, headless):
+
+- DOIfetch's default cascade missed a HAL deposit: Briera and Lefèvre 2024 (DOI 10.1016/j.enpol.2024.114104) has a full text on HAL (hal-04824002), which DOIfetch did not find.
+- When the HAL file URL was given, HAL's bot check rejected DOIfetch's download, while a plain `curl` of the same URL succeeded.
+- Earsom 2024 was likewise obtained only through a direct HAL file URL.
+
+Cause not yet established (lookup by DOI vs HAL id, or the request's user agent and headers). Effect: open copies are missed, so fetches fall through to later channels more often than they should.
+
+## Exit criteria
+
+- [x] Reproduce on the two DOIs above. (Briera: CLI "No PDF found on HAL" and bot-check HTML page; Earsom 2024 resolved to 10.1111/1758-5899.13324, same host-level bot check; see log.)
+- [x] DOIfetch finds HAL deposits for a DOI when HAL holds one. (tests/test_network.py::TestHal::test_doi_lookup_finds_the_deposit, test_default_cascade_finds_the_hal_deposit)
+- [x] The HAL download succeeds where plain curl does. (test_hal_downloads_a_real_pdf: 11718641 bytes, %PDF-)
