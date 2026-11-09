@@ -1,4 +1,4 @@
-"""Fetch open-access paper PDFs from the HAL archive by author and title search."""
+"""Fetch open-access paper PDFs from the HAL archive, by DOI then by author and title."""
 
 import json
 import os
@@ -42,13 +42,8 @@ def _clean_title_keywords(raw):
     return re.sub(r"\s+", " ", raw).strip()
 
 
-def _search_hal(author, title_keywords):
-    """Search HAL for a paper by author surname and title keywords.
-
-    Returns the PDF URL or None.
-    """
-    title_keywords = _clean_title_keywords(title_keywords)
-    query = f"authLastName_t:{author} AND title_t:({title_keywords})"
+def _query_hal(query):
+    """Run one HAL search; return the first deposit's file URL, or None."""
     params = {
         "q": query,
         "rows": 5,
@@ -67,15 +62,29 @@ def _search_hal(author, title_keywords):
     return None
 
 
+def _search_hal_by_doi(doi):
+    """Find the deposit that declares ``doi`` (the exact, preferred lookup)."""
+    quoted = doi.strip().replace("\\", "\\\\").replace('"', '\\"')
+    return _query_hal(f'doiId_s:"{quoted}"')
+
+
+def _search_hal(author, title_keywords):
+    """Search HAL for a paper by author surname and title keywords (the fallback)."""
+    title_keywords = _clean_title_keywords(title_keywords)
+    return _query_hal(f"authLastName_t:{author} AND title_t:({title_keywords})")
+
+
 def _fetch(req: Request) -> Result:
     if (done := already_there(req, NAME)) is not None:
         return done
-    # The caller names the file "Author Year - Title"; HAL is searched on that.
-    title = os.path.basename(req.path).removesuffix(".pdf")
-    author, title_keywords = _parse_author_title(title)
-    if not author or not title_keywords:
-        return Result("failed", NAME, error="Cannot parse author/title for HAL search")
-    pdf_url = _search_hal(author, title_keywords)
+    pdf_url = _search_hal_by_doi(req.identifier)
+    if not pdf_url:
+        # The caller names the file "Author Year - Title"; the name may be cut
+        # short, so it is only the fallback to the DOI.
+        title = os.path.basename(req.path).removesuffix(".pdf")
+        author, title_keywords = _parse_author_title(title)
+        if author and title_keywords:
+            pdf_url = _search_hal(author, title_keywords)
     if not pdf_url:
         return Result("failed", NAME, error="No PDF found on HAL")
     pdf_resp = _http.get(pdf_url, headers=HAL_HEADERS, timeout=TIMEOUT)

@@ -142,14 +142,6 @@ def test_unpaywall_without_location_fails(monkeypatch, tmp_path):
     assert unpaywall.fetch(req).error == "No open access PDF found"
 
 
-def test_hal_needs_author_year_title_name(monkeypatch, tmp_path):
-    seen = _router(monkeypatch, {})
-    req = Request("doi", "10.9/x", str(tmp_path / "Untitled.pdf"))
-    result = hal.fetch(req)
-    assert result.status == "failed" and "Cannot parse" in result.error
-    assert seen == []
-
-
 def test_broken_leftover_is_replaced(monkeypatch, tmp_path):
     module, req, _ = _setup(monkeypatch, tmp_path, "url")
     with open(req.path, "wb") as f:

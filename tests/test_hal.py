@@ -1,4 +1,4 @@
-"""HAL source, offline: a download HAL's bot check accepts.
+"""HAL source, offline: lookup by DOI first, and a download HAL's bot check accepts.
 
 Recorded shapes (2026-11-09, Briera & Lefevre 2024): the search API answers a
 ``doiId_s`` query with the deposit and its ``fileMain_s``; the file host serves an
@@ -50,12 +50,56 @@ class FakeHal:
         return _resp(body=BOT_PAGE if "Mozilla" in agent else PDF)
 
 
-def _found(query):
-    return _hits({"halId_s": "hal-04824002", "fileMain_s": FILE_URL})
+def _by_doi_only(query):
+    if "doiId_s" in query and DOI in query:
+        return _hits({"halId_s": "hal-04824002", "fileMain_s": FILE_URL})
+    return _hits()
+
+
+def test_doi_is_looked_up_even_when_the_title_is_truncated(monkeypatch, tmp_path):
+    fake = FakeHal(monkeypatch, _by_doi_only)
+    req = Request("doi", DOI, str(tmp_path / f"{TRUNCATED}.pdf"))
+    result = hal.fetch(req)
+    assert result.status == "success", result.error
+    assert fake.queries[0].startswith("doiId_s:")
+
+
+def test_doi_lookup_works_with_a_name_that_cannot_be_parsed(monkeypatch, tmp_path):
+    FakeHal(monkeypatch, _by_doi_only)
+    req = Request("doi", DOI, str(tmp_path / "Untitled.pdf"))
+    assert hal.fetch(req).status == "success"
+
+
+def test_title_search_is_the_fallback_when_the_doi_is_unknown(monkeypatch, tmp_path):
+    def search(query):
+        if query.startswith("doiId_s:"):
+            return _hits()
+        return _hits({"halId_s": "hal-1", "fileMain_s": FILE_URL})
+
+    fake = FakeHal(monkeypatch, search)
+    req = Request("doi", "10.9/x", str(tmp_path / "Stern 2004 - Rise and Fall.pdf"))
+    assert hal.fetch(req).status == "success"
+    assert len(fake.queries) == 2 and "authLastName_t:Stern" in fake.queries[1]
+
+
+def test_unknown_doi_and_unparseable_name_fails_cleanly(monkeypatch, tmp_path):
+    FakeHal(monkeypatch, lambda q: _hits())
+    req = Request("doi", "10.9/x", str(tmp_path / "Untitled.pdf"))
+    result = hal.fetch(req)
+    assert result.status == "failed" and "No PDF found on HAL" in result.error
+
+
+def test_doi_with_solr_syntax_is_quoted(monkeypatch, tmp_path):
+    fake = FakeHal(monkeypatch, lambda q: _hits())
+    weird = '10.1002/(SICI)1097-4571(199806)49:8<693::AID-ASI4>3.0.CO;2-"'
+    hal.fetch(Request("doi", weird, str(tmp_path / "Untitled.pdf")))
+    assert fake.queries == [
+        'doiId_s:"10.1002/(SICI)1097-4571(199806)49:8<693::AID-ASI4>3.0.CO;2-\\""'
+    ]
 
 
 def test_download_does_not_present_a_browser_user_agent(monkeypatch, tmp_path):
-    fake = FakeHal(monkeypatch, _found)
+    fake = FakeHal(monkeypatch, _by_doi_only)
     req = Request("doi", DOI, str(tmp_path / "Briera 2024 - T.pdf"))
     assert hal.fetch(req).status == "success"
     agent = fake.file_headers[0]["User-Agent"]
@@ -66,7 +110,7 @@ def test_download_does_not_present_a_browser_user_agent(monkeypatch, tmp_path):
 def test_bot_check_page_is_reported_as_such(monkeypatch, tmp_path):
     def blocked(target, **kwargs):
         if "search" in target:
-            return _found(kwargs["params"]["q"])
+            return _by_doi_only(kwargs["params"]["q"])
         return _resp(body=BOT_PAGE)
 
     monkeypatch.setattr(_http, "get", blocked)
