@@ -43,7 +43,7 @@ def test_help_teaches_batch_env_exit_codes_and_defaults(monkeypatch, capsys):
         "Exit codes",
         "--url",
         "default: references",
-        "default: papers",
+        "default: docs",
     ):
         assert needle in out, needle
 

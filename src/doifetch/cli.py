@@ -20,7 +20,7 @@ from doifetch.config import (
     DOI_URL_BASE,
     LOGS_DIR,
     MAX_THREADS,
-    PAPERS_DIR,
+    OUTPUT_DIR,
     REFERENCES_DIR,
     STATUS_SUCCESS,
     ZOTERO_DB_PATH,
@@ -156,8 +156,9 @@ def parse_args():
     )
     parser.add_argument(
         "--output-dir",
-        default=PAPERS_DIR,
-        help=f"Directory to save downloaded PDFs (default: {PAPERS_DIR})",
+        default=OUTPUT_DIR,
+        help=f"Directory to save downloaded PDFs (default: {OUTPUT_DIR}; "
+        "was papers up to v0.2.0)",
     )
     parser.add_argument(
         "--no-check-zotero",

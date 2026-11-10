@@ -23,6 +23,6 @@
 
 ## Operational Constraints
 - Assume network access can fail. Download code should keep timeout handling and non-destructive failure paths.
-- Be careful with file mutations: `doifetch` overwrites input files and writes PDFs/logs into `papers/` and `logs/`.
+- Be careful with file mutations: `doifetch` overwrites input files and writes PDFs/logs into `docs/` (the default `--output-dir`) and `logs/`.
 - `sources/scihub.py` depends on fragile HTML parsing against Sci-Hub pages. Keep scraper changes minimal and isolate parsing logic when modifying it.
 - Avoid broad refactors unless requested. Small targeted edits are safer in this repo than architectural rewrites.
