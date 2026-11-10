@@ -1,0 +1,32 @@
+%erg 0.1
+Title: Default output directory: docs instead of papers
+Created: 2026-11-10
+Author: harness-audit
+
+--- log ---
+2026-11-10T07:26Z harness-audit created
+
+--- body ---
+## Context
+
+Author decision, 2026-11-10, in a harness session on the documentary chain
+(harness tickets 1502 and 1503): "Okay to change DOIfetch output to docs/",
+then "that was the permission to change DOIfetch defaults. But don't rely on
+it, use explicit --output-dir".
+
+The author's projects stage every source document in a git-ignored `docs/`
+folder before it is archived in Zotero (harness `rules/zotero.md`: fetch,
+stage in `docs/`, archive). DOIfetch writes to `papers/` by default
+(`src/doifetch/config.py:40`, `PAPERS_DIR = "papers"`; `--output-dir` in
+`src/doifetch/cli.py:158`; README tree at line 123), so a file fetched
+without the option lands outside the staging folder.
+
+The harness does not depend on this change: it runs DOIfetch at a pinned tag
+and, from its ticket 1503 on, always passes `--output-dir` explicitly.
+
+## Exit criteria
+
+- [ ] The default output directory is `docs`; `--output-dir` still overrides it
+- [ ] README and the CLI help describe the new default; a note says the old default was `papers`
+- [ ] A test shows a fetch with no `--output-dir` writing under `docs/`
+- [ ] The project's own gate passes
