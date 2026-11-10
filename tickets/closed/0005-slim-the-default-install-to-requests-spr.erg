@@ -6,8 +6,8 @@ Closed: slimmed: core is requests only; installed tool 112M/3760 files -> 2.6M/1
 
 --- log ---
 2026-10-29T18:10Z haduong created
-
 2026-10-29T18:13Z MinhHaDuong closed — slimmed: core is requests only; installed tool 112M/3760 files -> 2.6M/170 files
+
 --- body ---
 ## Context
 `uv tool install git+https://github.com/MinhHaDuong/DOIfetch` builds a 111 MB virtualenv (measured on

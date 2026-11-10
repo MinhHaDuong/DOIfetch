@@ -6,8 +6,8 @@ Closed: Implemented in PR #6: --isbn single-download flag
 
 --- log ---
 2026-07-08T20:24Z HDMX-coding-agent created
-
 2026-07-08T20:35Z HDMX-coding-agent closed — Implemented in PR #6: --isbn single-download flag
+
 --- body ---
 ## Context
 The orchestrator dispatches by identifier prefix: `_fetch_one` routes

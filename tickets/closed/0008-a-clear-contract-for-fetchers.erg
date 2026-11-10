@@ -6,7 +6,6 @@ Closed: Integration review of children 0015-0022 (raid f9e483, PRs #21-#28): all
 
 --- log ---
 2026-10-29T18:24Z haduong created
-
 2026-10-29T18:26Z haduong note Contract as data plus a function signature, not an ABC (author, 2026-10-29)
 2026-10-29T18:29Z haduong note Consumer: the IDH harness zotero skill plans to import doifetch as a library (PEP 723 git dep). Needs (1) a stable public import path for Request, Result and a top-level fetch running the default cascade; (2) import doifetch side-effect free and extras-free (no Firefox/ISTEX prompt on import); (3) default cascade stays open plus institutional sources only
 2026-10-29T18:32Z haduong note Author promoted consumer needs (1) public Request/Result/fetch and (2) side-effect-free import to exit criteria
@@ -24,6 +23,7 @@ Closed: Integration review of children 0015-0022 (raid f9e483, PRs #21-#28): all
 2026-10-29T20:46Z MinhHaDuong note blocker 0020 closed — Blocked-by removed.
 2026-10-29T20:52Z MinhHaDuong note blocker 0021 closed — Blocked-by removed.
 2026-10-29T20:59Z MinhHaDuong closed — Integration review of children 0015-0022 (raid f9e483, PRs #21-#28): all six exit criteria hold on main e792e12, gate green (177 passed); follow-ups noted on 0009/0012/0013 and ticket 0023
+
 --- body ---
 ## Tracker (split by raid f9e483, 2026-10-29)
 
