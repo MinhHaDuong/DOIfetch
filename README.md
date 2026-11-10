@@ -299,6 +299,7 @@ IDH merge gate, configured in `.merge-gate.json`:
 ```
 uv run ruff format --check .
 uv run ruff check .
+uv run --group dev mypy
 uv run --group dev pytest -q -m "not network"
 tickets/erg check tickets/
 ```
@@ -306,6 +307,9 @@ tickets/erg check tickets/
 The harness runs the same set with `merge-gate.py run` (record on a candidate)
 and `merge-gate.py check` (verify the record). Ruff rules are pinned in
 `[tool.ruff]` in `pyproject.toml`.
+
+Text files are UTF-8 with LF line endings: `.gitattributes` makes git store and
+check out LF on every platform, and `.editorconfig` declares both for editors.
 
 ## Notes
 
