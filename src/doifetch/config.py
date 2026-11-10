@@ -37,7 +37,7 @@ MAX_DELAY = 8  # maximum delay
 
 # Directories
 REFERENCES_DIR = "references"
-PAPERS_DIR = "papers"
+OUTPUT_DIR = "docs"  # default --output-dir; was "papers" up to v0.2.0
 LOGS_DIR = "logs"
 
 # Zotero (optional local-library dedup; auto-enabled when a DB is found)

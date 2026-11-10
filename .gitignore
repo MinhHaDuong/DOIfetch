@@ -6,5 +6,6 @@ __pycache__/
 references/
 logs/
 papers/
+docs/*.pdf
 build/
 *.egg-info/

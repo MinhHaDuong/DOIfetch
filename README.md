@@ -120,7 +120,7 @@ running. When no database is found the check is silently skipped. Pass
 .
 ├── references/           # Store input reference files to be processed
 ├── logs/                 # Store doifetch logs
-├── papers/               # Store all downloaded PDF files
+├── docs/                 # Store all downloaded PDF files (default --output-dir)
 ├── src/doifetch/
 │   ├── cli.py            # Orchestrator: batch fetch with source selection
 │   ├── config.py         # Configuration file and shared constants
@@ -246,7 +246,7 @@ are listed in `logs/`), 1 a single download failed or its identifier is invalid,
    ```
    uv run doifetch --url https://example.com/doc.pdf --title "Document Name"
    ```
-3. Downloaded files will be saved in the `papers` directory as `.pdf`; Libgen results served as EPUB are reported as failures.
+3. Downloaded files will be saved in the `docs` directory as `.pdf` (pass `--output-dir` to choose another; the default was `papers` up to v0.2.0); Libgen results served as EPUB are reported as failures.
 4. Batch input is a `.txt` list in the data directory, one entry per line: an identifier, a TAB, then the title. Blank lines and lines starting with `#` are ignored:
    ```
    doi:10.1080/03085140903020580	Author 2009 - Title
