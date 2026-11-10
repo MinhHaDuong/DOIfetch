@@ -1,0 +1,7 @@
+# Text is stored with LF and checked out with LF on every platform.
+# Git detects binary content itself (text=auto); encoding is UTF-8 by
+# convention, declared for editors in .editorconfig.
+* text=auto eol=lf
+
+# Vendored ticket helper (Linux x86-64 executable).
+tickets/erg binary
