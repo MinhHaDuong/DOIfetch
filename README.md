@@ -22,7 +22,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 
 ## File Descriptions
 
-Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each `sources/` module is one `--source` value and exposes `fetch(req)`; the shared cascade lives in `api.py`.
+Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each source module in `sources/` is one `--source` value and exposes `fetch(req)`; the shared cascade lives in `api.py`.
 
 - `cli.py`: Orchestrator (the `doifetch` console command) — batch-fetches papers with table I/O, parallelism, and source selection
 - `api.py`: Public library API — `fetch` and the default source order; importing it has no side effects
