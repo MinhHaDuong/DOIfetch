@@ -25,6 +25,8 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 Everything lives in the `doifetch` package under `src/doifetch/`; the paths below are relative to it. Each `sources/` module is one `--source` value and exposes `fetch(req)`; the shared cascade lives in `api.py`.
 
 - `cli.py`: Orchestrator (the `doifetch` console command) — batch-fetches papers with table I/O, parallelism, and source selection
+- `api.py`: Public library API — `fetch` and the default source order; importing it has no side effects
+- `sources/contract.py`: The fetcher contract — `Request`, `Result` and the `fetch` signature every source follows
 - `sources/crossref.py`: Crossref open-access fetcher (no proxy required)
 - `sources/unpaywall.py`: Unpaywall open-access fetcher (no proxy required)
 - `sources/openalex.py`: OpenAlex open-access fetcher (tries every known PDF location)
@@ -118,21 +120,24 @@ running. When no database is found the check is silently skipped. Pass
 
 ```
 .
-├── references/           # Store input reference files to be processed
+├── references/           # Batch input .txt lists (default --data-dir)
 ├── logs/                 # Store doifetch logs
-├── docs/                 # Store all downloaded PDF files (default --output-dir)
+├── docs/                 # Downloaded PDF files (default --output-dir)
+│   └── pr-archive/       # This repository only: tracked snapshot of its early pull requests
 ├── src/doifetch/
 │   ├── cli.py            # Orchestrator: batch fetch with source selection
+│   ├── api.py            # Library API: fetch and the default source order
 │   ├── config.py         # Configuration file and shared constants
 │   ├── utils.py          # Shared table I/O dispatch and DOI validation
 │   ├── naming.py  pdf_utils.py  zotero.py
-│   └── sources/          # One module per --source
+│   └── sources/          # One module per --source, on the contract in contract.py
 │       ├── crossref.py  unpaywall.py  openalex.py  hal.py  core.py  istex.py  ezproxy.py
-│       └── libgen.py  bookmeta.py  scihub.py  url.py
+│       └── isbn.py  libgen.py  bookmeta.py  scihub.py  url.py  contract.py
 ├── tests/
 ├── pyproject.toml        # Metadata, `shadow` extra, dev tools (no runtime dependency)
 └── README.md
 ```
+
 ## Install
 
 One command, with [uv](https://docs.astral.sh/uv/):
@@ -247,7 +252,7 @@ are listed in `logs/`), 1 a single download failed or its identifier is invalid,
    uv run doifetch --url https://example.com/doc.pdf --title "Document Name"
    ```
 3. Downloaded files will be saved in the `docs` directory as `.pdf` (pass `--output-dir` to choose another; the default was `papers` up to v0.2.0); Libgen results served as EPUB are reported as failures.
-4. Batch input is a `.txt` list in the data directory, one entry per line: an identifier, a TAB, then the title. Blank lines and lines starting with `#` are ignored:
+4. Batch input is a `.txt` list in the data directory (`references` by default; pass `--data-dir` to choose another), one entry per line: an identifier, a TAB, then the title. Blank lines and lines starting with `#` are ignored:
    ```
    doi:10.1080/03085140903020580	Author 2009 - Title
    url:https://example.com/doc.pdf	Document Name
