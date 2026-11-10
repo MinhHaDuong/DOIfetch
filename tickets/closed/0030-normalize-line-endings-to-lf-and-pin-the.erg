@@ -1,0 +1,35 @@
+%erg 0.1
+Title: Normalize line endings to LF and pin them with gitattributes
+Created: 2026-11-10
+Author: claude
+Closed: autoclosed — PR #53
+
+--- log ---
+2026-11-10T08:41Z claude created
+2026-11-10T08:48Z MinhHaDuong closed — autoclosed — PR #53
+
+--- body ---
+## Context
+
+Author request, 2026-11-10: "Normalize encoding and line endings in the
+project. Linux".
+
+Survey of the 167 tracked files at d9f86d9:
+
+- Encoding is already uniform: every text file decodes as UTF-8 (or its ASCII
+  subset), with no byte-order mark, no non-NFC text, no stray control or
+  invisible characters, and a final newline everywhere.
+- Line endings are not: 13 files are stored with CRLF in the index
+  (`git ls-files --eol` prints `i/crlf`): eight modules under `src/doifetch/`,
+  three tests, `LICENSE` and `.claude/plans/atomic-hugging-origami.md`. They
+  are leftovers of the Windows-authored upstream; none mixes endings.
+- Nothing prevents a recurrence: the repository has no `.gitattributes`, and
+  `ruff format` keeps whatever ending a file already has.
+
+## Exit criteria
+
+- [ ] `git ls-files --eol` reports no `i/crlf` or `i/mixed` entry
+- [ ] A `.gitattributes` makes git store text as LF and check it out as LF on every platform; `tickets/erg` is declared binary
+- [ ] An `.editorconfig` declares UTF-8 and LF for editors
+- [ ] The conversion changes no behaviour: each converted Python file parses to the same AST as before, and each converted file differs from its old blob only by carriage returns
+- [ ] The project's own gate passes
