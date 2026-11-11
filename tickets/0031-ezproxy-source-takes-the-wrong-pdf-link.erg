@@ -1,0 +1,58 @@
+%erg 0.1
+Title: EZproxy source takes the wrong PDF link on publisher landing pages
+Created: 2026-11-11
+Author: claude
+
+--- log ---
+2026-11-11T21:38Z claude created
+
+--- body ---
+## Context
+
+Observed on 2026-11-11 with v0.3.0, `--source ezproxy`, on a list of paywalled
+DOIs for a literature review, with a valid BibCNRS proxy session: the same
+cookie file fetched the publishers' PDFs when their address was requested
+directly through the proxy. Reported from the climate-finance-het project
+(its ticket 2882).
+
+Observations, each reproduced once:
+
+- **Taylor & Francis**, `10.1080/14693062.2022.2080634`: "downloaded file is
+  not a valid PDF". The proxied landing page (HTTP 200) has no
+  `citation_pdf_url` meta tag, so `_extract_pdf_link` falls back to the first
+  `href` containing `.pdf`. On this page that is an external press release
+  cited in the article's reference list. The publisher's own address,
+  `/doi/pdf/<doi>?download=true` on the proxied host, returns the PDF.
+- **Wiley**, `10.1111/rode.12271` and `10.1111/dech.12779`: same message.
+  `/doi/pdfdirect/<doi>?download=true` on the proxied host returns the PDF.
+  Which link the tool followed was not traced.
+- **DOI resolution**, `10.1108/emh.1999.10.5.57.1` and `10.21201/2020.6621`:
+  the error names `https://doi-org.<proxy base>/<doi>` ("refusing https ->
+  http redirect"). When `_resolve_publisher_url` fails it returns the doi.org
+  address, which is then rewritten as a proxied host.
+
+Why it matters beyond a failed fetch: when the first `.pdf` link on a landing
+page is a real PDF, the source saves another document under the requested
+work's name, and the success log does not show it. No such case was observed;
+the code path allows it.
+
+Hosts the proxy does not serve answered 404 (`10.1596`, `10.1073`, `10.1787`,
+`10.5089`): expected, though the message does not say so.
+
+## Choices
+
+- Fix the extraction rather than add a publisher table only: the fallback is
+  the defect, the patterns are a convenience (reporter's recommendation; the
+  maintainer decides).
+
+## Exit criteria
+
+- [ ] No fallback to an arbitrary `.pdf` link: a candidate is accepted only if it points at the publisher's host (proxied or not); a fixture page whose first `.pdf` link is an external reference yields "no PDF link found", not a download
+- [ ] Taylor & Francis and Wiley landing pages lead to the article PDF, tested offline with fixtures
+- [ ] A failed DOI resolution fails with its own message and is not rewritten through the proxy
+- [ ] A host the proxy answers 404 for is reported as not served by the proxy
+
+## Related, not in scope
+
+The EZproxy settings are read from the environment only. A key file read by
+default, as for ISTEX, would spare callers a `source` step.
