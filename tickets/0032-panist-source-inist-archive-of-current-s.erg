@@ -1,0 +1,35 @@
+%erg 0.1
+Title: PANIST source: INIST archive of current subscriptions (api.panist.fr)
+Created: 2026-11-11
+Author: claude
+
+--- log ---
+2026-11-11T21:38Z claude created
+
+--- body ---
+## Context
+
+The Click & Read resolver sends some DOIs to PANIST, an INIST archive of
+current subscriptions, not to the BibCNRS proxy. Its API is shaped like
+ISTEX's. Observed on 2026-11-11:
+
+- Metadata search is open: `https://api.panist.fr/document/?q=doi:"<doi>"`
+  returns the document id, and `/document/<id>/` its record.
+- Full text is at `/document/<id>/fulltext/pdf`; without a session it answers
+  302 to `/authFede/` (federated login).
+- `/corpus` lists four collections: elsevier 11,301,473 documents, springer
+  1,107,896, iop 252,253, aps 149,894.
+
+On a list of 80 paywalled DOIs (climate-finance-het, its ticket 2882), 9 were
+held by PANIST: 7 Elsevier and 2 Springer. A logged-in browser downloaded
+them; the tool has no route to them, and the proxy route to the same articles
+goes through publisher sites that resist scripted clients.
+
+Not established: whether the API accepts a token, as ISTEX does, or only a
+browser session.
+
+## Exit criteria
+
+- [ ] A `panist` source: open DOI lookup, then the full text with the configured credential (token or cookie file, whichever the API supports); skipped with a clear message when unconfigured
+- [ ] Placed in the default cascade beside ISTEX; `--help` and the README document its configuration
+- [ ] Offline tests with fixtures for found, not found and unauthenticated
