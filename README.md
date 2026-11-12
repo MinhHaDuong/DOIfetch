@@ -17,7 +17,7 @@ DOIfetch is an automated tool designed to help researchers and scholars batch do
 - Supports multi-threaded downloading to improve efficiency
 - Waits a random delay before each Sci-Hub request
 - Automatically updates download status in the original input files
-- Skips papers already in your local Zotero library (auto-enabled when a Zotero database is found)
+- Skips papers whose PDF is already in your local Zotero library (auto-enabled when a Zotero database is found)
 - Unified fetcher interface: each source exposes `NAME`, `ACCEPTS` and `fetch(req: Request) -> Result` (see `sources/contract.py`)
 
 ## File Descriptions
