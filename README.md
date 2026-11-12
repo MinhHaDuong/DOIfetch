@@ -104,8 +104,9 @@ automatically whenever a Zotero database is found; matching is by DOI first
 absent.
 
 A paper counts as held only when its Zotero item carries a PDF file. An item
-with no attachment, a web snapshot only, or a link to a web address is a
-reference, not a copy: DOIfetch says so and fetches it. In batch mode the
+with no attachment, a web snapshot only, a link to a web address, or a linked
+file that has since moved away is a reference, not a copy: DOIfetch says so
+and fetches it. In batch mode the
 progress and closing lines count held papers as `Skipped`, apart from
 `Success` (downloaded) and `Failed`; a skipped paper leaves the reference list
 like a downloaded one.

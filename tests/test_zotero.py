@@ -20,7 +20,7 @@ def _build_zotero_db(path, items):
 
     items: list of (doi, title) or (doi, title, attachments) tuples. Either
     field may be None. `attachments` lists (content_type, link_mode, deleted)
-    children; it defaults to one stored PDF, the usual "held" item.
+    children, with an optional fourth element, the stored path; it defaults to one stored PDF, the usual "held" item.
     """
     conn = sqlite3.connect(str(path))
     cur = conn.cursor()
@@ -33,7 +33,7 @@ def _build_zotero_db(path, items):
         CREATE TABLE deletedItems (itemID INTEGER PRIMARY KEY);
         CREATE TABLE itemAttachments (
             itemID INTEGER PRIMARY KEY, parentItemID INTEGER,
-            linkMode INTEGER, contentType TEXT
+            linkMode INTEGER, contentType TEXT, path TEXT
         );
         """
     )
@@ -41,17 +41,18 @@ def _build_zotero_db(path, items):
     cur.execute("INSERT INTO fields (fieldID, fieldName) VALUES (2, 'DOI')")
 
     value_id = 0
-    attachment_id = 1000
+    attachment_id = 1_000_000
     for item_id, item in enumerate(items, start=1):
         doi, title = item[0], item[1]
         attachments = item[2] if len(item) > 2 else [STORED_PDF]
         cur.execute("INSERT INTO items (itemID) VALUES (?)", (item_id,))
-        for content_type, link_mode, deleted in attachments:
+        for content_type, link_mode, deleted, *rest in attachments:
+            file_path = rest[0] if rest else "storage:paper.pdf"
             attachment_id += 1
             cur.execute("INSERT INTO items (itemID) VALUES (?)", (attachment_id,))
             cur.execute(
-                "INSERT INTO itemAttachments VALUES (?, ?, ?, ?)",
-                (attachment_id, item_id, link_mode, content_type),
+                "INSERT INTO itemAttachments VALUES (?, ?, ?, ?, ?)",
+                (attachment_id, item_id, link_mode, content_type, file_path),
             )
             if deleted:
                 cur.execute("INSERT INTO deletedItems VALUES (?)", (attachment_id,))
@@ -338,3 +339,68 @@ def test_batch_keeps_unheld_work_on_retry_list(mixed_db, tmp_path, monkeypatch, 
     remaining = listing.read_text()
     assert NO_PDF_DOI in remaining
     assert "10.1371/journal.pone.0001636" not in remaining
+
+
+# --- Review of PR 59 ---------------------------------------------------------
+
+
+def test_lookup_finds_pdf_on_duplicate_without_doi(tmp_path):
+    """The DOI item has no file, a duplicate with the title only holds it."""
+    db = tmp_path / "zotero.sqlite"
+    _build_zotero_db(db, [("10.5555/x", NO_PDF_TITLE, []), (None, NO_PDF_TITLE)])
+    match = zotero.zotero_lookup("10.5555/x", NO_PDF_TITLE, db)
+    assert match["has_pdf"] is True
+    assert match["reason"].startswith("title")
+
+
+def test_lookup_keeps_doi_match_when_title_holds_nothing(mixed_db):
+    match = zotero.zotero_lookup(NO_PDF_DOI, NO_PDF_TITLE, mixed_db)
+    assert match["reason"] == "doi"
+    assert match["has_pdf"] is False
+
+
+def test_lookup_linked_file_is_held_only_while_it_exists(tmp_path):
+    there = tmp_path / "kept.pdf"
+    there.write_bytes(b"%PDF-")
+    gone = tmp_path / "moved-away.pdf"
+    db = tmp_path / "zotero.sqlite"
+    _build_zotero_db(
+        db,
+        [
+            ("10.5555/there", "A", [("application/pdf", 2, False, str(there))]),
+            ("10.5555/gone", "B", [("application/pdf", 2, False, str(gone))]),
+            # Relative to a base directory this module cannot resolve: trusted.
+            ("10.5555/rel", "C", [("application/pdf", 2, False, "attachments:c.pdf")]),
+        ],
+    )
+    assert zotero.zotero_lookup("10.5555/there", "", db)["has_pdf"] is True
+    assert zotero.zotero_lookup("10.5555/gone", "", db)["has_pdf"] is False
+    assert zotero.zotero_lookup("10.5555/rel", "", db)["has_pdf"] is True
+
+
+def test_lookup_title_best_match_decides_not_a_weaker_one_with_pdf(tmp_path):
+    exact = "Carbon Markets Finance Policy Evidence Review Seven Words"
+    near = exact + " Revisited"  # 7 of 8 tokens: above the threshold
+    db = tmp_path / "zotero.sqlite"
+    _build_zotero_db(db, [(None, near), (None, exact, [])])
+    match = zotero.zotero_lookup("", exact, db)
+    assert match["matched_title"] == exact
+    assert match["has_pdf"] is False
+
+
+def test_title_lookup_stays_fast_on_a_large_library(tmp_path):
+    """Regression: the PDF test must not scan all attachments per title row."""
+    import time
+
+    db = tmp_path / "zotero.sqlite"
+    _build_zotero_db(db, [(None, f"Filler work number {n} alpha") for n in range(3000)])
+    conn = sqlite3.connect(str(db))
+    conn.executescript(
+        "CREATE INDEX a_parent ON itemAttachments(parentItemID);"
+        "CREATE INDEX a_type ON itemAttachments(contentType);"
+    )
+    conn.close()
+    start = time.perf_counter()
+    assert zotero.zotero_lookup("", "Nothing resembling any of those", db) is None
+    # 3000 x 3000 attachment visits took seconds; the per-match lookup, ms.
+    assert time.perf_counter() - start < 1.0

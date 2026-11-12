@@ -25,6 +25,10 @@ _HOME = Path.home()
 # suppresses a legitimate fetch, so we only skip on a near-exact title match.
 TITLE_MATCH_THRESHOLD = 0.85
 
+# Zotero's attachment link modes that are not a file in its own storage.
+_LINKED_FILE = 2
+_LINKED_URL = 3
+
 
 def find_zotero_db(override: str | None = None) -> Path | None:
     """Locate the Zotero SQLite database, or return None if none is found.
@@ -113,13 +117,15 @@ def zotero_lookup(doi: str, title: str, db_path: str | Path) -> dict | None:
         return None
 
     try:
-        if doi and _looks_like_doi(doi):
-            hit = _match_by_doi(conn, doi)
-            if hit is not None:
-                return hit
-        if title:
-            return _match_by_title(conn, title)
-        return None
+        by_doi = _match_by_doi(conn, doi) if doi and _looks_like_doi(doi) else None
+        if by_doi is not None and by_doi["has_pdf"]:
+            return by_doi
+        # A DOI match without its file is not the last word: the PDF may sit
+        # on a duplicate that carries the title but no DOI.
+        by_title = _match_by_title(conn, title) if title else None
+        if by_doi is None or (by_title is not None and by_title["has_pdf"]):
+            return by_title
+        return by_doi
     except sqlite3.Error as exc:
         logger.debug("Zotero lookup failed on %s: %s", db_path, exc)
         return None
@@ -138,43 +144,57 @@ def _looks_like_doi(candidate: str) -> bool:
     return bool(re.match(r"^10\.\d+/.+$", candidate.replace("doi:", "").strip()))
 
 
-# True when the item is, or has as a child, a PDF file that is not in the bin.
-# linkMode 3 is a linked web address: no file is held, whatever its type.
-_HAS_PDF = """
-    EXISTS (
-        SELECT 1 FROM itemAttachments a
-        WHERE (a.parentItemID = d.itemID OR a.itemID = d.itemID)
-          AND a.contentType = 'application/pdf'
-          AND a.linkMode != 3
-          AND a.itemID NOT IN (SELECT itemID FROM deletedItems)
-    )
-"""
+def _holds_pdf(conn: sqlite3.Connection, item_id: int) -> bool:
+    """Whether the item is, or has as a child, a PDF file outside the bin.
+
+    Asked per matched item, as two indexed lookups: a correlated subquery
+    over every title row walks the whole attachment table each time.
+    """
+    rows = conn.execute(
+        """
+        SELECT linkMode, path FROM itemAttachments
+        WHERE parentItemID = ?1 AND contentType = 'application/pdf'
+          AND itemID NOT IN (SELECT itemID FROM deletedItems)
+        UNION ALL
+        SELECT linkMode, path FROM itemAttachments
+        WHERE itemID = ?1 AND contentType = 'application/pdf'
+          AND itemID NOT IN (SELECT itemID FROM deletedItems)
+        """,
+        (item_id,),
+    ).fetchall()
+    return any(_is_file(link_mode, path) for link_mode, path in rows)
+
+
+def _is_file(link_mode: int, path: str | None) -> bool:
+    if link_mode == _LINKED_URL:
+        return False  # a web address: no file is held, whatever its type
+    if link_mode == _LINKED_FILE and path and os.path.isabs(path):
+        return os.path.exists(path)  # the one case the database cannot vouch for
+    return True
 
 
 def _match_by_doi(conn: sqlite3.Connection, doi: str) -> dict | None:
     normalized = doi.replace("doi:", "").strip()
-    # A library may hold duplicates of one DOI: the copy with a PDF wins.
-    row = conn.execute(
-        f"""
-        SELECT v.value, {_HAS_PDF} AS has_pdf
+    rows = conn.execute(
+        """
+        SELECT d.itemID, v.value
         FROM itemData d
         JOIN fields f ON f.fieldID = d.fieldID
         JOIN itemDataValues v ON v.valueID = d.valueID
         WHERE f.fieldName = 'DOI'
           AND LOWER(v.value) = LOWER(?)
           AND d.itemID NOT IN (SELECT itemID FROM deletedItems)
-        ORDER BY has_pdf DESC
-        LIMIT 1
-        """,  # noqa: S608 - constant SQL fragment, no user input
+        """,
         (normalized,),
-    ).fetchone()
-    if row is None:
+    ).fetchall()
+    if not rows:
         return None
+    # A library may hold duplicates of one DOI: one PDF among them is enough.
     return {
         "reason": "doi",
-        "matched_doi": row[0],
+        "matched_doi": rows[0][1],
         "matched_title": None,
-        "has_pdf": bool(row[1]),
+        "has_pdf": any(_holds_pdf(conn, item_id) for item_id, _ in rows),
     }
 
 
@@ -183,34 +203,35 @@ def _match_by_title(conn: sqlite3.Connection, title: str) -> dict | None:
     if not want:
         return None
     rows = conn.execute(
-        f"""
-        SELECT v.value, {_HAS_PDF} AS has_pdf
+        """
+        SELECT d.itemID, v.value
         FROM itemData d
         JOIN fields f ON f.fieldID = d.fieldID
         JOIN itemDataValues v ON v.valueID = d.valueID
         WHERE f.fieldName = 'title'
           AND d.itemID NOT IN (SELECT itemID FROM deletedItems)
-        """  # noqa: S608 - constant SQL fragment, no user input
+        """
     ).fetchall()
-    # Best match above the threshold; among those, a copy with a PDF wins.
-    best: tuple[bool, float, str] | None = None
-    for candidate, has_pdf in rows:
+    best_score = 0.0
+    best: list[tuple[int, str]] = []  # every item sharing the best score
+    for item_id, candidate in rows:
         have = _tokenize(candidate or "")
         if not have:
             continue
         score = len(want & have) / len(want | have)
-        if score < TITLE_MATCH_THRESHOLD:
-            continue
-        ranked = (bool(has_pdf), score, candidate)
-        if best is None or ranked[:2] > best[:2]:
-            best = ranked
-    if best is None:
+        if score > best_score:
+            best_score, best = score, [(item_id, candidate)]
+        elif score == best_score:
+            best.append((item_id, candidate))
+    if best_score < TITLE_MATCH_THRESHOLD:
         return None
+    # The best-scoring title is the work; a weaker match holding a PDF may be
+    # another work. Among equals (duplicates), one PDF is enough.
     return {
-        "reason": f"title~{best[1]:.2f}",
+        "reason": f"title~{best_score:.2f}",
         "matched_doi": None,
-        "matched_title": best[2],
-        "has_pdf": best[0],
+        "matched_title": best[0][1],
+        "has_pdf": any(_holds_pdf(conn, item_id) for item_id, _ in best),
     }
 
 
