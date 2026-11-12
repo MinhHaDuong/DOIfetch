@@ -1,0 +1,48 @@
+%erg 0.1
+Title: Zotero check skips works held without a PDF and drops them from the retry list
+Created: 2026-11-12
+Author: HDMX-coding-agent
+
+--- log ---
+2026-11-12T14:40Z HDMX-coding-agent created
+
+--- body ---
+## Context
+
+Reported from a climate-finance-het session on 2026-11-12 (DOIfetch v0.3.0,
+batch mode, `--source all`, Zotero check on by default).
+
+Observation: work 10.1016/j.worlddev.2018.12.011 (Peterson and Skovgaard 2019)
+has a Zotero item with no attachment. The batch run counted it in
+`Success: 5`, wrote no file, and removed it from the retry list. A single run
+with `--no-check-zotero` downloaded the publisher PDF at once.
+
+## Diagnosis (from the code at origin/main)
+
+1. `zotero.zotero_lookup` (`_match_by_doi`, `_match_by_title`) matches any
+   non-deleted item with the DOI or a near-exact title; it never asks whether
+   the item has a file attachment. A metadata-only item counts as held.
+2. In batch mode, `cli.py` (around line 400) appends a `skipped` result to
+   `successful_records`: it is counted in the progress line's `Success:` and
+   in the success rate, and `update_source_files` drops it from the
+   `.txt` retry list. The log line says `[SKIPPED]`, the console summary does
+   not, so the user sees a success with no file.
+
+Effect: a work the user wants (often exactly the one whose item exists but
+whose PDF is missing) silently leaves the retry list without a download.
+
+## Proposed fix
+
+- Count a Zotero match as held only when the item has a PDF attachment
+  (`itemAttachments` with `contentType = 'application/pdf'`, not deleted);
+  a metadata-only match proceeds to the fetch, logged as such.
+- Report skips separately from successes in the batch summary
+  (`Success / Skipped / Failed`), keeping held works off the retry list
+  only when they really are held.
+
+## Exit criteria
+
+- [ ] A test: an item with the DOI and no attachment does not skip; an item
+      with a PDF attachment does.
+- [ ] Batch summary prints skipped works apart from successes.
+- [ ] Retry list keeps a work whose Zotero item has no PDF.
