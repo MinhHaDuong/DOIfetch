@@ -120,12 +120,13 @@ def zotero_lookup(doi: str, title: str, db_path: str | Path) -> dict | None:
         by_doi = _match_by_doi(conn, doi) if doi and _looks_like_doi(doi) else None
         if by_doi is not None and by_doi["has_pdf"]:
             return by_doi
+        if by_doi is None:
+            return _match_by_title(conn, title) if title else None
         # A DOI match without its file is not the last word: the PDF may sit
-        # on a duplicate that carries the title but no DOI.
-        by_title = _match_by_title(conn, title) if title else None
-        if by_doi is None or (by_title is not None and by_title["has_pdf"]):
-            return by_title
-        return by_doi
+        # on a duplicate that carries the title but no DOI. An item with a DOI
+        # of its own is another work (a reply, a corrigendum), never a copy.
+        dup = _match_by_title(conn, title, without_doi=True) if title else None
+        return dup if dup is not None and dup["has_pdf"] else by_doi
     except sqlite3.Error as exc:
         logger.debug("Zotero lookup failed on %s: %s", db_path, exc)
         return None
@@ -198,19 +199,32 @@ def _match_by_doi(conn: sqlite3.Connection, doi: str) -> dict | None:
     }
 
 
-def _match_by_title(conn: sqlite3.Connection, title: str) -> dict | None:
+_NO_DOI = """
+    AND d.itemID NOT IN (
+        SELECT d2.itemID FROM itemData d2
+        JOIN fields f2 ON f2.fieldID = d2.fieldID
+        WHERE f2.fieldName = 'DOI'
+    )
+"""
+
+
+def _match_by_title(
+    conn: sqlite3.Connection, title: str, without_doi: bool = False
+) -> dict | None:
+    """Best near-exact title match; `without_doi` keeps to items lacking a DOI."""
     want = _tokenize(title)
     if not want:
         return None
     rows = conn.execute(
-        """
+        f"""
         SELECT d.itemID, v.value
         FROM itemData d
         JOIN fields f ON f.fieldID = d.fieldID
         JOIN itemDataValues v ON v.valueID = d.valueID
         WHERE f.fieldName = 'title'
           AND d.itemID NOT IN (SELECT itemID FROM deletedItems)
-        """
+          {_NO_DOI if without_doi else ""}
+        """  # noqa: S608 - constant SQL fragment, no user input
     ).fetchall()
     best_score = 0.0
     best: list[tuple[int, str]] = []  # every item sharing the best score

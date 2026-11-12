@@ -404,3 +404,20 @@ def test_title_lookup_stays_fast_on_a_large_library(tmp_path):
     assert zotero.zotero_lookup("", "Nothing resembling any of those", db) is None
     # 3000 x 3000 attachment visits took seconds; the per-match lookup, ms.
     assert time.perf_counter() - start < 1.0
+
+
+def test_lookup_other_work_with_same_title_is_not_a_copy(tmp_path):
+    """A reply or corrigendum shares the title but has its own DOI and PDF."""
+    db = tmp_path / "zotero.sqlite"
+    _build_zotero_db(
+        db, [("10.5555/x", NO_PDF_TITLE, []), ("10.5555/x.reply", NO_PDF_TITLE)]
+    )
+    match = zotero.zotero_lookup("10.5555/x", NO_PDF_TITLE, db)
+    assert match["reason"] == "doi"
+    assert match["has_pdf"] is False
+
+
+def test_lookup_title_tie_one_pdf_among_equals_is_enough(tmp_path):
+    db = tmp_path / "zotero.sqlite"
+    _build_zotero_db(db, [(None, NO_PDF_TITLE, []), (None, NO_PDF_TITLE)])
+    assert zotero.zotero_lookup("", NO_PDF_TITLE, db)["has_pdf"] is True
