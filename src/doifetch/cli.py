@@ -289,11 +289,15 @@ def _is_url(identifier):
 
 
 def _zotero_skip(doi, title, zotero_db, name):
-    """Return a 'skipped' result if the paper is already in Zotero, else None."""
+    """Return a 'skipped' result if Zotero already holds the PDF, else None."""
     if not zotero_db:
         return None
     match = zotero.zotero_lookup(doi, title, zotero_db)
     if match is None:
+        return None
+    if not match["has_pdf"]:
+        # A reference without its file is exactly the work the user wants.
+        print(f"In Zotero with no PDF ({match['reason']}), fetching: {doi or title}")
         return None
     safe_title = name if name else f"Unknown_{doi}"
     return {
@@ -388,8 +392,15 @@ def fetch_worker(
     failed_dois,
     zotero_db=None,
     keep_title=False,
+    skipped_records=None,
 ):
-    """Thread worker: pull tasks from queue and fetch PDFs."""
+    """Thread worker: pull tasks from queue and fetch PDFs.
+
+    A skipped work (already held) goes to `skipped_records`, apart from the
+    downloads in `successful_records`; a caller passing none gets both there.
+    """
+    if skipped_records is None:
+        skipped_records = successful_records
     while not queue.empty():
         doi, title = queue.get()
         try:
@@ -398,7 +409,8 @@ def fetch_worker(
                 failed_dois.append((doi, title))
                 error_log.append(f"[FAILED] {result.get('error', 'Unknown error')}\n")
             else:
-                status_label = "SKIPPED" if result["status"] == "skipped" else "SUCCESS"
+                skipped = result["status"] == "skipped"
+                status_label = "SKIPPED" if skipped else "SUCCESS"
                 reason = result.get("reason")
                 suffix = f" ({reason})" if reason else ""
                 success_log.append(
@@ -406,13 +418,25 @@ def fetch_worker(
                 )
                 if doi:
                     doi_link = result.get("doi_link", f"{DOI_URL_BASE}{doi}")
-                    successful_records.append((title, doi_link))
+                    records = skipped_records if skipped else successful_records
+                    records.append((title, doi_link))
         except Exception as exc:  # noqa: BLE001 - one bad download must not stop the batch
             error_msg = f"Download failed: {doi} | Error: {str(exc)}"
             error_log.append(f"[ERROR] {error_msg}\n")
             failed_dois.append((doi, title))
             print(error_msg)
         queue.task_done()
+
+
+def summary_line(downloaded, skipped, failed):
+    """The batch's closing line; the rate is over attempted downloads only."""
+    counts = f"Success: {downloaded} | Skipped: {skipped} | Failed: {failed}"
+    attempted = downloaded + failed
+    if attempted == 0:
+        return f"Task complete! {counts}"
+    return (
+        f"Task complete! {counts} | Success rate: {downloaded * 100 / attempted:.1f}%"
+    )
 
 
 def handle_single_download(args):
@@ -471,6 +495,7 @@ def main():
 
     success_log = []
     successful_records = []
+    skipped_records = []
     error_log = []
     failed_dois = []
 
@@ -500,6 +525,7 @@ def main():
                     failed_dois,
                     zotero_db,
                     args.keep_title,
+                    skipped_records,
                 ),
             )
             t.daemon = True
@@ -510,7 +536,9 @@ def main():
         print(f"Starting download of {task_count} papers | Threads: {num_threads}")
         while any(t.is_alive() for t in threads):
             print(
-                f"Remaining: {doi_queue.unfinished_tasks} | Success: {len(successful_records)} | Failed: {len(failed_dois)}"
+                f"Remaining: {doi_queue.unfinished_tasks} | "
+                f"Success: {len(successful_records)} | "
+                f"Skipped: {len(skipped_records)} | Failed: {len(failed_dois)}"
             )
             time.sleep(10)
     else:
@@ -523,15 +551,15 @@ def main():
         return 0
 
     write_logs(success_log, error_log, failed_dois)
-    update_source_files(input_files, successful_records)
+    # A held work leaves the retry list like a downloaded one.
+    update_source_files(input_files, successful_records + skipped_records)
 
-    success_count = len(successful_records)
-    failed_count = len(failed_dois)
-    total_count = success_count + failed_count
-
-    if total_count > 0:
-        success_rate = success_count * 100 / total_count
-        print(f"Task complete! Success rate: {success_rate:.1f}%")
+    if successful_records or skipped_records or failed_dois:
+        print(
+            summary_line(
+                len(successful_records), len(skipped_records), len(failed_dois)
+            )
+        )
     else:
         print("Task complete! No tasks to process.")
 

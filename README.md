@@ -103,6 +103,14 @@ automatically whenever a Zotero database is found; matching is by DOI first
 (case-insensitive), falling back to a near-exact title match when the DOI is
 absent.
 
+A paper counts as held only when its Zotero item carries a PDF file. An item
+with no attachment, a web snapshot only, a link to a web address, or a linked
+file that has since moved away is a reference, not a copy: DOIfetch says so
+and fetches it. In batch mode the
+progress and closing lines count held papers as `Skipped`, apart from
+`Success` (downloaded) and `Failed`; a skipped paper leaves the reference list
+like a downloaded one.
+
 The database is located in this order: `$ZOTERO_DB_PATH`, then
 `$ZOTERO_DATA_DIR/zotero.sqlite`, then the standard Zotero data directories,
 then any `dataDir` declared in a `profiles.ini`. Point `ZOTERO_DB_PATH` at your

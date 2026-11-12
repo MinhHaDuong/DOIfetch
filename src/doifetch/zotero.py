@@ -1,7 +1,8 @@
 """Optional dedup against a local Zotero library.
 
 DOIfetch consults the user's Zotero SQLite database before downloading, so a
-paper already held in the library is skipped rather than refetched. The check
+paper already held in the library (an item with its PDF) is skipped rather
+than refetched. The check
 is auto-enabled whenever a Zotero DB can be located and degrades silently to
 "no hit" when it cannot (missing, locked, or unreadable DB) — it must never
 raise into the fetch loop.
@@ -23,6 +24,10 @@ _HOME = Path.home()
 # Jaccard threshold for the title fallback. High on purpose: a false positive
 # suppresses a legitimate fetch, so we only skip on a near-exact title match.
 TITLE_MATCH_THRESHOLD = 0.85
+
+# Zotero's attachment link modes that are not a file in its own storage.
+_LINKED_FILE = 2
+_LINKED_URL = 3
 
 
 def find_zotero_db(override: str | None = None) -> Path | None:
@@ -87,7 +92,11 @@ def _profiles_ini_candidates() -> list[Path]:
 
 
 def zotero_lookup(doi: str, title: str, db_path: str | Path) -> dict | None:
-    """Return a match dict if the paper is already in Zotero, else None.
+    """Return a match dict if the paper has an item in Zotero, else None.
+
+    The match's `has_pdf` tells whether the work is actually held: an item
+    with no PDF file attached is a reference, not a copy, and the caller
+    should still fetch it.
 
     Matches on DOI first (case-insensitive, authoritative), then falls back to
     a near-exact title match when the DOI is absent or not found. Opens its own
@@ -108,13 +117,16 @@ def zotero_lookup(doi: str, title: str, db_path: str | Path) -> dict | None:
         return None
 
     try:
-        if doi and _looks_like_doi(doi):
-            hit = _match_by_doi(conn, doi)
-            if hit is not None:
-                return hit
-        if title:
-            return _match_by_title(conn, title)
-        return None
+        by_doi = _match_by_doi(conn, doi) if doi and _looks_like_doi(doi) else None
+        if by_doi is not None and by_doi["has_pdf"]:
+            return by_doi
+        if by_doi is None:
+            return _match_by_title(conn, title) if title else None
+        # A DOI match without its file is not the last word: the PDF may sit
+        # on a duplicate that carries the title but no DOI. An item with a DOI
+        # of its own is another work (a reply, a corrigendum), never a copy.
+        dup = _match_by_title(conn, title, without_doi=True) if title else None
+        return dup if dup is not None and dup["has_pdf"] else by_doi
     except sqlite3.Error as exc:
         logger.debug("Zotero lookup failed on %s: %s", db_path, exc)
         return None
@@ -133,57 +145,108 @@ def _looks_like_doi(candidate: str) -> bool:
     return bool(re.match(r"^10\.\d+/.+$", candidate.replace("doi:", "").strip()))
 
 
+def _holds_pdf(conn: sqlite3.Connection, item_id: int) -> bool:
+    """Whether the item is, or has as a child, a PDF file outside the bin.
+
+    Asked per matched item, as two indexed lookups: a correlated subquery
+    over every title row walks the whole attachment table each time.
+    """
+    rows = conn.execute(
+        """
+        SELECT linkMode, path FROM itemAttachments
+        WHERE parentItemID = ?1 AND contentType = 'application/pdf'
+          AND itemID NOT IN (SELECT itemID FROM deletedItems)
+        UNION ALL
+        SELECT linkMode, path FROM itemAttachments
+        WHERE itemID = ?1 AND contentType = 'application/pdf'
+          AND itemID NOT IN (SELECT itemID FROM deletedItems)
+        """,
+        (item_id,),
+    ).fetchall()
+    return any(_is_file(link_mode, path) for link_mode, path in rows)
+
+
+def _is_file(link_mode: int, path: str | None) -> bool:
+    if link_mode == _LINKED_URL:
+        return False  # a web address: no file is held, whatever its type
+    if link_mode == _LINKED_FILE and path and os.path.isabs(path):
+        return os.path.exists(path)  # the one case the database cannot vouch for
+    return True
+
+
 def _match_by_doi(conn: sqlite3.Connection, doi: str) -> dict | None:
     normalized = doi.replace("doi:", "").strip()
-    row = conn.execute(
+    rows = conn.execute(
         """
-        SELECT v.value
+        SELECT d.itemID, v.value
         FROM itemData d
         JOIN fields f ON f.fieldID = d.fieldID
         JOIN itemDataValues v ON v.valueID = d.valueID
         WHERE f.fieldName = 'DOI'
           AND LOWER(v.value) = LOWER(?)
           AND d.itemID NOT IN (SELECT itemID FROM deletedItems)
-        LIMIT 1
         """,
         (normalized,),
-    ).fetchone()
-    if row is None:
+    ).fetchall()
+    if not rows:
         return None
-    return {"reason": "doi", "matched_doi": row[0], "matched_title": None}
+    # A library may hold duplicates of one DOI: one PDF among them is enough.
+    return {
+        "reason": "doi",
+        "matched_doi": rows[0][1],
+        "matched_title": None,
+        "has_pdf": any(_holds_pdf(conn, item_id) for item_id, _ in rows),
+    }
 
 
-def _match_by_title(conn: sqlite3.Connection, title: str) -> dict | None:
+_NO_DOI = """
+    AND d.itemID NOT IN (
+        SELECT d2.itemID FROM itemData d2
+        JOIN fields f2 ON f2.fieldID = d2.fieldID
+        WHERE f2.fieldName = 'DOI'
+    )
+"""
+
+
+def _match_by_title(
+    conn: sqlite3.Connection, title: str, without_doi: bool = False
+) -> dict | None:
+    """Best near-exact title match; `without_doi` keeps to items lacking a DOI."""
     want = _tokenize(title)
     if not want:
         return None
     rows = conn.execute(
-        """
-        SELECT v.value
+        f"""
+        SELECT d.itemID, v.value
         FROM itemData d
         JOIN fields f ON f.fieldID = d.fieldID
         JOIN itemDataValues v ON v.valueID = d.valueID
         WHERE f.fieldName = 'title'
           AND d.itemID NOT IN (SELECT itemID FROM deletedItems)
-        """
+          {_NO_DOI if without_doi else ""}
+        """  # noqa: S608 - constant SQL fragment, no user input
     ).fetchall()
     best_score = 0.0
-    best_title = None
-    for (candidate,) in rows:
+    best: list[tuple[int, str]] = []  # every item sharing the best score
+    for item_id, candidate in rows:
         have = _tokenize(candidate or "")
         if not have:
             continue
         score = len(want & have) / len(want | have)
         if score > best_score:
-            best_score = score
-            best_title = candidate
-    if best_score >= TITLE_MATCH_THRESHOLD:
-        return {
-            "reason": f"title~{best_score:.2f}",
-            "matched_doi": None,
-            "matched_title": best_title,
-        }
-    return None
+            best_score, best = score, [(item_id, candidate)]
+        elif score == best_score:
+            best.append((item_id, candidate))
+    if best_score < TITLE_MATCH_THRESHOLD:
+        return None
+    # The best-scoring title is the work; a weaker match holding a PDF may be
+    # another work. Among equals (duplicates), one PDF is enough.
+    return {
+        "reason": f"title~{best_score:.2f}",
+        "matched_doi": None,
+        "matched_title": best[0][1],
+        "has_pdf": any(_holds_pdf(conn, item_id) for item_id, _ in best),
+    }
 
 
 def _tokenize(text: str) -> set[str]:
