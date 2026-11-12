@@ -1,7 +1,8 @@
 """Optional dedup against a local Zotero library.
 
 DOIfetch consults the user's Zotero SQLite database before downloading, so a
-paper already held in the library is skipped rather than refetched. The check
+paper already held in the library (an item with its PDF) is skipped rather
+than refetched. The check
 is auto-enabled whenever a Zotero DB can be located and degrades silently to
 "no hit" when it cannot (missing, locked, or unreadable DB) — it must never
 raise into the fetch loop.
@@ -87,7 +88,11 @@ def _profiles_ini_candidates() -> list[Path]:
 
 
 def zotero_lookup(doi: str, title: str, db_path: str | Path) -> dict | None:
-    """Return a match dict if the paper is already in Zotero, else None.
+    """Return a match dict if the paper has an item in Zotero, else None.
+
+    The match's `has_pdf` tells whether the work is actually held: an item
+    with no PDF file attached is a reference, not a copy, and the caller
+    should still fetch it.
 
     Matches on DOI first (case-insensitive, authoritative), then falls back to
     a near-exact title match when the DOI is absent or not found. Opens its own
@@ -133,24 +138,44 @@ def _looks_like_doi(candidate: str) -> bool:
     return bool(re.match(r"^10\.\d+/.+$", candidate.replace("doi:", "").strip()))
 
 
+# True when the item is, or has as a child, a PDF file that is not in the bin.
+# linkMode 3 is a linked web address: no file is held, whatever its type.
+_HAS_PDF = """
+    EXISTS (
+        SELECT 1 FROM itemAttachments a
+        WHERE (a.parentItemID = d.itemID OR a.itemID = d.itemID)
+          AND a.contentType = 'application/pdf'
+          AND a.linkMode != 3
+          AND a.itemID NOT IN (SELECT itemID FROM deletedItems)
+    )
+"""
+
+
 def _match_by_doi(conn: sqlite3.Connection, doi: str) -> dict | None:
     normalized = doi.replace("doi:", "").strip()
+    # A library may hold duplicates of one DOI: the copy with a PDF wins.
     row = conn.execute(
-        """
-        SELECT v.value
+        f"""
+        SELECT v.value, {_HAS_PDF} AS has_pdf
         FROM itemData d
         JOIN fields f ON f.fieldID = d.fieldID
         JOIN itemDataValues v ON v.valueID = d.valueID
         WHERE f.fieldName = 'DOI'
           AND LOWER(v.value) = LOWER(?)
           AND d.itemID NOT IN (SELECT itemID FROM deletedItems)
+        ORDER BY has_pdf DESC
         LIMIT 1
-        """,
+        """,  # noqa: S608 - constant SQL fragment, no user input
         (normalized,),
     ).fetchone()
     if row is None:
         return None
-    return {"reason": "doi", "matched_doi": row[0], "matched_title": None}
+    return {
+        "reason": "doi",
+        "matched_doi": row[0],
+        "matched_title": None,
+        "has_pdf": bool(row[1]),
+    }
 
 
 def _match_by_title(conn: sqlite3.Connection, title: str) -> dict | None:
@@ -158,32 +183,35 @@ def _match_by_title(conn: sqlite3.Connection, title: str) -> dict | None:
     if not want:
         return None
     rows = conn.execute(
-        """
-        SELECT v.value
+        f"""
+        SELECT v.value, {_HAS_PDF} AS has_pdf
         FROM itemData d
         JOIN fields f ON f.fieldID = d.fieldID
         JOIN itemDataValues v ON v.valueID = d.valueID
         WHERE f.fieldName = 'title'
           AND d.itemID NOT IN (SELECT itemID FROM deletedItems)
-        """
+        """  # noqa: S608 - constant SQL fragment, no user input
     ).fetchall()
-    best_score = 0.0
-    best_title = None
-    for (candidate,) in rows:
+    # Best match above the threshold; among those, a copy with a PDF wins.
+    best: tuple[bool, float, str] | None = None
+    for candidate, has_pdf in rows:
         have = _tokenize(candidate or "")
         if not have:
             continue
         score = len(want & have) / len(want | have)
-        if score > best_score:
-            best_score = score
-            best_title = candidate
-    if best_score >= TITLE_MATCH_THRESHOLD:
-        return {
-            "reason": f"title~{best_score:.2f}",
-            "matched_doi": None,
-            "matched_title": best_title,
-        }
-    return None
+        if score < TITLE_MATCH_THRESHOLD:
+            continue
+        ranked = (bool(has_pdf), score, candidate)
+        if best is None or ranked[:2] > best[:2]:
+            best = ranked
+    if best is None:
+        return None
+    return {
+        "reason": f"title~{best[1]:.2f}",
+        "matched_doi": None,
+        "matched_title": best[2],
+        "has_pdf": best[0],
+    }
 
 
 def _tokenize(text: str) -> set[str]:
