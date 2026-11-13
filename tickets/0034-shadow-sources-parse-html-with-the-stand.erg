@@ -1,0 +1,100 @@
+%erg 0.1
+Title: Shadow sources: parse HTML with the standard library and drop beautifulsoup4
+Created: 2026-11-13
+Author: claude
+
+--- log ---
+2026-11-13T13:00Z claude created
+
+--- body ---
+
+## Context
+
+Filed from a harness session on the author's request of 2026-11-13 ("Ticket
+the standardlib"), after harness ticket 1549.
+
+`beautifulsoup4` is the last third-party dependency of DOIfetch. Ticket 0005
+moved it to the opt-in `shadow` extra; tickets 0008 and 0019 put every source
+on the standard-library HTTP helper and left bs4 in the extra. Measured on
+v0.3.0 through `uvx` on 2026-11-13: the plain install is one distribution,
+0.12 MB; with `[shadow]` it is four, 0.9 MB (beautifulsoup4 0.41 MB,
+soupsieve 0.20 MB, typing_extensions 0.18 MB). DOIfetch calls neither
+soupsieve nor typing_extensions: they are bs4's own requirements.
+
+The extra has a cost outside this repository. The harness wrapper
+(`scripts/doifetch.sh` there) keeps two `uvx` specs, the plain one and
+`doifetch[shadow] @ ...`, and picks one per code path. On 2026-11-13 a named
+`--source scihub` took the path with the plain spec and failed on "bs4 is not
+installed" across a 200-work acquisition run; agents then called
+`doifetch[shadow]` directly and bypassed the wrapper (harness ticket 1549,
+harness PRs 2482 and 2484).
+
+## What bs4 does today (origin/main at 690cfb2)
+
+Both shadow sources build `BeautifulSoup(html, "html.parser")`, so the
+tokenising is already the standard library's.
+
+- `src/doifetch/sources/libgen.py`: `_extract_md5` (line 29) walks
+  `find_all("a", href=True)` and reads `a["href"]`; the download-link lookup
+  (lines 84 to 91) walks the same anchors, compares
+  `a.get_text(strip=True).upper()` with `"GET"`, then falls back on the href.
+- `src/doifetch/sources/scihub.py`: `extract_pdf_url` (line 44) takes
+  `soup.find("iframe") or soup.find("embed")` and reads its `src`.
+- `require("bs4", "shadow")` guards both (libgen.py line 115, scihub.py
+  line 62); `pyproject.toml` declares `shadow = ["beautifulsoup4"]`.
+
+No CSS selector, no tree navigation and no other parser backend is used.
+
+## Proposal
+
+Replace those calls with a small parser built on `html.parser.HTMLParser`
+that collects anchors (href and text) and the first `iframe` and `embed`
+`src`, then remove the bs4 dependency. The shape of the helper is the
+implementer's choice.
+
+Behaviour to keep, read from the code and the tests:
+
+- Any `iframe` wins over any `embed`, whatever their order in the page.
+- Anchor text is gathered across nested tags and stripped before the
+  comparison with `"GET"`.
+- Anchors without an `href` are skipped.
+- `extract_pdf_url` accepts bytes: `tests/test_fetch_scihub.py` passes
+  `b'<html>...'`. bs4 decodes bytes itself; `HTMLParser.feed` takes `str`
+  only, so the replacement has to decode.
+
+Not established: how the two parsers differ on the malformed pages the live
+mirrors serve. This ticket was written from the code; no replacement was
+built or run. `tests/test_network.py` or a hand run against the live sources
+is the place to find out.
+
+## Open choice for the implementer
+
+Existing callers pin `doifetch[shadow]` (the harness wrapper does, at
+v0.3.0, and DOIfetch's own error message tells users to install it). Either
+keep an empty `shadow` extra for a release so those specs resolve without a
+warning, or remove it and say so in the changelog. Both satisfy the exit
+criteria below.
+
+## Downstream, not part of this ticket
+
+After a release carrying this change, the harness can bump its pin and drop
+the second `uvx` spec from `scripts/doifetch.sh`. No harness ticket is filed
+for that yet: it starts when the release exists.
+
+## Relevant files
+
+- `src/doifetch/sources/libgen.py`, `src/doifetch/sources/scihub.py`
+- `src/doifetch/utils.py` (`require`)
+- `pyproject.toml`
+- `tests/test_fetch_libgen.py`, `tests/test_fetch_scihub.py`,
+  `tests/test_default_sources.py`, `tests/test_conformance.py`
+- `tickets/closed/0005-slim-the-default-install-to-requests-spr.erg`,
+  `tickets/closed/0019-shadow-and-book-metadata-sources-on-the.erg`
+
+## Exit criteria
+
+- [ ] `scihub` and `libgen` parse their pages with the standard library only; nothing under `src/` imports `bs4`
+- [ ] On every HTML input the existing tests of the two sources use, the new parser returns what the bs4 version returns (compared before bs4 is removed), bytes input included
+- [ ] `beautifulsoup4` is gone from `pyproject.toml`; `uvx --from 'doifetch[shadow] @ <this ref>' doifetch --help` still succeeds, and the plain install runs `--source scihub` without a missing-module error
+- [ ] The messages that tell users to install the `shadow` extra are removed or reworded to match
+- [ ] The test suite passes in an environment without bs4
