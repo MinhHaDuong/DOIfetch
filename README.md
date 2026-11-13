@@ -44,7 +44,7 @@ Everything lives in the `doifetch` package under `src/doifetch/`; the paths belo
 - `pdf_utils.py`: Filename cleaning and PDF validity check
 - `utils.py`: Shared `.txt` list I/O (read/write/list) and DOI validation
 - `zotero.py`: Local Zotero-library lookup — locates the database and reports whether a paper is already held
-- `pyproject.toml`: Project metadata, the optional `shadow` extra and the dev tools; no runtime dependency
+- `pyproject.toml`: Project metadata, the dev tools; no runtime dependency
 
 ## Configuration Instructions
 
@@ -142,7 +142,7 @@ running. When no database is found the check is silently skipped. Pass
 │       ├── crossref.py  unpaywall.py  openalex.py  hal.py  core.py  istex.py  ezproxy.py
 │       └── isbn.py  libgen.py  bookmeta.py  scihub.py  url.py  contract.py
 ├── tests/
-├── pyproject.toml        # Metadata, `shadow` extra, dev tools (no runtime dependency)
+├── pyproject.toml        # Metadata, dev tools (no runtime dependency)
 └── README.md
 ```
 
@@ -155,16 +155,11 @@ uv tool install git+https://github.com/MinhHaDuong/DOIfetch
 doifetch --help
 ```
 
-DOIfetch runs on the Python standard library alone: the default install pulls in no third-party
-package. The only optional dependency is the `shadow` extra, which adds beautifulsoup4 for the opt-in
-Sci-Hub and Libgen sources:
-
-```
-uv tool install 'doifetch[shadow] @ git+https://github.com/MinhHaDuong/DOIfetch'
-```
-
-Without the extra, the missing feature fails with a message naming it.
-In a development checkout, `uv run` also installs the extra and the dev tools (ruff, mypy, pytest).
+DOIfetch runs on the Python standard library alone: the install pulls in no third-party
+package, the opt-in Sci-Hub and Libgen sources included. Up to 0.3 those two needed the
+`shadow` extra (beautifulsoup4); it is now empty and kept for one release, so that
+`doifetch[shadow]` pins still resolve. Plain installs need nothing more.
+In a development checkout, `uv run` installs the dev tools (ruff, mypy, pytest).
 
 ### Default sources
 
@@ -176,8 +171,7 @@ that DOI goes through the same sources.
 
 ### Other sources
 
-Sci-Hub and Libgen are never tried by default. They need the `shadow` extra;
-name them to use them:
+Sci-Hub and Libgen are never tried by default; name them to use them:
 
 ```
 doifetch --source scihub --doi 10.1000/example
@@ -212,7 +206,7 @@ If ISTEX answers that authentication is needed (token missing or expired):
 
 ## Run With UV
 
-The runtime needs only the standard library. For development, `uv` manages the dev tools (ruff, mypy, pytest) and the `shadow` extra declared in `pyproject.toml`. Do not use `pip` or create a virtual environment manually: run commands from the repository root with `uv run`.
+The runtime needs only the standard library. For development, `uv` manages the dev tools (ruff, mypy, pytest) declared in `pyproject.toml`. Do not use `pip` or create a virtual environment manually: run commands from the repository root with `uv run`.
 
 ```
 uv run doifetch --help

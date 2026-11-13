@@ -3,7 +3,7 @@
 import re
 
 from doifetch.config import HEADERS, TIMEOUT
-from doifetch.sources import _http
+from doifetch.sources import _html, _http
 from doifetch.sources._pdf import already_there, save_pdf
 from doifetch.sources.contract import Kind, Request, Result
 
@@ -17,17 +17,10 @@ DOWNLOAD_MIRROR = "https://libgen.li"
 _MD5_RE = re.compile(r"[Mm][Dd]5[=:]([a-fA-F0-9]{32})")
 
 
-def _soup(html):
-    """Parse HTML with bs4, which ships in the 'shadow' extra only."""
-    from doifetch.utils import require
-
-    return require("bs4", "shadow").BeautifulSoup(html, "html.parser")
-
-
-def _extract_md5(soup):
+def _extract_md5(page):
     """Extract MD5 from any anchor tag whose href contains an md5 parameter."""
-    for a in soup.find_all("a", href=True):
-        m = _MD5_RE.search(a["href"])
+    for a in page.anchors:
+        m = _MD5_RE.search(a.href)
         if m:
             return m.group(1).lower()
     return None
@@ -44,7 +37,7 @@ def _search_isbn(isbn):
             timeout=TIMEOUT,
         )
         if resp.status == 200:
-            md5 = _extract_md5(_soup(resp.text))
+            md5 = _extract_md5(_html.parse(resp.text))
             if md5:
                 return md5
     except _http.HttpError:
@@ -59,7 +52,7 @@ def _search_isbn(isbn):
             )
             if resp.status != 200:
                 continue
-            md5 = _extract_md5(_soup(resp.text))
+            md5 = _extract_md5(_html.parse(resp.text))
             if md5:
                 return md5
         except _http.HttpError:
@@ -73,7 +66,7 @@ def _resolve_download_url(md5):
     resp = _http.get(page_url, headers=HEADERS, timeout=TIMEOUT)
     if resp.status != 200:
         return None
-    soup = _soup(resp.text)
+    page = _html.parse(resp.text)
 
     def _abs(href):
         return (
@@ -81,12 +74,12 @@ def _resolve_download_url(md5):
         )
 
     # Prefer the explicit "GET" download link
-    for a in soup.find_all("a", href=True):
-        if a.get_text(strip=True).upper() == "GET":
-            return _abs(a["href"])
+    for a in page.anchors:
+        if a.text.upper() == "GET":
+            return _abs(a.href)
     # Fallback: any link containing the md5 that looks like a file download
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
+    for a in page.anchors:
+        href = a.href
         if md5.lower() in href.lower() and "get.php" in href:
             return _abs(href)
     return None
@@ -110,10 +103,6 @@ def _detect_ext(content, content_type=""):
 
 
 def _fetch(req: Request) -> Result:
-    from doifetch.utils import require
-
-    require("bs4", "shadow")
-
     if (done := already_there(req, NAME)) is not None:
         return done
 

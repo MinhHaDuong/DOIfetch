@@ -12,16 +12,9 @@ from doifetch.config import (
     SCIDB_DOMAINS,
     TIMEOUT,
 )
-from doifetch.sources import _http
+from doifetch.sources import _html, _http
 from doifetch.sources._pdf import already_there, save_pdf
 from doifetch.sources.contract import Kind, Request, Result
-
-
-def _soup(html):
-    """Parse HTML with bs4, which ships in the 'shadow' extra only."""
-    from doifetch.utils import require
-
-    return require("bs4", "shadow").BeautifulSoup(html, "html.parser")
 
 
 def build_query_urls(doi, title):
@@ -39,12 +32,13 @@ def build_query_urls(doi, title):
 
 
 def extract_pdf_url(content):
-    """Return the embedded PDF URL from a Sci-Hub/SciDB viewer page, or None."""
-    soup = _soup(content)
-    node = soup.find("iframe") or soup.find("embed")
-    if not node:
-        return None
-    src = node.get("src")
+    """Return the embedded PDF URL from a Sci-Hub/SciDB viewer page, or None.
+
+    ``content`` is ``str`` or the raw response ``bytes``, which are decoded as
+    UTF-8 with replacement (see ``_html.parse``). The first iframe wins over any
+    embed, even when it carries no ``src``.
+    """
+    src = _html.parse(content).frame_src
     if not src:
         return None
     if src.startswith("//"):  # protocol-relative src, common on Sci-Hub
@@ -57,10 +51,6 @@ ACCEPTS: frozenset[Kind] = frozenset({"doi", "title"})
 
 
 def _fetch(req: Request) -> Result:
-    from doifetch.utils import require
-
-    require("bs4", "shadow")
-
     doi = req.identifier if req.kind == "doi" else ""
     title = req.identifier if req.kind == "title" else ""
     label = doi or title
