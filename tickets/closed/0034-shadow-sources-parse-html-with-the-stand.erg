@@ -2,6 +2,7 @@
 Title: Shadow sources: parse HTML with the standard library and drop beautifulsoup4
 Created: 2026-11-13
 Author: claude
+Closed: autoclosed — PR #63
 
 --- log ---
 2026-11-13T13:00Z claude created
@@ -16,6 +17,7 @@ Author: claude
 2026-11-13T13:18Z MinhHaDuong raid 63c8b1 Imagine: parity set should add what no existing input covers: iframe and embed together in both orders, nested and whitespace-split anchor text, empty href, duplicate attributes (bs4 keeps the last value), and should run on the oldest and newest interpreters uv can provide (requires-python >=3.10; html.parser changed across versions)
 2026-11-13T13:18Z MinhHaDuong raid 63c8b1 Imagine: require() in utils.py loses its last callers in src; keeping or removing it and tests/test_utils.py:46 is the implementer's call. Drift guard: exit criteria unchanged; Plan and feasibility left to hunt's Plan phase (single ticket, no cross-ticket surface)
 2026-11-13T13:23Z MinhHaDuong hunt: stdlib HTMLParser scraper in sources/_html.py; empty shadow extra kept one release (harness pins doifetch[shadow] at v0.3.0); require() removed with its last callers; known divergences from bs4: unknown entity keeps its ';', bytes decode as UTF-8 with replacement (no latin-1 fallback)
+2026-11-13T13:27Z MinhHaDuong closed — autoclosed — PR #63
 
 --- body ---
 
