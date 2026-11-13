@@ -55,7 +55,8 @@ def test_help_has_no_stale_wording(monkeypatch, capsys):
 
 
 def test_no_input_names_directory_and_format(monkeypatch, tmp_path, capsys):
-    data = tmp_path / "nowhere"
+    data = tmp_path / "empty"
+    data.mkdir()  # it exists and holds no list: nothing to do, not an error
     monkeypatch.setattr(
         "sys.argv",
         [
@@ -111,3 +112,14 @@ def test_url_flag_rejects_non_http(monkeypatch, tmp_path, capsys):
     monkeypatch.setattr(cli, "LOGS_DIR", str(tmp_path / "logs"))
     assert cli.main() == 1
     assert "Invalid URL" in capsys.readouterr().out
+
+
+def test_batch_on_a_missing_data_directory_fails(monkeypatch, tmp_path, capsys):
+    """A mistyped --data-dir is an error, and nothing is created for it."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        "sys.argv", ["doifetch", "--data-dir", "nope", "--output-dir", "out"]
+    )
+    assert cli.main() == 1
+    assert "data directory not found: nope" in capsys.readouterr().out
+    assert list(tmp_path.iterdir()) == []
