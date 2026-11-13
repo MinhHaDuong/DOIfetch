@@ -100,7 +100,7 @@ Exit codes:
   0  success; a batch run that completed (failed items are listed in logs/ and
      kept in the input files; check there), or a batch with nothing to do
   1  a single download (--doi, --isbn, --url, --title) failed, or its
-     identifier is invalid
+     identifier is invalid; or the batch data directory does not exist
   2  command-line usage error
 """
 
@@ -483,10 +483,16 @@ def handle_single_download(args):
 
 def main():
     args = parse_args()
+    single = args.doi or args.isbn or args.url or args.title
+    if not single and not os.path.isdir(args.data_dir):
+        # Before anything is created: a mistyped path must not look like a
+        # batch that had nothing to do.
+        print(f"Error: data directory not found: {args.data_dir}")
+        return 1
     os.makedirs(args.output_dir, exist_ok=True)
     os.makedirs(LOGS_DIR, exist_ok=True)
 
-    if args.doi or args.isbn or args.url or args.title:
+    if single:
         try:
             return handle_single_download(args)
         except ValueError as exc:

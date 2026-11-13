@@ -219,7 +219,7 @@ environment variables and key files each source reads, and the exit codes;
 `doifetch --version` prints the installed version. Exit codes: 0 success (a
 completed batch run, even with failed items, which stay in the input files and
 are listed in `logs/`), 1 a single download failed or its identifier is invalid,
-2 usage error.
+or the batch data directory does not exist, 2 usage error.
 
 1. Place the reference file in the `references` directory.
 2. Run `doifetch` to start downloading (tries Crossref → Unpaywall → OpenAlex → HAL → CORE → ISTEX → EZproxy in order):
