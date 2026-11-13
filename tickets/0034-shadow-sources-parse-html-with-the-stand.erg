@@ -5,6 +5,11 @@ Author: claude
 
 --- log ---
 2026-11-13T13:00Z claude created
+2026-11-13T13:13Z MinhHaDuong review of PR 61 (rv-20261113-pr-61-43f4), not blocking: Relevant files omits tests/test_utils.py:121-136 (asserts doifetch[shadow] in the output; fails once the guard goes) and tests/test_public_api.py:14 (stubs bs4)
+2026-11-13T13:13Z MinhHaDuong review of PR 61: README names the shadow extra as the bs4 provider (lines 47, 145, 159, 163, 179); exit criterion 4 ('messages') does not say whether the README is covered
+2026-11-13T13:13Z MinhHaDuong review of PR 61: no test has both an iframe and an embed, so 'iframe wins over embed' rests on scihub.py:44 alone; exit criterion 2 compares the parsers on existing test inputs only
+2026-11-13T13:13Z MinhHaDuong review of PR 61: bs4 get_text(strip=True) strips each text fragment and joins them with no separator (<a> G <b>E</b> T </a> gives 'GET'; a single strip gives 'G E T'), and find_all('a', href=True) keeps an anchor whose href is empty; no existing test input exercises either
+2026-11-13T13:13Z MinhHaDuong review of PR 61: bytes is the production path (scihub.py:76 passes response.content); bs4 picks the encoding itself and the ticket does not say which the replacement should use
 
 --- body ---
 
