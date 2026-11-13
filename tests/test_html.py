@@ -5,6 +5,8 @@ Each expected value below was produced by ``BeautifulSoup(html, "html.parser")``
 ``find("iframe") or find("embed")``) before that dependency was removed.
 """
 
+import time
+
 import pytest
 
 from doifetch.sources import _html, libgen, scihub
@@ -70,3 +72,56 @@ def test_libgen_get_link_found_across_nested_and_split_text():
     assert libgen._extract_md5(_html.parse('<a href="/x?md5=' + "B" * 32 + '">')) == (
         "b" * 32
     )
+
+
+def test_anchor_text_stops_past_the_nesting_limit():
+    """Anchors nested deeper than the limit are listed, with no text."""
+    limit = _html._MAX_NESTED_ANCHORS
+    anchors = _html.parse('<a href="x">' * (limit + 1) + "t").anchors
+    assert [a.text for a in anchors] == ["t"] * limit + [""]
+
+
+@pytest.mark.parametrize(
+    "unit",
+    ["<div>x<b>y", '<a href="x">y', "<div></p>", "<b><script>x</script>y"],
+)
+def test_parse_time_grows_with_the_page_not_its_square(unit):
+    """A hostile mirror cannot stall a fetch with deep nesting.
+
+    The work is counted, not timed: the parser may look at each open element a
+    bounded number of times per piece of text or end tag.
+    """
+    looked = 0
+
+    class Counting(list):
+        def __iter__(self):
+            nonlocal looked
+            for item in super().__iter__():
+                looked += 1
+                yield item
+
+    def work(repeats):
+        nonlocal looked
+        looked = 0
+        collector = _html._Collector()
+        collector._open = Counting()
+        collector._reading = Counting()
+        collector.feed(unit * repeats)
+        collector.finish()
+        return looked
+
+    # Twice the page, about twice the work; the square would be four times.
+    assert work(4000) <= 2.5 * work(2000)
+
+
+def test_text_full_of_bare_angle_brackets_parses_quickly():
+    """The tokenizer cuts text at every bare "<": the cuts are joined once.
+
+    Timed, because the cost was in growing a string: 1.6 MB took 17 s when each
+    cut was appended to the text so far, and takes well under a second now.
+    """
+    html = '<a href="x">' + "a < " * 400_000 + "</a>"
+    start = time.perf_counter()
+    (anchor,) = _html.parse(html).anchors
+    assert time.perf_counter() - start < 5
+    assert anchor.text == ("a < " * 400_000).strip()

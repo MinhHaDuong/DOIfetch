@@ -15,6 +15,10 @@ _VOID = frozenset(
 )
 # Text of these elements is not page text (BeautifulSoup keeps it apart).
 _NOT_TEXT = frozenset({"script", "style", "template"})
+# Anchors open inside one another beyond this depth are listed with no text. It
+# bounds the work on a hostile page: each text piece goes to every anchor around
+# it, so unbounded nesting costs the square of the page size.
+_MAX_NESTED_ANCHORS = 16
 
 
 @dataclass
@@ -35,24 +39,28 @@ class _Collector(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
         self.page = Page()
-        self._open: list[tuple[str, list[str] | None]] = []  # (tag, text pieces)
-        self._anchor_of: dict[int, Anchor] = {}
-        self._text = ""  # text since the last tag, comment or declaration
+        # Open elements, innermost last: (tag, anchor being read or None).
+        self._open: list[tuple[str, Anchor | None]] = []
+        self._count: dict[str, int] = {}  # open elements per tag name
+        self._hidden = 0  # open _NOT_TEXT elements
+        self._reading: list[tuple[Anchor, list[str]]] = []  # anchors taking text
+        # Text since the last tag, comment or declaration, in the pieces the
+        # tokenizer hands over: a bare "<" in text splits it into many.
+        self._text: list[str] = []
         self._frame: dict[str, str | None] = {}
 
     # Text is cut at every tag, comment and declaration, and each cut piece is
     # stripped on its own before the pieces of an anchor are joined with no
     # separator: "<a> G <b>E</b> T </a>" reads "GET", as get_text(strip=True) did.
     def _flush(self):
-        text, self._text = self._text.strip(), ""
-        if not text or any(tag in _NOT_TEXT for tag, _ in self._open):
+        text, self._text = "".join(self._text).strip(), []
+        if not text or self._hidden:
             return
-        for _, pieces in self._open:
-            if pieces is not None:
-                pieces.append(text)
+        for _, pieces in self._reading:
+            pieces.append(text)
 
     def handle_data(self, data):
-        self._text += data
+        self._text.append(data)
 
     def handle_comment(self, data):
         self._flush()
@@ -66,13 +74,17 @@ class _Collector(HTMLParser):
             self._frame[tag] = values.get("src") or None
         if tag in _VOID:
             return
-        pieces = None
+        anchor = None
         if tag == "a" and "href" in values:
             anchor = Anchor(values["href"] or "")
             self.page.anchors.append(anchor)
-            pieces = []
-            self._anchor_of[len(self._open)] = anchor
-        self._open.append((tag, pieces))
+            if len(self._reading) < _MAX_NESTED_ANCHORS:
+                self._reading.append((anchor, []))
+            else:
+                anchor = None  # listed, text left empty
+        self._open.append((tag, anchor))
+        self._count[tag] = self._count.get(tag, 0) + 1
+        self._hidden += tag in _NOT_TEXT
 
     def handle_startendtag(self, tag, attrs):
         # "<a href=x />" opens and closes at once, as it did for BeautifulSoup.
@@ -81,21 +93,27 @@ class _Collector(HTMLParser):
 
     def handle_endtag(self, tag):
         self._flush()
-        names = [name for name, _ in self._open]
-        if tag not in names:
+        if not self._count.get(tag):
             return  # a stray end tag closes nothing
-        depth = len(names) - 1 - names[::-1].index(tag)
-        for level in range(len(self._open) - 1, depth - 1, -1):
-            anchor = self._anchor_of.pop(level, None)
+        # Close the innermost open ``tag`` and everything opened inside it.
+        while True:
+            name, anchor = self._open.pop()
+            self._count[name] -= 1
+            self._hidden -= name in _NOT_TEXT
             if anchor is not None:
-                anchor.text = "".join(self._open[level][1] or [])
-        del self._open[depth:]
+                self._settle()
+            if name == tag:
+                return
+
+    def _settle(self):
+        anchor, pieces = self._reading.pop()
+        anchor.text = "".join(pieces)
 
     def finish(self):
         self.close()
         self._flush()
-        for level, anchor in self._anchor_of.items():  # anchors never closed
-            anchor.text = "".join(self._open[level][1] or [])
+        while self._reading:  # anchors never closed
+            self._settle()
         for tag in ("iframe", "embed"):
             if tag in self._frame:
                 self.page.frame_src = self._frame[tag]
