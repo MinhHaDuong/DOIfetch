@@ -15,6 +15,7 @@ Author: claude
 2026-11-13T13:18Z MinhHaDuong raid 63c8b1 Imagine: bytes decoding. bs4 sniffs BOM and meta charset; libgen already passes resp.text (header charset, UTF-8 with replacement, _http.py:59-72) while scihub.py:76 passes response.content. Implementer's choice within the criteria: extract_pdf_url keeps accepting bytes; state the decoding rule in its docstring
 2026-11-13T13:18Z MinhHaDuong raid 63c8b1 Imagine: parity set should add what no existing input covers: iframe and embed together in both orders, nested and whitespace-split anchor text, empty href, duplicate attributes (bs4 keeps the last value), and should run on the oldest and newest interpreters uv can provide (requires-python >=3.10; html.parser changed across versions)
 2026-11-13T13:18Z MinhHaDuong raid 63c8b1 Imagine: require() in utils.py loses its last callers in src; keeping or removing it and tests/test_utils.py:46 is the implementer's call. Drift guard: exit criteria unchanged; Plan and feasibility left to hunt's Plan phase (single ticket, no cross-ticket surface)
+2026-11-13T13:23Z MinhHaDuong hunt: stdlib HTMLParser scraper in sources/_html.py; empty shadow extra kept one release (harness pins doifetch[shadow] at v0.3.0); require() removed with its last callers; known divergences from bs4: unknown entity keeps its ';', bytes decode as UTF-8 with replacement (no latin-1 fallback)
 
 --- body ---
 

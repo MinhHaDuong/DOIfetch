@@ -7,8 +7,9 @@ requires-python = ">=3.10"
 dependencies = []
 
 [project.optional-dependencies]
-# HTML parsing for the opt-in shadow-library sources (scihub, libgen).
-shadow = ["beautifulsoup4"]
+# Empty: scihub and libgen parse HTML with the standard library. Kept for
+# one release so that existing `doifetch[shadow]` pins still resolve; remove it next.
+shadow = []
 
 [project.scripts]
 doifetch = "doifetch.cli:main"
@@ -22,7 +23,6 @@ where = ["src"]
 
 [dependency-groups]
 dev = [
-    "doifetch[shadow]",
     "mypy",
     "pytest",
     "ruff",

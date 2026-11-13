@@ -11,8 +11,6 @@ PURITY_SCRIPT = textwrap.dedent(
     """
     import builtins, socket, sys
 
-    sys.modules["bs4"] = None  # the shadow extra is absent: importing it raises
-
     def refuse(*a, **k):
         raise AssertionError("side effect at import")
 

@@ -1,4 +1,3 @@
-import importlib
 import os
 import re
 
@@ -15,22 +14,6 @@ def list_table_files(data_directory=REFERENCES_DIR):
         for name in os.listdir(data_directory)
         if name.lower().endswith(".txt")
     )
-
-
-EXTRA_INSTALL = (
-    "uv tool install 'doifetch[{extra}] @ git+https://github.com/MinhHaDuong/DOIfetch'"
-)
-
-
-def require(module, extra):
-    """Import an optional dependency, or fail naming the extra that provides it."""
-    try:
-        return importlib.import_module(module)
-    except ImportError as exc:
-        raise ImportError(
-            f"{module} is not installed; it comes with the '{extra}' extra: "
-            + EXTRA_INSTALL.format(extra=extra)
-        ) from exc
 
 
 def _read_txt(file_path):

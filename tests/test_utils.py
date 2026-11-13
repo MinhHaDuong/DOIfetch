@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from doifetch.utils import list_table_files, read_table, require, write_table
+from doifetch.utils import list_table_files, read_table, write_table
 
 
 def test_list_table_files_lists_txt_only(tmp_path):
@@ -42,11 +42,6 @@ def test_txt_round_trip_from_missing_references_producer(tmp_path):
     )
 
 
-def test_missing_extra_names_it():
-    with pytest.raises(ImportError, match=r"'shadow' extra.*doifetch\[shadow\]"):
-        require("no_such_module_doifetch", "shadow")
-
-
 ROOT = Path(__file__).resolve().parent.parent
 
 # Run in a child interpreter whose import system refuses the optional
@@ -55,7 +50,7 @@ _BLOCK_EXTRAS = """
 import sys
 class Block:
     def find_spec(self, name, path=None, target=None):
-        if name.split(".")[0] in {"pandas", "numpy", "bs4", "tqdm"}:
+        if name.split(".")[0] in {"pandas", "numpy", "bs4", "tqdm", "soupsieve"}:
             raise ImportError("blocked: " + name)
 sys.meta_path.insert(0, Block())
 sys.argv = ["doifetch"] + sys.argv[1:]
@@ -118,9 +113,11 @@ def test_txt_batch_needs_no_extras(tmp_path):
     "source, kind, identifier",
     [("scihub", "doi", "10.1000/a"), ("libgen", "isbn", "9780000000000")],
 )
-def test_shadow_source_without_extra_fails_clearly(tmp_path, source, kind, identifier):
-    """No network call: the missing extra is reported before any request."""
+def test_shadow_source_needs_no_extra(tmp_path, source, kind, identifier):
+    """Both shadow sources run on the standard library: the first request is reached."""
     code = (
+        "import time\n"
+        "time.sleep = lambda *_: None\n"
         "from doifetch.sources import _http\n"
         "def no_network(*a, **k):\n"
         "    raise AssertionError('network call')\n"
@@ -133,7 +130,8 @@ def test_shadow_source_without_extra_fails_clearly(tmp_path, source, kind, ident
     done = _run_core(code, cwd=tmp_path)
     assert done.returncode == 0, done.stderr
     assert done.stdout.startswith("failed ")
-    assert "doifetch[shadow]" in done.stdout
+    assert "network call" in done.stdout
+    assert "not installed" not in done.stdout
 
 
 def test_read_txt(tmp_path):
