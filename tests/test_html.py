@@ -5,6 +5,8 @@ Each expected value below was produced by ``BeautifulSoup(html, "html.parser")``
 ``find("iframe") or find("embed")``) before that dependency was removed.
 """
 
+import time
+
 import pytest
 
 from doifetch.sources import _html, libgen, scihub
@@ -110,3 +112,16 @@ def test_parse_time_grows_with_the_page_not_its_square(unit):
 
     # Twice the page, about twice the work; the square would be four times.
     assert work(4000) <= 2.5 * work(2000)
+
+
+def test_text_full_of_bare_angle_brackets_parses_quickly():
+    """The tokenizer cuts text at every bare "<": the cuts are joined once.
+
+    Timed, because the cost was in growing a string: 1.6 MB took 17 s when each
+    cut was appended to the text so far, and takes well under a second now.
+    """
+    html = '<a href="x">' + "a < " * 400_000 + "</a>"
+    start = time.perf_counter()
+    (anchor,) = _html.parse(html).anchors
+    assert time.perf_counter() - start < 5
+    assert anchor.text == ("a < " * 400_000).strip()

@@ -44,21 +44,23 @@ class _Collector(HTMLParser):
         self._count: dict[str, int] = {}  # open elements per tag name
         self._hidden = 0  # open _NOT_TEXT elements
         self._reading: list[tuple[Anchor, list[str]]] = []  # anchors taking text
-        self._text = ""  # text since the last tag, comment or declaration
+        # Text since the last tag, comment or declaration, in the pieces the
+        # tokenizer hands over: a bare "<" in text splits it into many.
+        self._text: list[str] = []
         self._frame: dict[str, str | None] = {}
 
     # Text is cut at every tag, comment and declaration, and each cut piece is
     # stripped on its own before the pieces of an anchor are joined with no
     # separator: "<a> G <b>E</b> T </a>" reads "GET", as get_text(strip=True) did.
     def _flush(self):
-        text, self._text = self._text.strip(), ""
+        text, self._text = "".join(self._text).strip(), []
         if not text or self._hidden:
             return
         for _, pieces in self._reading:
             pieces.append(text)
 
     def handle_data(self, data):
-        self._text += data
+        self._text.append(data)
 
     def handle_comment(self, data):
         self._flush()
